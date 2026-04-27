@@ -1,0 +1,10 @@
+mediapipe
+opencv-python
+numpy
+pandas
+scikit-learn
+torch
+torchvision
+matplotlib
+tqdm
+joblib

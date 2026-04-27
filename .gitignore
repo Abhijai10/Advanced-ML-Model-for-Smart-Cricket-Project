@@ -1,0 +1,56 @@
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Packaging/build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Tooling caches and test artifacts
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment variables and secrets
+.env
+.env.*
+*.env
+
+# ML data artifacts
+ml/data/raw/*
+ml/data/processed/*
+
+# Models and experiment outputs
+ml/models/*
+runs/
+wandb/
+
+# Videos and media files
+*.mp4
+*.mov
+*.avi
+*.mkv
+
+# Project-specific ignores
+.DS_Store
+videos/
+datasets/
+models/
+checkpoints/
+*.pdf
