@@ -20,6 +20,9 @@ Build a system that can:
 
 Phase 1 -> Architecture Setup
 
+Phase 2 label scope: only `shot_label` and `quality_label` are required.  
+Detailed mistake labels are placeholders for future expansion.
+
 ## Initial Shot Classes
 
 - cover_drive
