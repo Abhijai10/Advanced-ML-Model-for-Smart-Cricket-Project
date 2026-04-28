@@ -70,3 +70,15 @@ README.md
 4. Predict one final shot class for the completed motion.
 5. Compute technique match percentage against ideal/pro-player references.
 6. Identify mistakes and generate actionable coaching feedback.
+
+## Pose Extraction Setup
+
+This project uses the MediaPipe Pose Landmarker API for pose extraction.
+
+- Manually download `pose_landmarker_full.task`.
+- Place it at `ml/models/pose_landmarker_full.task`.
+- This file is intentionally excluded from GitHub because it is a large pretrained dependency.
+
+Current extraction flow:
+
+`video` -> `OpenCV frame extraction` -> `MediaPipe pose detection` -> `JSON landmark generation`
