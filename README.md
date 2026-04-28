@@ -18,10 +18,22 @@ Build a system that can:
 
 ## Current Phase
 
-Phase 1 -> Architecture Setup
+Phase 2 -> Pose Pipeline Development
 
-Phase 2 label scope: only `shot_label` and `quality_label` are required.  
+Current label scope:
+- shot_label
+- quality_label
+
 Detailed mistake labels are placeholders for future expansion.
+
+## Current Progress
+
+Completed:
+- Phase 1 architecture setup
+- Phase 2.1 label schema
+- Phase 2.2 pose extraction
+- Phase 2.3 robustness improvements
+- Phase 2.4 preprocessing pipeline
 
 ## Initial Shot Classes
 
@@ -81,4 +93,4 @@ This project uses the MediaPipe Pose Landmarker API for pose extraction.
 
 Current extraction flow:
 
-`video` -> `OpenCV frame extraction` -> `MediaPipe pose detection` -> `JSON landmark generation`
+`video` -> `OpenCV frame extraction` -> `MediaPipe pose detection` -> `JSON landmark generation` -> `pose normalization` -> `missing frame interpolation` -> `fixed-length sequence generation` -> `NumPy sequence output`
