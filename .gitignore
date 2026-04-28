@@ -54,3 +54,36 @@ datasets/
 models/
 checkpoints/
 *.pdf
+
+# Python virtual environments
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# ML generated datasets
+ml/data/raw/
+ml/data/processed/
+ml/data/samples/
+
+# Large model files
+ml/models/*.task
+ml/models/*.tflite
+ml/models/*.onnx
+ml/models/*.pt
+ml/models/*.pth
+ml/models/*.pkl
+
+# Logs
+*.log
+logs/
+
+# System files
+.DS_Store
+.vscode/
+.idea/
