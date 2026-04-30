@@ -1,96 +1,120 @@
-# Smart Cricket Advanced ML Model
+# 🏏 Smart Cricket — Advanced ML Model
 
-Smart Cricket Advanced ML Model is an AI cricket coaching project focused on analyzing full batting video sequences rather than single images.
+## 🚀 Project Overview
 
-## Goal
+Smart Cricket is an AI-powered cricket analytics system designed to analyze batting shots using pose estimation and motion analysis.
 
-Build a system that can:
-- capture full batting motion
-- extract pose landmarks
-- classify exactly one final cricket shot per motion
-- prevent repeated predictions during a single swing
-- generate technique match percentage
-- compare user movement with ideal/pro-player references
-- detect mistakes
-- generate coaching feedback
-- support future voice feedback
-- support future website integration
+Instead of relying on single images, this project processes full video sequences, extracts human pose keypoints, and converts them into structured data for:
 
-## Current Phase
+- Shot classification  
+- Motion understanding  
+- Future real-time feedback system  
 
-Phase 2 -> Pose Pipeline Development
+---
 
-Current label scope:
-- shot_label
-- quality_label
+## 📊 Current Progress
 
-Detailed mistake labels are placeholders for future expansion.
+The project is being developed in structured phases:
 
-## Current Progress
+- ✅ Phase 1: Project Architecture & Setup  
+- ✅ Phase 2: Pose Pipeline Setup  
+- ✅ Phase 2.5: Dataset Building & Annotation  
+- ✅ Phase 3: Batch Pose Extraction  
 
-Completed:
-- Phase 1 architecture setup
-- Phase 2.1 label schema
-- Phase 2.2 pose extraction
-- Phase 2.3 robustness improvements
-- Phase 2.4 preprocessing pipeline
+👉 Current Status:  
+All training videos have been successfully converted into pose JSON format.
 
-## Initial Shot Classes
+---
 
-- cover_drive
-- straight_drive
-- pull_shot
-- defensive_shot
+## 📁 Dataset Information
 
-## Folder Structure
+- Total videos: 84  
+- Training videos (use_for_v1 = yes): 80  
 
-```text
-backend/
-  app/
-    routes/
-    services/
-    schemas/
-  requirements.txt
-ml/
-  data/
-    raw/
-    processed/
-    samples/
-  notebooks/
-  src/
-    pose/
-    preprocessing/
-    features/
-    training/
-    feedback/
-    utils/
-  models/
-  requirements.txt
-docs/
-  notes.md
-  dataset_format.md
-  architecture.md
-README.md
-.gitignore
-```
+### Shot Classes:
+- cover_drive  
+- pull_shot  
+- defensive_shot  
+- sweep_shot  
 
-## High-Level Pipeline
+Dataset selection is controlled using:
 
-1. Input full batting video sequence.
-2. Extract and preprocess body pose landmarks frame by frame.
-3. Build motion sequence features over time.
-4. Predict one final shot class for the completed motion.
-5. Compute technique match percentage against ideal/pro-player references.
-6. Identify mistakes and generate actionable coaching feedback.
+metadata.csv → use_for_v1 column
 
-## Pose Extraction Setup
+---
 
-This project uses the MediaPipe Pose Landmarker API for pose extraction.
+## ⚙️ Data Processing Pipeline
 
-- Manually download `pose_landmarker_full.task`.
-- Place it at `ml/models/pose_landmarker_full.task`.
-- This file is intentionally excluded from GitHub because it is a large pretrained dependency.
+Raw Videos  
+↓  
+Pose Extraction (MediaPipe)  
+↓  
+Pose JSON Files  
+↓  
+(Next: Cleaning & Normalization)  
 
-Current extraction flow:
+Each video is converted into a JSON file containing:
 
-`video` -> `OpenCV frame extraction` -> `MediaPipe pose detection` -> `JSON landmark generation` -> `pose normalization` -> `missing frame interpolation` -> `fixed-length sequence generation` -> `NumPy sequence output`
+- video_metadata  
+- frame-wise pose data  
+- 33 body landmarks per frame (x, y, z, visibility)  
+
+---
+
+## 📂 Project Structure
+
+ml/  
+  src/  
+    preprocessing/  
+      extract_pose.py  
+      batch_extract_pose.py  
+
+  data/  
+    raw_videos/  
+    annotations/  
+      metadata.csv  
+    processed/  
+      pose_json/  
+
+---
+
+## ▶️ How to Run Pose Extraction
+
+Run full batch processing:
+
+python src/preprocessing/batch_extract_pose.py
+
+For testing on a single video:
+
+python src/preprocessing/batch_extract_pose.py --limit 1
+
+---
+
+## 🧠 Key Concept
+
+This project converts:
+
+Video Data → Structured Motion Data → ML Features  
+
+Instead of raw pixels, the model learns from human body movement over time.
+
+---
+
+## 🔜 Next Steps
+
+- Pose Cleaning  
+- Normalization  
+- Sequence Creation  
+- Model Training  
+- Real-time Shot Prediction  
+- Feedback Generation System  
+
+---
+
+## 💡 Project Goal
+
+To build a system that not only detects cricket shots but also:
+
+- Understands technique  
+- Identifies mistakes  
+- Provides intelligent feedback  
