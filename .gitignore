@@ -30,11 +30,16 @@ dist/
 # =========================
 # 📊 ML Data (IMPORTANT)
 # =========================
+
 # Raw videos (large files)
 ml/data/raw_videos/
 
-# Processed pose JSON files
-ml/data/processed/pose_json/
+# Ignore ALL processed data by default
+ml/data/processed/*
+
+# Keep ONLY final dataset
+!ml/data/processed/pose_sequences/
+!ml/data/processed/pose_sequences/**
 
 # =========================
 # 🤖 ML Models
@@ -52,6 +57,11 @@ ml/models/
 # =========================
 *.log
 logs/
+
+# =========================
+# 📄 Documents
+# =========================
+*.pdf
 
 # =========================
 # 🎥 Media Files
