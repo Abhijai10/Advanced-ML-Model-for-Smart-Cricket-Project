@@ -41,6 +41,9 @@ ml/data/processed/*
 !ml/data/processed/pose_sequences/
 !ml/data/processed/pose_sequences/**
 
+# Sample/debug feature testing
+ml/data/samples/
+
 # =========================
 # 🤖 ML Models
 # =========================
@@ -62,7 +65,7 @@ logs/
 # 📄 Documents
 # =========================
 *.pdf
-
+Smart Cricket DOCS/
 # =========================
 # 🎥 Media Files
 # =========================

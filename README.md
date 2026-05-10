@@ -21,9 +21,19 @@ The project is being developed in structured phases:
 - ✅ Phase 2.5: Dataset Building & Annotation  
 - ✅ Phase 3: Batch Pose Extraction  
 - ✅ Phase 4: Pose Cleaning & Normalization  
+- ✅ Phase 5: Feature Engineering & Dataset Validation  
 
-👉 Current Status:  
-All pose data has been processed into clean, normalized, aligned, and fixed-length sequences ready for ML.
+👉 Current Status:
+
+The pipeline now successfully converts raw cricket videos into structured biomechanical feature vectors ready for machine learning.
+
+Current completed outputs:
+
+- Cleaned and normalized pose sequences  
+- Fixed-length temporal pose representations  
+- 32 engineered biomechanical features  
+- Validated feature dataset (features.csv)  
+- Balanced 4-class training dataset  
 
 ---
 
@@ -56,14 +66,21 @@ Cleaning & Validation
 ↓  
 Normalization  
 ↓  
-Alignment  
+Orientation Alignment  
 ↓  
 Fixed-Length Sequences (60 frames)  
+↓  
+Biomechanical Feature Extraction  
+↓  
+Validated Feature Dataset (features.csv)  
 
-Each video is converted into structured data containing:
+Each video is transformed into structured biomechanical information containing:
 
-- frame-wise pose data  
-- 33 body landmarks per frame (x, y, z, visibility)  
+- pose movement patterns  
+- joint-angle statistics  
+- posture features  
+- motion dynamics  
+- cricket-specific shot mechanics  
 
 ---
 
@@ -119,6 +136,87 @@ In this phase, raw pose data was transformed into a clean, structured, and ML-re
 
 ---
 
+## 🧠 Phase 5 — Feature Engineering (Completed)
+
+In this phase, processed pose sequences were converted into structured biomechanical feature representations for machine learning.
+
+The system extracts cricket-specific motion and posture information from each batting sequence and converts it into a fixed-size numerical feature vector.
+
+---
+
+## 🔹 Feature Categories
+
+The final feature system contains 32 engineered biomechanical features grouped into four categories:
+
+### 1. Joint Angle Features
+Captures body shape and joint mechanics.
+
+Examples:
+- elbow angles  
+- knee angles  
+- hip rotation  
+- shoulder rotation  
+
+---
+
+### 2. Posture Features
+Captures body balance and alignment.
+
+Examples:
+- trunk lean  
+- head stability  
+- stance width  
+- shoulder-hip separation  
+
+---
+
+### 3. Motion Features
+Captures temporal movement and speed.
+
+Examples:
+- wrist velocities  
+- body motion  
+- rotational movement  
+- motion energy  
+
+---
+
+### 4. Shot-Specific Features
+Captures cricket-specific technique patterns.
+
+Examples:
+- front-foot commitment  
+- follow-through extension  
+- weight transfer  
+- elbow extension changes  
+
+---
+
+## 🔹 Feature Dataset
+
+Final generated dataset:
+
+- 80 processed samples  
+- 4 balanced cricket shot classes  
+- 32 biomechanical features per sample  
+- ML-ready tabular dataset (features.csv)  
+
+The dataset was validated for:
+- NaN values  
+- infinite values  
+- feature consistency  
+- dataset integrity  
+
+### Current Dataset State
+
+- 80 validated training samples  
+- 4 balanced shot classes  
+- 60-frame temporal pose sequences  
+- 32 engineered biomechanical features  
+- ML-ready tabular dataset for training  
+
+---
+
 ## 📂 Project Structure
 
 ml/  
@@ -133,12 +231,26 @@ ml/
       prepare_sequences.py  
       verify_cleaned_pose_data.py  
 
+    features/  
+      feature_config.py  
+      geometry_utils.py  
+      joint_angle_features.py  
+      posture_features.py  
+      motion_features.py  
+      shot_specific_features.py  
+      feature_builder.py  
+      build_feature_dataset.py  
+      validate_feature_dataset.py  
+
   data/  
     raw_videos/  
     annotations/  
       metadata.csv  
+
     processed/  
       pose_sequences/  
+      features/  
+        features.csv  
 
 ---
 
@@ -146,7 +258,7 @@ ml/
 
 ### 1. Batch Pose Extraction
 
-python src/preprocessing/batch_extract_pose.py
+python ml/src/preprocessing/batch_extract_pose.py
 
 ---
 
@@ -162,20 +274,25 @@ python ml/src/preprocessing/prepare_sequences.py
 
 ## 🧠 Key Concept
 
-Video Data → Pose Data → Clean Sequences → ML Features (Next Phase)
+Video Data  
+→ Pose Data  
+→ Clean Motion Sequences  
+→ Biomechanical Features  
+→ Machine Learning  
 
-Instead of raw pixels, the model learns from human body movement over time.
+Instead of learning directly from raw pixels, the system learns from structured human movement patterns extracted from cricket batting actions.
 
 ---
 
 ## 🔜 Next Steps
 
-- Phase 5: Feature Engineering  
-- Feature extraction (angles, posture, motion)  
-- Model training  
-- Shot classification  
-- Technique analysis  
-- Feedback generation system  
+- Phase 6: Model Training Pipeline  
+- Feature scaling and preprocessing  
+- Baseline ML model training  
+- Shot classification system  
+- Model evaluation and comparison  
+- Technique analysis system  
+- Feedback generation pipeline  
 
 ---
 
