@@ -1,0 +1,60 @@
+{
+  "split_strategy": "manual deterministic per-class stratified split",
+  "random_state": 42,
+  "per_class_allocation": {
+    "train": 14,
+    "validation": 3,
+    "test": 3,
+    "samples_per_class_required": 20
+  },
+  "split_ratios": {
+    "train": 0.7,
+    "validation": 0.15,
+    "test": 0.15
+  },
+  "total_samples": 80,
+  "num_features": 32,
+  "num_classes": 4,
+  "split_sizes": {
+    "train": 56,
+    "validation": 12,
+    "test": 12
+  },
+  "class_distribution_overall": {
+    "cover_drive": 20,
+    "defensive_shot": 20,
+    "pull_shot": 20,
+    "sweep_shot": 20
+  },
+  "class_distribution_train": {
+    "cover_drive": 14,
+    "defensive_shot": 14,
+    "pull_shot": 14,
+    "sweep_shot": 14
+  },
+  "class_distribution_val": {
+    "cover_drive": 3,
+    "defensive_shot": 3,
+    "pull_shot": 3,
+    "sweep_shot": 3
+  },
+  "class_distribution_test": {
+    "cover_drive": 3,
+    "defensive_shot": 3,
+    "pull_shot": 3,
+    "sweep_shot": 3
+  },
+  "output_files": {
+    "X_train.npy": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/data/final/X_train.npy",
+    "X_val.npy": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/data/final/X_val.npy",
+    "X_test.npy": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/data/final/X_test.npy",
+    "y_train.npy": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/data/final/y_train.npy",
+    "y_val.npy": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/data/final/y_val.npy",
+    "y_test.npy": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/data/final/y_test.npy",
+    "train_index.csv": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/data/final/train_index.csv",
+    "val_index.csv": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/data/final/val_index.csv",
+    "test_index.csv": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/data/final/test_index.csv",
+    "split_metadata.json": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/data/final/split_metadata.json"
+  },
+  "notes": "manual deterministic per-class stratified split: for each class, shuffle row indices with random_state=42, assign first 14 to train, next 3 to validation, final 3 to test; then shuffle train, val, and test row order independently with the same RNG. Requires exactly 20 samples per class."
+}

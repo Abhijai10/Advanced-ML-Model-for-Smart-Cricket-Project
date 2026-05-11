@@ -1,0 +1,16 @@
+{
+  "target_column": "shot_label",
+  "num_classes": 4,
+  "class_to_index": {
+    "cover_drive": 0,
+    "defensive_shot": 1,
+    "pull_shot": 2,
+    "sweep_shot": 3
+  },
+  "index_to_class": {
+    "0": "cover_drive",
+    "1": "defensive_shot",
+    "2": "pull_shot",
+    "3": "sweep_shot"
+  }
+}

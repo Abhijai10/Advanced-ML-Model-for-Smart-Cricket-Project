@@ -37,6 +37,10 @@ ml/data/raw_videos/
 # Ignore ALL processed data by default
 ml/data/processed/*
 
+# Keep finalized ML dataset artifacts
+!ml/data/final/
+!ml/data/final/**
+
 # Keep ONLY final dataset
 !ml/data/processed/pose_sequences/
 !ml/data/processed/pose_sequences/**
@@ -50,10 +54,15 @@ ml/data/samples/
 ml/models/
 *.pt
 *.pth
-*.pkl
 *.onnx
 *.tflite
 *.task
+
+# Ignore generic model/checkpoint pickle files
+*.pkl
+
+# Keep finalized dataset label encoder
+!ml/data/final/label_encoder.pkl
 
 # =========================
 # 📝 Logs
@@ -65,7 +74,17 @@ logs/
 # 📄 Documents
 # =========================
 *.pdf
-Smart Cricket DOCS/
+
+# Ignore all Smart Cricket docs by default
+Smart Cricket DOCS/*
+
+# Keep core architecture docs
+!Smart Cricket DOCS/00_CORE DOCS/
+!Smart Cricket DOCS/00_CORE DOCS/**
+
+# Ignore Obsidian metadata
+Smart Cricket DOCS/.obsidian/
+
 # =========================
 # 🎥 Media Files
 # =========================

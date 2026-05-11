@@ -1,26 +1,37 @@
-## 📌 Current Project State
+# 📌 Current Project State
 
 Current Phase:
-- Transitioning from Phase 5 → Phase 6
+- Phase 6 Completed
+- Preparing Phase 7 — Baseline Model Building
 
 Project Status:
-- Preprocessing pipeline completed
-- ML-ready pose sequences prepared
-- 32-feature biomechanical extraction pipeline completed
-- Validated tabular feature dataset generated
-- Feature engineering system operational end-to-end
+- Full preprocessing pipeline completed
+- Full biomechanical feature engineering pipeline completed
+- ML-ready dataset infrastructure completed
+- Deterministic dataset splitting completed
+- Final dataset validation completed
+- Dataset packaging and manifest system completed
 
 Current Outputs:
 - pose_sequences/
 - features.csv
-- feature_validation_summary.json
-- feature_statistics.csv
+- X_train.npy
+- X_val.npy
+- X_test.npy
+- y_train.npy
+- y_val.npy
+- y_test.npy
+- feature_schema.json
+- label_mapping.json
+- split_metadata.json
+- dataset_manifest.json
+- final_dataset_report.md
 
 Current Dataset Status:
-- 80 validated training samples
+- 80 validated ML samples
 - 4 balanced cricket shot classes
 - 32 engineered biomechanical features
-- ML-ready tabular feature dataset
+- Fully reproducible ML-ready dataset infrastructure
 
 ---
 
@@ -89,7 +100,8 @@ Final Output:
   x, y, z, visibility
 
 ---
-## Phase 5 — Feature Engineering & Dataset Validation
+
+## Phase 5 — Feature Engineering
 Completed:
 - finalized 32-feature biomechanical design
 - centralized feature blueprint system
@@ -122,6 +134,47 @@ Validation Results:
 
 ---
 
+## Phase 6 — Dataset Finalization & ML Dataset Infrastructure
+Completed:
+- feature schema system
+- label encoding pipeline
+- feature matrix generation
+- deterministic dataset splitting
+- dataset validation pipeline
+- dataset packaging system
+- dataset manifest generation
+- reproducible ML dataset infrastructure
+
+Final Outputs:
+- X.npy
+- y.npy
+- X_train.npy
+- X_val.npy
+- X_test.npy
+- y_train.npy
+- y_val.npy
+- y_test.npy
+- feature_schema.json
+- label_mapping.json
+- split_metadata.json
+- final_dataset_report.md
+- dataset_manifest.json
+
+Split Configuration:
+- manual deterministic per-class stratified split
+- train = 56
+- validation = 12
+- test = 12
+
+Validation Results:
+- all dataset artifacts validated successfully
+- no NaN values
+- no infinite values
+- balanced class distributions across all splits
+- feature schema consistency verified
+
+---
+
 # 📂 Current Dataset State
 
 Total Videos:
@@ -136,13 +189,17 @@ Sequence Length:
 Landmarks:
 - 33 MediaPipe pose landmarks
 
-Current Input Format:
+Current ML Dataset:
+- 32 engineered biomechanical features
+- encoded shot labels
+- deterministic dataset splits
+- ML-ready NumPy arrays
+- dataset manifests and validation reports
 
-pose_sequences/
-→ sequence
-→ frames
-→ landmarks
-→ x/y/z/visibility
+Current Final Splits:
+- Train: 56
+- Validation: 12
+- Test: 12
 
 ---
 
@@ -189,18 +246,23 @@ Feature Categories:
 - Motion Features
 - Shot-specific Features
 
-Feature System Status:
-- feature extraction completed
-- feature builder pipeline completed
-- feature dataset generation completed
-- feature validation completed
+---
+
+## Dataset Infrastructure Design
+Locked:
+- schema-driven dataset pipeline
+- deterministic per-class stratified splitting
+- reproducible dataset packaging
+- artifact validation system
+- dataset manifest architecture
+- fixed label encoding system
 
 ---
 
 # 🧠 Current ML Direction
 
 Current ML Stage:
-- Transitioning into model training pipeline
+- Beginning baseline model training
 
 Planned ML Direction:
 - supervised cricket shot classification
@@ -208,18 +270,21 @@ Planned ML Direction:
 - interpretable technique analysis
 
 Planned Initial Models:
-- classical ML baselines
-- sequence-aware experimentation later
+- Logistic Regression
+- Random Forest
+- Support Vector Machine (SVM)
 
 Long-Term Direction:
 - sequence modeling
+- GRU/LSTM experimentation
 - technique scoring
 - coaching feedback generation
+- real-time inference
 
 Important Constraint:
 - avoid overengineering early versions
 - prioritize explainability and robustness
-- stabilize pipeline before architectural redesign
+- stabilize baseline models before advanced architectures
 
 ---
 
@@ -234,8 +299,9 @@ Raw Video
 → Fixed-Length Sequences
 → Biomechanical Feature Extraction
 → Feature Validation
-→ ML-ready Feature Dataset
-→ Model Training Pipeline
+→ Dataset Finalization
+→ ML-ready Dataset Infrastructure
+→ Baseline Model Training
 → Technique Scoring
 → Feedback Engine
 
@@ -243,28 +309,28 @@ Raw Video
 
 # ⚠️ Current Constraints
 
-- small dataset (~80 samples)
-- need high-quality biomechanical features
+- relatively small dataset (~80 samples)
+- need strong generalization
 - avoid overfitting
 - maintain explainable ML pipeline
+- preserve reproducibility
 - maintain modular architecture
 
 Current Technical Observations:
-- feature validation passed successfully
-- no NaN or infinite feature values detected
-- several motion-related features became zero-variance after normalization/alignment
+- dataset validation passed successfully
+- deterministic split system operational
+- all dataset artifacts validated
+- reproducible dataset infrastructure completed
 
-Observed Zero-Variance Features:
-- shoulder_rotation_angle_mean
-- body_center_shift_x
-- body_center_shift_y
-- body_center_velocity_mean
-- body_center_velocity_max
-- shoulder_rotation_velocity_mean
+Observed Engineering Concerns:
+- limited dataset size for deep sequence models
+- some motion-related features may require redesign in future iterations
+- future scaling will require larger and more diverse cricket datasets
 
 Current Engineering Decision:
-- keep current stable v1 pipeline
-- revisit hybrid-coordinate feature design after initial model training
+- stabilize classical ML baselines first
+- evaluate feature quality before architectural expansion
+- revisit advanced sequence architectures after baseline benchmarking
 
 ---
 
@@ -274,30 +340,32 @@ Possible Future Changes:
 - dataset expansion
 - more shot classes
 - advanced segmentation
-- improved scoring logic
+- sequence-model experimentation
 - inference optimization
-- feedback refinement
+- coaching feedback refinement
 
 Likely Stable Components:
 - preprocessing pipeline
 - pose normalization strategy
 - sequence structure
 - feature categories
+- dataset infrastructure philosophy
 
 ---
 
 # 🚀 Current Focus
 
 Current Work:
-- Preparing Phase 6 — Model Training Pipeline
+- Preparing Phase 7 — Baseline Model Building
 
 Immediate Goals:
 - feature scaling
-- train/test dataset preparation
 - baseline model training
-- model evaluation
+- model comparison
+- evaluation metrics
 - confusion matrix analysis
 - feature importance analysis
+- best-model selection
 
 Next Major Milestone:
 First working cricket shot classification model.
@@ -310,6 +378,7 @@ This project prioritizes:
 - modularity
 - explainability
 - production-style architecture
+- reproducibility
 - sequence understanding
 - biomechanical reasoning
 - iterative engineering
@@ -320,4 +389,4 @@ The goal is:
 - technique understanding
 - mistake detection
 - intelligent feedback generation
-- future real-time coaching system
+- future real-time AI cricket coaching system
