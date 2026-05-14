@@ -523,18 +523,21 @@ Instead of learning directly from raw pixels, the system learns from structured 
 During the transition from Phase 6 to Phase 7, a dataset/model contract mismatch was discovered.
 
 The completed Phase 6 dataset produced rank-2 tabular feature matrices:
-
-X_train.shape = (56, 32)
+~~~
+X_train.shape = (56, 32) 
+~~~
 
 This representation is useful for classical ML baselines, but it does not preserve the frame-by-frame temporal structure required by GRU/BiLSTM models.
 
 The project is now being redesigned toward true temporal cricket motion learning:
-
-X_train_sequence.shape = (56, 60, 32)
+~~~
+X_train_sequence.shape = (56, 60, 32) 
+~~~
 
 This means each batting shot will be represented as:
-
+~~~
 60 frames × 32 biomechanical features per frame 
+~~~
 
 ### Updated Phase 7 Direction — Temporal Model Training
 
