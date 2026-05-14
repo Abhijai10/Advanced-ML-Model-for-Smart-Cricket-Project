@@ -516,21 +516,40 @@ Instead of learning directly from raw pixels, the system learns from structured 
 
 ---
 
-## 🔜 Next Steps
+## 🔜 Current Redesign Direction
 
-### Phase 7 — Baseline Model Building
+### Phase 5.5 — Temporal Feature Engineering Redesign
 
-Upcoming work includes:
+During the transition from Phase 6 to Phase 7, a dataset/model contract mismatch was discovered.
 
-- Logistic Regression baseline
-- Random Forest baseline
-- Support Vector Machine (SVM)
-- Model evaluation pipelines
-- Confusion matrix analysis
-- Accuracy / Precision / Recall / F1-score evaluation
-- Baseline model comparison
-- Model artifact saving
-- Future inference pipeline integration
+The completed Phase 6 dataset produced rank-2 tabular feature matrices:
+
+X_train.shape = (56, 32)
+
+This representation is useful for classical ML baselines, but it does not preserve the frame-by-frame temporal structure required by GRU/BiLSTM models.
+
+The project is now being redesigned toward true temporal cricket motion learning:
+
+X_train_sequence.shape = (56, 60, 32)
+
+This means each batting shot will be represented as:
+
+60 frames × 32 biomechanical features per frame 
+
+### Updated Phase 7 Direction — Temporal Model Training
+
+Upcoming work now focuses on:
+
+- Per-frame biomechanical feature extraction
+- Rank-3 temporal tensor generation
+- Temporal dataset validation
+- GRU classifier training
+- BiLSTM classifier training
+- Sequence-aware evaluation pipelines
+- Confusion matrix and F1-score analysis
+- Future real-time inference compatibility
+
+This redesign better aligns the project with motion understanding, cricket shot dynamics, and the long-term goal of AI-based batting feedback.
 
 ---
 
@@ -538,12 +557,12 @@ Upcoming work includes:
 
 Future phases will include:
 
-- sequence models (GRU/LSTM)
+- sequence models (GRU/BiLSTM)
 - advanced motion understanding
 - technique scoring
 - cricket coaching feedback
 - real-time inference
-- AI-assisted batting analysis 
+- AI-assisted batting analysis
 
 ---
 
@@ -551,7 +570,7 @@ Future phases will include:
 
 To build a system that not only detects cricket shots but also:
 
-- Understands technique  
-- Identifies mistakes  
-- Provides intelligent feedback  
-- Build a future real-time AI cricket coaching assistant
+- Understands technique
+- Identifies mistakes
+- Provides intelligent feedback
+- Builds a future real-time AI cricket coaching assistant
