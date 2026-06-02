@@ -1,20 +1,30 @@
 # 📌 Current Project State
 
 Current Phase:
-- Phase 6 Completed
-- Preparing Phase 7 — Baseline Model Building
+- Phase 6 Completed (Temporal Dataset Infrastructure)
+- Preparing Phase 7 — Temporal Sequence Model Training
+
+Project Architecture Status:
+- Baseline tabular ML pipeline completed
+- Temporal sequence-learning redesign completed
+- Roadmap-aligned rank-3 dataset infrastructure completed
+- GRU/BiLSTM-ready temporal dataset finalized
 
 Project Status:
 - Full preprocessing pipeline completed
 - Full biomechanical feature engineering pipeline completed
-- ML-ready dataset infrastructure completed
-- Deterministic dataset splitting completed
-- Final dataset validation completed
-- Dataset packaging and manifest system completed
+- Temporal feature engineering redesign completed
+- Rank-3 temporal tensor generation completed
+- Temporal dataset infrastructure completed
+- Temporal train/validation/test splitting completed
+- Temporal dataset validation completed
+- Temporal dataset packaging and manifest system completed
+- Baseline tabular dataset preserved for comparison
 
 Current Outputs:
-- pose_sequences/
-- features.csv
+
+Baseline Tabular Dataset:
+- ml/data/final/
 - X_train.npy
 - X_val.npy
 - X_test.npy
@@ -27,11 +37,48 @@ Current Outputs:
 - dataset_manifest.json
 - final_dataset_report.md
 
+Primary Temporal Dataset:
+- ml/data/final_temporal/
+- X_sequence.npy
+- y_sequence.npy
+- X_train_sequence.npy
+- X_val_sequence.npy
+- X_test_sequence.npy
+- y_train_sequence.npy
+- y_val_sequence.npy
+- y_test_sequence.npy
+- temporal_feature_schema.json
+- temporal_label_mapping.json
+- temporal_split_metadata.json
+- temporal_dataset_manifest.json
+- temporal_dataset_report.md
+- temporal_feature_validation_report.md
+- temporal_feature_health.json
+
 Current Dataset Status:
 - 80 validated ML samples
 - 4 balanced cricket shot classes
-- 32 engineered biomechanical features
-- Fully reproducible ML-ready dataset infrastructure
+- 60-frame fixed-length temporal sequences
+- 32 engineered biomechanical features per frame
+- Rank-3 temporal tensor dataset finalized
+
+Primary Temporal Dataset:
+```text 
+X_sequence.shape = (80, 60, 32) 
+```
+
+Train / Validation / Test:
+```
+Train:      (56, 60, 32)
+Validation: (12, 60, 32) 
+Test:       (12, 60, 32) 
+```
+
+Baseline Dataset Preserved:
+```text 
+ml/data/final/ 
+→ rank-2 tabular baseline 
+```
 
 ---
 
@@ -134,7 +181,7 @@ Validation Results:
 
 ---
 
-## Phase 6 — Dataset Finalization & ML Dataset Infrastructure
+## Phase 6 — ML Dataset Infrastructure & Temporal Redesign
 Completed:
 - feature schema system
 - label encoding pipeline
@@ -262,29 +309,39 @@ Locked:
 # 🧠 Current ML Direction
 
 Current ML Stage:
-- Beginning baseline model training
+- Preparing temporal sequence model training
 
-Planned ML Direction:
-- supervised cricket shot classification
-- biomechanical feature learning
-- interpretable technique analysis
+Primary Planned Models:
+- GRU
+- BiLSTM
 
-Planned Initial Models:
+Purpose:
+- temporal cricket shot classification
+- motion progression understanding
+- sequence-aware biomechanical learning
+
+Baseline Comparison Models:
 - Logistic Regression
 - Random Forest
 - Support Vector Machine (SVM)
 
+Purpose:
+- baseline benchmarking
+- temporal vs tabular comparison
+- feature sanity checking
+
 Long-Term Direction:
-- sequence modeling
-- GRU/LSTM experimentation
+- temporal motion intelligence
 - technique scoring
 - coaching feedback generation
 - real-time inference
+- webcam-based batting analysis
 
 Important Constraint:
 - avoid overengineering early versions
-- prioritize explainability and robustness
-- stabilize baseline models before advanced architectures
+- prioritize generalization
+- prevent overfitting on small datasets
+- stabilize temporal training before advanced architectures
 
 ---
 
@@ -297,13 +354,19 @@ Raw Video
 → Normalization
 → Alignment
 → Fixed-Length Sequences
-→ Biomechanical Feature Extraction
-→ Feature Validation
-→ Dataset Finalization
-→ ML-ready Dataset Infrastructure
-→ Baseline Model Training
-→ Technique Scoring
-→ Feedback Engine
+→ Per-Frame Temporal Feature Extraction
+→ Temporal Feature Validation
+→ Rank-3 Tensor Construction
+
+```text
+[samples, time_steps, feature_dim] 
+```
+
+→ Temporal Dataset Validation
+→ Temporal Dataset Packaging
+→ GRU / BiLSTM Training
+→ Technique Understanding
+→ Coaching Feedback Engine
 
 ---
 
@@ -328,9 +391,10 @@ Observed Engineering Concerns:
 - future scaling will require larger and more diverse cricket datasets
 
 Current Engineering Decision:
-- stabilize classical ML baselines first
-- evaluate feature quality before architectural expansion
-- revisit advanced sequence architectures after baseline benchmarking
+- prioritize roadmap-aligned temporal sequence learning
+- compare temporal models against classical ML baselines
+- prevent overfitting through careful regularization
+- stabilize temporal training before architectural expansion
 
 ---
 
@@ -356,19 +420,19 @@ Likely Stable Components:
 # 🚀 Current Focus
 
 Current Work:
-- Preparing Phase 7 — Baseline Model Building
+- Preparing Phase 7 — Temporal Sequence Model Training
 
 Immediate Goals:
-- feature scaling
-- baseline model training
-- model comparison
+- sequence model architecture setup
+- GRU experimentation
+- BiLSTM experimentation
+- overfitting prevention
 - evaluation metrics
 - confusion matrix analysis
-- feature importance analysis
-- best-model selection
+- best temporal model selection
 
 Next Major Milestone:
-First working cricket shot classification model.
+First working temporal cricket shot classification model.
 
 ---
 

@@ -1,0 +1,54 @@
+{
+  "random_state": 42,
+  "split_strategy": "manual deterministic per-class stratified split",
+  "tensor_rank": 3,
+  "sequence_length": 60,
+  "feature_dim": 32,
+  "per_class_allocation": {
+    "train": 14,
+    "validation": 3,
+    "test": 3
+  },
+  "split_sizes": {
+    "train": 56,
+    "validation": 12,
+    "test": 12
+  },
+  "class_distribution_overall": {
+    "cover_drive": 20,
+    "defensive_shot": 20,
+    "pull_shot": 20,
+    "sweep_shot": 20
+  },
+  "class_distribution_train": {
+    "cover_drive": 14,
+    "defensive_shot": 14,
+    "pull_shot": 14,
+    "sweep_shot": 14
+  },
+  "class_distribution_val": {
+    "cover_drive": 3,
+    "defensive_shot": 3,
+    "pull_shot": 3,
+    "sweep_shot": 3
+  },
+  "class_distribution_test": {
+    "cover_drive": 3,
+    "defensive_shot": 3,
+    "pull_shot": 3,
+    "sweep_shot": 3
+  },
+  "output_files": {
+    "X_train_sequence": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/data/final_temporal/X_train_sequence.npy",
+    "X_val_sequence": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/data/final_temporal/X_val_sequence.npy",
+    "X_test_sequence": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/data/final_temporal/X_test_sequence.npy",
+    "y_train_sequence": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/data/final_temporal/y_train_sequence.npy",
+    "y_val_sequence": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/data/final_temporal/y_val_sequence.npy",
+    "y_test_sequence": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/data/final_temporal/y_test_sequence.npy",
+    "train_temporal_index": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/data/final_temporal/train_temporal_index.csv",
+    "val_temporal_index": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/data/final_temporal/val_temporal_index.csv",
+    "test_temporal_index": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/data/final_temporal/test_temporal_index.csv",
+    "temporal_split_metadata": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/data/final_temporal/temporal_split_metadata.json"
+  },
+  "notes": "Full temporal sequences are split by sample index; frames inside a sequence are never split across train, validation, or test. For each class, 14 complete sequences go to train, 3 to validation, and 3 to test, then each split index list is shuffled deterministically."
+}

@@ -1,0 +1,187 @@
+{
+  "dataset_name": "smart_cricket_temporal_sequence_dataset",
+  "dataset_version": "phase_6_temporal_v1",
+  "dataset_type": "temporal_sequence_classification",
+  "created_at": "2026-05-31T17:53:11.944077Z",
+  "tensor_contract": {
+    "rank": 3,
+    "shape_format": "[samples, time_steps, feature_dim]",
+    "full_shape": [
+      80,
+      60,
+      32
+    ],
+    "sequence_length": 60,
+    "feature_dim": 32,
+    "label_shape": [
+      80
+    ]
+  },
+  "split_shapes": {
+    "train": [
+      56,
+      60,
+      32
+    ],
+    "validation": [
+      12,
+      60,
+      32
+    ],
+    "test": [
+      12,
+      60,
+      32
+    ]
+  },
+  "total_samples": 80,
+  "num_classes": 4,
+  "class_names": [
+    "cover_drive",
+    "defensive_shot",
+    "pull_shot",
+    "sweep_shot"
+  ],
+  "split_sizes": {
+    "train": 56,
+    "validation": 12,
+    "test": 12
+  },
+  "split_strategy": "manual deterministic per-class stratified split",
+  "temporal_feature_health_summary": {
+    "total_features": 32,
+    "healthy_features": 32,
+    "dead_features": 0,
+    "near_dead_features": 0,
+    "noisy_features": 0,
+    "highly_correlated_pair_count": 4
+  },
+  "artifact_registry": [
+    {
+      "relative_path": "data/final_temporal/X_sequence.npy",
+      "purpose": "Full rank-3 temporal feature tensor.",
+      "file_type": "numpy_array"
+    },
+    {
+      "relative_path": "data/final_temporal/X_test_sequence.npy",
+      "purpose": "Test split temporal tensor.",
+      "file_type": "numpy_array"
+    },
+    {
+      "relative_path": "data/final_temporal/X_train_sequence.npy",
+      "purpose": "Training split temporal tensor.",
+      "file_type": "numpy_array"
+    },
+    {
+      "relative_path": "data/final_temporal/X_val_sequence.npy",
+      "purpose": "Validation split temporal tensor.",
+      "file_type": "numpy_array"
+    },
+    {
+      "relative_path": "data/final_temporal/temporal_dataset_index.csv",
+      "purpose": "Full temporal dataset traceability index.",
+      "file_type": "csv"
+    },
+    {
+      "relative_path": "data/final_temporal/temporal_dataset_manifest.json",
+      "purpose": "Complete manifest for the finalized temporal ML dataset.",
+      "file_type": "json"
+    },
+    {
+      "relative_path": "data/final_temporal/temporal_dataset_report.md",
+      "purpose": "Phase 6.4 temporal dataset integrity report.",
+      "file_type": "markdown"
+    },
+    {
+      "relative_path": "data/final_temporal/temporal_feature_health.json",
+      "purpose": "Machine-readable feature health summary.",
+      "file_type": "json"
+    },
+    {
+      "relative_path": "data/final_temporal/temporal_feature_schema.json",
+      "purpose": "Temporal feature order, groups, and tensor contract.",
+      "file_type": "json"
+    },
+    {
+      "relative_path": "data/final_temporal/temporal_feature_statistics.csv",
+      "purpose": "Per-feature temporal statistics and health status.",
+      "file_type": "csv"
+    },
+    {
+      "relative_path": "data/final_temporal/temporal_feature_validation_report.md",
+      "purpose": "Human-readable temporal feature validation report.",
+      "file_type": "markdown"
+    },
+    {
+      "relative_path": "data/final_temporal/temporal_label_encoder.pkl",
+      "purpose": "Fitted sklearn LabelEncoder for temporal shot labels.",
+      "file_type": "joblib_pickle"
+    },
+    {
+      "relative_path": "data/final_temporal/temporal_label_mapping.json",
+      "purpose": "Encoded label index to shot class mapping.",
+      "file_type": "json"
+    },
+    {
+      "relative_path": "data/final_temporal/temporal_split_metadata.json",
+      "purpose": "Split strategy, sizes, and reproducibility metadata.",
+      "file_type": "json"
+    },
+    {
+      "relative_path": "data/final_temporal/test_temporal_index.csv",
+      "purpose": "Test split traceability index.",
+      "file_type": "csv"
+    },
+    {
+      "relative_path": "data/final_temporal/train_temporal_index.csv",
+      "purpose": "Training split traceability index.",
+      "file_type": "csv"
+    },
+    {
+      "relative_path": "data/final_temporal/val_temporal_index.csv",
+      "purpose": "Validation split traceability index.",
+      "file_type": "csv"
+    },
+    {
+      "relative_path": "data/final_temporal/y_sequence.npy",
+      "purpose": "Encoded labels aligned row-for-row with X_sequence.npy.",
+      "file_type": "numpy_array"
+    },
+    {
+      "relative_path": "data/final_temporal/y_test_sequence.npy",
+      "purpose": "Test split encoded labels.",
+      "file_type": "numpy_array"
+    },
+    {
+      "relative_path": "data/final_temporal/y_train_sequence.npy",
+      "purpose": "Training split encoded labels.",
+      "file_type": "numpy_array"
+    },
+    {
+      "relative_path": "data/final_temporal/y_val_sequence.npy",
+      "purpose": "Validation split encoded labels.",
+      "file_type": "numpy_array"
+    }
+  ],
+  "source_directories": {
+    "pose_sequences": "data/processed/pose_sequences",
+    "final_temporal": "data/final_temporal"
+  },
+  "upstream_dependencies": [
+    "pose extraction",
+    "pose cleaning",
+    "normalization",
+    "alignment",
+    "fixed-length sequence generation",
+    "temporal per-frame feature extraction"
+  ],
+  "future_phase_dependencies": [
+    "GRU model training",
+    "BiLSTM model training",
+    "temporal evaluation",
+    "temporal inference pipeline",
+    "shot segmentation",
+    "coaching feedback engine"
+  ],
+  "notes": "This is the roadmap-aligned rank-3 temporal dataset for sequence classification. The older ml/data/final/ rank-2 artifacts remain tabular baseline artifacts. Phase 7 temporal models should use data/final_temporal artifacts, schema, splits, and label mapping."
+}

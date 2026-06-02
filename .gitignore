@@ -64,6 +64,9 @@ ml/models/
 # Keep finalized dataset label encoder
 !ml/data/final/label_encoder.pkl
 
+# Keep temporal dataset label encoder
+!ml/data/final_temporal/temporal_label_encoder.pkl
+
 # =========================
 # 📝 Logs
 # =========================
@@ -84,6 +87,9 @@ Smart Cricket DOCS/*
 
 # Ignore Obsidian metadata
 Smart Cricket DOCS/.obsidian/
+
+.continue/
+CLAUDE.md
 
 # =========================
 # 🎥 Media Files

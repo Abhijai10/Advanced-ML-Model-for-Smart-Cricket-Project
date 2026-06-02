@@ -29,52 +29,105 @@ Instead of relying on single images, this project processes full video sequences
 ### Development Environment
 - Python
 - macOS (Apple Silicon)
-- Cursor AI-assisted development workflow
+- AI-assisted engineering workflow (Cursor + Codex)
 
 ---
 
 ## 📊 Current Progress
 
-The project is being developed in structured engineering phases:
+The project is being developed through structured ML engineering phases:
 
 - ✅ Phase 1: Project Architecture & Setup  
 - ✅ Phase 2: Pose Pipeline Setup  
 - ✅ Phase 2.5: Dataset Building & Annotation  
 - ✅ Phase 3: Batch Pose Extraction  
 - ✅ Phase 4: Pose Cleaning & Normalization  
-- ✅ Phase 5: Feature Engineering  
-- ✅ Phase 6: Dataset Finalization & ML Dataset Infrastructure  
+- ✅ Phase 5: Feature Engineering (Tabular Baseline)  
+- ✅ Phase 5.5: Temporal Feature Engineering Redesign  
+- ✅ Phase 6: Temporal ML Dataset Infrastructure  
+
+Current development is now focused on:
+
+```text
+Temporal sequence learning for cricket motion understanding
+```
+
+using:
+
+```text
+GRU / BiLSTM temporal models
+```
 
 ---
 
 ### ✅ Current System Capabilities
 
-The pipeline now successfully converts raw cricket batting videos into a fully validated and reproducible ML-ready dataset.
+The Smart Cricket pipeline now converts raw cricket batting videos into a fully validated, reproducible, and temporal ML-ready dataset.
 
 Current completed outputs:
 
 - Cleaned and normalized pose sequences  
-- Orientation-aligned pose data  
-- Fixed-length temporal motion sequences (60 frames)  
-- 32 engineered biomechanical features  
-- Encoded shot labels  
-- Finalized train/validation/test splits  
-- ML-ready NumPy datasets  
-- Dataset manifests and validation reports  
-- Fully reproducible dataset infrastructure  
+- Orientation-aligned batting motion data  
+- Fixed-length temporal sequences (60 frames)  
+- Per-frame biomechanical feature extraction  
+- 32 engineered temporal motion features  
+- Rank-3 temporal tensors for sequence learning  
+- Stable label encoding pipeline  
+- Deterministic train/validation/test splits  
+- Full dataset validation system  
+- Dataset manifests and metadata registry  
+- Complete GRU/BiLSTM-ready dataset infrastructure  
+
+Current temporal dataset contract:
+
+```text
+X_sequence.shape = (80, 60, 32)
+
+80 batting shots
+→ 60 frames per shot
+→ 32 biomechanical features per frame
+```  
 
 ---
 
-### 📦 Final Dataset Status
+### 📦 Temporal Dataset Status
+
+### Full Temporal Dataset
+
+```text
+X_sequence.shape = (80, 60, 32)
+y_sequence.shape = (80,)
+```
+
+### Train / Validation / Test Splits
+
+```text
+Train:
+X_train_sequence.shape = (56, 60, 32)
+
+Validation:
+X_val_sequence.shape = (12, 60, 32)
+
+Test:
+X_test_sequence.shape = (12, 60, 32)
+```
+
+### Dataset Summary
 
 - Total ML samples: 80  
-- Number of features: 32  
+- Sequence length: 60 frames  
+- Temporal feature dimension: 32  
 - Classes: 4 balanced cricket shot categories  
 - Train split: 56 samples  
 - Validation split: 12 samples  
 - Test split: 12 samples  
 
-The project now contains a fully packaged machine-learning dataset ready for model training and evaluation.
+The project now contains a fully validated and packaged temporal machine-learning dataset ready for:
+
+- GRU training  
+- BiLSTM training  
+- temporal motion learning  
+- sequence-aware cricket shot classification  
 
 ---
 
@@ -103,49 +156,86 @@ Pose Extraction (MediaPipe)
 ↓  
 Pose Landmark JSON Files  
 ↓  
-Cleaning & Validation  
+Pose Cleaning & Validation  
 ↓  
 Pose Normalization  
 ↓  
-Orientation Alignment  
+Body Orientation Alignment  
 ↓  
-Fixed-Length Temporal Sequences (60 frames)  
+Fixed-Length Temporal Sequences (60 Frames)  
 ↓  
-Biomechanical Feature Engineering  
+Per-Frame Biomechanical Feature Extraction  
 ↓  
-Feature Dataset (features.csv)  
+Temporal Feature Validation  
 ↓  
-Feature Schema Generation  
+Rank-3 Tensor Construction  
+
+```text
+[samples, time_steps, feature_dim]
+```
+
 ↓  
-Label Encoding  
+Temporal Label Encoding  
 ↓  
-Feature Matrix Construction  
+Temporal Train / Validation / Test Splitting  
 ↓  
-Train / Validation / Test Splitting  
+Temporal Dataset Validation  
 ↓  
-Dataset Validation & Packaging  
+Temporal Dataset Packaging & Manifest  
 ↓  
-ML-Ready Dataset Infrastructure  
+GRU / BiLSTM-Ready Dataset Infrastructure
 
 ---
 
-### 🧠 Final ML Dataset Artifacts
+### 🧠 Final Temporal Dataset Artifacts
 
-The finalized dataset layer now includes:
+The finalized temporal dataset layer now includes:
 
-- `X_train.npy`
-- `X_val.npy`
-- `X_test.npy`
-- `y_train.npy`
-- `y_val.npy`
-- `y_test.npy`
-- `feature_schema.json`
-- `label_mapping.json`
-- `split_metadata.json`
-- `dataset_manifest.json`
-- `final_dataset_report.md`
+### Core Temporal Tensors
 
-This creates a fully reproducible and training-ready ML dataset system.
+- `X_sequence.npy`
+- `y_sequence.npy`
+
+### Train / Validation / Test Tensors
+
+- `X_train_sequence.npy`
+- `X_val_sequence.npy`
+- `X_test_sequence.npy`
+
+- `y_train_sequence.npy`
+- `y_val_sequence.npy`
+- `y_test_sequence.npy`
+
+### Schema & Labeling
+
+- `temporal_feature_schema.json`
+- `temporal_label_mapping.json`
+- `temporal_label_encoder.pkl`
+
+### Dataset Metadata
+
+- `temporal_split_metadata.json`
+- `temporal_dataset_manifest.json`
+
+### Validation & Health Reports
+
+- `temporal_dataset_report.md`
+- `temporal_feature_validation_report.md`
+- `temporal_feature_statistics.csv`
+- `temporal_feature_health.json`
+
+### Traceability
+
+- `temporal_dataset_index.csv`
+- `train_temporal_index.csv`
+- `val_temporal_index.csv`
+- `test_temporal_index.csv`
+
+This creates a fully reproducible and training-ready temporal ML dataset system for:
+
+- GRU training  
+- BiLSTM training  
+- temporal motion intelligence
 
 ---
 
@@ -205,7 +295,9 @@ In this phase, raw pose data was transformed into a clean, structured, and ML-re
 
 In this phase, processed pose sequences were converted into structured biomechanical feature representations for machine learning.
 
-The system extracts cricket-specific motion and posture information from each batting sequence and converts it into a fixed-size numerical feature vector.
+The system extracts cricket-specific motion and posture information from each batting sequence and converts it into structured temporal biomechanical representations.
+
+Instead of compressing an entire batting shot into one summarized vector, the final system preserves frame-by-frame motion evolution for temporal learning.
 
 ---
 
@@ -257,32 +349,49 @@ Examples:
 
 ---
 
-## 🔹 Feature Dataset
+## 🔹 Feature Dataset Evolution
 
-Final generated dataset:
+### Baseline Tabular Dataset
 
-- 80 processed samples  
-- 4 balanced cricket shot classes  
-- 32 biomechanical features per sample  
-- ML-ready tabular dataset (features.csv)  
+Initial feature engineering produced:
 
-The dataset was validated for:
-- NaN values  
-- infinite values  
-- feature consistency  
-- dataset integrity  
+```text
+(80, 32)
+```
 
-### Current Dataset State
+This representation was useful for:
 
-- 80 validated training samples  
-- 4 balanced shot classes  
-- 60-frame temporal pose sequences  
-- 32 engineered biomechanical features  
-- ML-ready tabular dataset for training  
+- classical ML baselines  
+- feature experimentation  
+- engineering comparison  
 
 ---
 
-## 🧠 Phase 6 — Dataset Finalization (Completed)
+### Final Temporal Dataset
+
+The final redesigned system produces:
+
+```text
+(80, 60, 32)
+```
+
+Meaning:
+
+```text
+80 batting shots
+→ 60 frames per shot
+→ 32 engineered features per frame
+```
+
+This preserves temporal motion information required for:
+
+- GRU sequence learning  
+- BiLSTM temporal modeling  
+- motion progression understanding
+
+---
+
+## 🧠 Phase 6 — ML Dataset Infrastructure (Baseline + Temporal Upgrade)
 
 In this phase, engineered biomechanical features were transformed into a fully reproducible machine-learning dataset infrastructure.
 
@@ -408,76 +517,103 @@ This allows future model training pipelines to directly load finalized datasets 
 
 ## 📂 Project Structure
 
-ml/  
-├── src/  
-│   ├── preprocessing/  
-│   │   ├── extract_pose.py  
-│   │   ├── batch_extract_pose.py  
-│   │   ├── inspect_pose_data.py  
-│   │   ├── clean_pose_data.py  
-│   │   ├── verify_cleaned_pose_data.py  
-│   │   ├── normalize_pose_data.py  
-│   │   ├── align_pose_orientation.py  
-│   │   └── prepare_sequences.py  
+ml/
+├── src/
+│   ├── preprocessing/
+│   │   ├── extract_pose.py
+│   │   ├── batch_extract_pose.py
+│   │   ├── inspect_pose_data.py
+│   │   ├── clean_pose_data.py
+│   │   ├── verify_cleaned_pose_data.py
+│   │   ├── normalize_pose_data.py
+│   │   ├── align_pose_orientation.py
+│   │   └── prepare_sequences.py
 │   │
-│   ├── features/  
-│   │   ├── feature_config.py  
-│   │   ├── geometry_utils.py  
-│   │   ├── joint_angle_features.py  
-│   │   ├── posture_features.py  
-│   │   ├── motion_features.py  
-│   │   ├── shot_specific_features.py  
-│   │   ├── feature_builder.py  
-│   │   ├── build_feature_dataset.py  
-│   │   └── validate_feature_dataset.py  
+│   ├── features/
+│   │   ├── feature_config.py
+│   │   ├── geometry_utils.py
+│   │   ├── joint_angle_features.py
+│   │   ├── posture_features.py
+│   │   ├── motion_features.py
+│   │   ├── shot_specific_features.py
+│   │   ├── feature_builder.py
+│   │   ├── build_feature_dataset.py
+│   │   ├── validate_feature_dataset.py
+│   │   ├── temporal_frame_features.py
+│   │   └── verify_temporal_frame_features.py
 │   │
-│   └── dataset/  
-│       ├── create_feature_schema.py  
-│       ├── create_label_encoder.py  
-│       ├── build_feature_matrix.py  
-│       ├── create_dataset_splits.py  
-│       ├── validate_final_dataset.py  
-│       └── create_dataset_manifest.py  
+│   ├── dataset/
+│   │   ├── create_feature_schema.py
+│   │   ├── create_label_encoder.py
+│   │   ├── build_feature_matrix.py
+│   │   ├── create_dataset_splits.py
+│   │   ├── validate_final_dataset.py
+│   │   └── create_dataset_manifest.py
+│   │
+│   └── dataset_temporal/
+│       ├── create_temporal_feature_schema.py
+│       ├── build_temporal_feature_tensor.py
+│       ├── validate_temporal_features.py
+│       ├── create_temporal_label_encoder.py
+│       ├── create_temporal_dataset_splits.py
+│       ├── validate_temporal_dataset.py
+│       └── create_temporal_dataset_manifest.py
 │
-├── data/  
-│   ├── raw_videos/  
-│   │   ├── cover_drive/  
-│   │   ├── pull_shot/  
-│   │   ├── defensive_shot/  
-│   │   ├── sweep_shot/  
-│   │   └── idle/  
+├── data/
+│   ├── raw_videos/
+│   │   ├── cover_drive/
+│   │   ├── pull_shot/
+│   │   ├── defensive_shot/
+│   │   ├── sweep_shot/
+│   │   └── idle/
 │   │
-│   ├── annotations/  
-│   │   └── metadata.csv  
+│   ├── annotations/
+│   │   └── metadata.csv
 │   │
-│   ├── processed/  
-│   │   ├── pose_json/  
-│   │   ├── pose_cleaned/  
-│   │   ├── pose_normalized/  
-│   │   ├── pose_aligned/  
-│   │   ├── pose_sequences/  
-│   │   └── features/  
-│   │       └── features.csv  
+│   ├── processed/
+│   │   ├── pose_json/
+│   │   ├── pose_cleaned/
+│   │   ├── pose_normalized/
+│   │   ├── pose_aligned/
+│   │   ├── pose_sequences/
+│   │   └── features/
+│   │       └── features.csv
 │   │
-│   └── final/  
-│       ├── X.npy  
-│       ├── y.npy  
-│       ├── X_train.npy  
-│       ├── X_val.npy  
-│       ├── X_test.npy  
-│       ├── y_train.npy  
-│       ├── y_val.npy  
-│       ├── y_test.npy  
-│       ├── dataset_index.csv  
-│       ├── train_index.csv  
-│       ├── val_index.csv  
-│       ├── test_index.csv  
-│       ├── feature_schema.json  
-│       ├── label_encoder.pkl  
-│       ├── label_mapping.json  
-│       ├── split_metadata.json  
-│       ├── final_dataset_report.md  
-│       └── dataset_manifest.json  
+│   ├── final/
+│   │   ├── X.npy
+│   │   ├── y.npy
+│   │   ├── X_train.npy
+│   │   ├── X_val.npy
+│   │   ├── X_test.npy
+│   │   ├── y_train.npy
+│   │   ├── y_val.npy
+│   │   ├── y_test.npy
+│   │   ├── dataset_index.csv
+│   │   ├── train_index.csv
+│   │   ├── val_index.csv
+│   │   ├── test_index.csv
+│   │   ├── feature_schema.json
+│   │   ├── label_encoder.pkl
+│   │   ├── label_mapping.json
+│   │   ├── split_metadata.json
+│   │   ├── final_dataset_report.md
+│   │   └── dataset_manifest.json
+│   │
+│   └── final_temporal/
+│       ├── X_sequence.npy
+│       ├── y_sequence.npy
+│       ├── X_train_sequence.npy
+│       ├── X_val_sequence.npy
+│       ├── X_test_sequence.npy
+│       ├── y_train_sequence.npy
+│       ├── y_val_sequence.npy
+│       ├── y_test_sequence.npy
+│       ├── temporal_feature_schema.json
+│       ├── temporal_label_mapping.json
+│       ├── temporal_label_encoder.pkl
+│       ├── temporal_split_metadata.json
+│       ├── temporal_dataset_report.md
+│       └── temporal_dataset_manifest.json
 │
 └── docs/  
     ├── phase_6_dataset_finalization_strategy.md  
@@ -516,43 +652,107 @@ Instead of learning directly from raw pixels, the system learns from structured 
 
 ---
 
-## 🔜 Current Redesign Direction
+## 🏏 Temporal ML Architecture Upgrade (Completed)
 
-### Phase 5.5 — Temporal Feature Engineering Redesign
+During Phase 7 planning, an important architectural issue was discovered.
 
-During the transition from Phase 6 to Phase 7, a dataset/model contract mismatch was discovered.
+The original Phase 6 dataset produced:
 
-The completed Phase 6 dataset produced rank-2 tabular feature matrices:
-~~~
-X_train.shape = (56, 32) 
-~~~
+```text
+X_train.shape = (56, 32)
+```
 
-This representation is useful for classical ML baselines, but it does not preserve the frame-by-frame temporal structure required by GRU/BiLSTM models.
+This rank-2 representation worked for classical ML baselines but was incompatible with:
 
-The project is now being redesigned toward true temporal cricket motion learning:
-~~~
-X_train_sequence.shape = (56, 60, 32) 
-~~~
+- GRU
+- BiLSTM
+- temporal sequence learning
 
-This means each batting shot will be represented as:
-~~~
-60 frames × 32 biomechanical features per frame 
-~~~
+because temporal models require:
 
-### Updated Phase 7 Direction — Temporal Model Training
+```text
+[samples, time_steps, feature_dimension]
+```
 
-Upcoming work now focuses on:
+To solve this, the pipeline was redesigned to preserve:
 
-- Per-frame biomechanical feature extraction
-- Rank-3 temporal tensor generation
-- Temporal dataset validation
-- GRU classifier training
-- BiLSTM classifier training
-- Sequence-aware evaluation pipelines
-- Confusion matrix and F1-score analysis
-- Future real-time inference compatibility
+```text
+frame-by-frame motion evolution
+```
 
-This redesign better aligns the project with motion understanding, cricket shot dynamics, and the long-term goal of AI-based batting feedback.
+instead of compressing an entire batting shot into a single summarized vector.
+
+Final temporal dataset:
+
+```text
+X_sequence.shape = (80, 60, 32)
+```
+
+This means:
+
+```text
+80 batting shots
+→ 60 frames each
+→ 32 engineered biomechanical features per frame
+```
+
+The redesigned temporal pipeline now includes:
+
+- Per-frame temporal feature extraction  
+- Rank-3 temporal tensors  
+- Temporal validation systems  
+- Sequence-aware dataset splitting  
+- GRU/BiLSTM-ready infrastructure  
+- Future real-time inference compatibility  
+
+### Tabular Baseline vs Temporal Dataset
+
+The project now maintains two dataset systems:
+
+### 1. Baseline Tabular Dataset
+
+```text
+ml/data/final/
+```
+
+Purpose:
+- Classical ML baselines  
+- Engineering comparison  
+- Ablation experiments  
+
+Shape:
+
+```text
+(80, 32)
+```
+
+---
+
+### 2. Temporal Motion Dataset (Primary)
+
+```text
+ml/data/final_temporal/
+```
+
+Purpose:
+- GRU training  
+- BiLSTM training  
+- Motion intelligence  
+- Sequence-aware classification  
+
+Shape:
+
+```text
+(80, 60, 32)
+```
+
+Phase 7 will use:
+
+```text
+ml/data/final_temporal/
+```
+
+as the official training dataset.
 
 ---
 

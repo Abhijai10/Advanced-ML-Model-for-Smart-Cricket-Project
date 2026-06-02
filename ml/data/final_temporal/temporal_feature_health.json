@@ -1,0 +1,51 @@
+{
+  "total_features": 32,
+  "healthy_features": 32,
+  "dead_features": [],
+  "near_dead_features": [],
+  "noisy_features": [],
+  "highly_correlated_pairs": [
+    {
+      "feature_a": "hip_rotation_angle",
+      "feature_b": "shoulder_hip_separation",
+      "feature_a_index": 7,
+      "feature_b_index": 11,
+      "correlation": -1.0
+    },
+    {
+      "feature_a": "body_center_offset_x",
+      "feature_b": "upper_body_balance_offset",
+      "feature_a_index": 13,
+      "feature_b_index": 15,
+      "correlation": 1.0
+    },
+    {
+      "feature_a": "lead_elbow_angle",
+      "feature_b": "lead_elbow_extension_signal",
+      "feature_a_index": 0,
+      "feature_b_index": 29,
+      "correlation": 0.9999999999999885
+    },
+    {
+      "feature_a": "trunk_lean",
+      "feature_b": "body_center_offset_y",
+      "feature_a_index": 8,
+      "feature_b_index": 14,
+      "correlation": 0.9870635955722052
+    }
+  ],
+  "thresholds_used": {
+    "dead_range_epsilon": 1e-12,
+    "near_dead_variance_threshold": 1e-08,
+    "near_dead_mean_abs_temporal_delta_threshold": 1e-06,
+    "near_zero_absolute_value_threshold": 1e-08,
+    "noisy_delta_to_range_threshold": 0.35,
+    "noisy_std_to_range_threshold": 0.3,
+    "noisy_std_delta_to_range_threshold": 0.2,
+    "high_correlation_abs_threshold": 0.95
+  },
+  "recommendations": [
+    "Audit highly correlated pairs during feature selection; retain both only if temporal semantics differ.",
+    "No dead or near-dead blockers found; proceed to temporal model experiments with monitoring."
+  ]
+}

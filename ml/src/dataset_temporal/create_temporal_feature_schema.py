@@ -26,7 +26,7 @@ FEATURE_GROUPS: dict[str, list[str]] = {
         "trail_knee_angle",
         "lead_shoulder_angle",
         "trail_shoulder_angle",
-        "shoulder_rotation_angle",
+        "lead_wrist_relative_x",
         "hip_rotation_angle",
     ],
     "POSTURE_ALIGNMENT_FEATURES": [
@@ -45,7 +45,7 @@ FEATURE_GROUPS: dict[str, list[str]] = {
         "lead_elbow_velocity",
         "trail_elbow_velocity",
         "body_center_velocity",
-        "shoulder_rotation_velocity",
+        "lead_wrist_acceleration",
         "hip_rotation_velocity",
         "frame_motion_energy",
     ],

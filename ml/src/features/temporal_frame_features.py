@@ -42,7 +42,7 @@ _ORDERED_FEATURES_FALLBACK: list[str] = [
     "trail_knee_angle",
     "lead_shoulder_angle",
     "trail_shoulder_angle",
-    "shoulder_rotation_angle",
+    "lead_wrist_relative_x",
     "hip_rotation_angle",
     "trunk_lean",
     "head_over_base_offset",
@@ -57,7 +57,7 @@ _ORDERED_FEATURES_FALLBACK: list[str] = [
     "lead_elbow_velocity",
     "trail_elbow_velocity",
     "body_center_velocity",
-    "shoulder_rotation_velocity",
+    "lead_wrist_acceleration",
     "hip_rotation_velocity",
     "frame_motion_energy",
     "front_foot_commitment_signal",
@@ -299,6 +299,7 @@ def compute_temporal_frame_features(
     lead_shoulder_angle = _angle_at_vertex_deg(lead_elbow, lead_shoulder, lead_hip)
     trail_shoulder_angle = _angle_at_vertex_deg(trail_elbow, trail_shoulder, trail_hip)
     shoulder_rotation_angle = _line_angle_xy_deg(lead_shoulder, trail_shoulder)
+    lead_wrist_relative_x = safe_float(lead_wrist[0] - hip_c[0])
     hip_rotation_angle = _line_angle_xy_deg(lead_hip, trail_hip)
 
     # --- Posture ---
@@ -329,10 +330,12 @@ def compute_temporal_frame_features(
     trail_wrist_velocity = vel_idx(RIGHT_WRIST)
     lead_elbow_velocity = vel_idx(LEFT_ELBOW)
     trail_elbow_velocity = vel_idx(RIGHT_ELBOW)
+    # v1 acceleration-like proxy: true acceleration requires t-2, t-1, and t.
+    # A future extractor can support second-order temporal acceleration directly.
+    lead_wrist_acceleration = abs(lead_wrist_velocity - trail_wrist_velocity)
 
     if previous_frame is None:
         body_center_velocity = 0.0
-        shoulder_rotation_velocity = 0.0
         hip_rotation_velocity = 0.0
     else:
         p_ls = point_to_array(prev_lm(LEFT_SHOULDER))
@@ -346,17 +349,6 @@ def compute_temporal_frame_features(
             body_center_velocity = float(np.linalg.norm(body_c - p_body_c))
         else:
             body_center_velocity = 0.0
-        sa_now = _line_angle_xy_deg(lead_shoulder, trail_shoulder)
-        sa_prev = _line_angle_xy_deg(p_ls, p_rs)
-        if math.isfinite(sa_now) and math.isfinite(sa_prev):
-            da = sa_now - sa_prev
-            while da > 180.0:
-                da -= 360.0
-            while da < -180.0:
-                da += 360.0
-            shoulder_rotation_velocity = abs(da)
-        else:
-            shoulder_rotation_velocity = 0.0
         ha_now = _line_angle_xy_deg(lead_hip, trail_hip)
         ha_prev = _line_angle_xy_deg(p_lh, p_rh)
         if math.isfinite(ha_now) and math.isfinite(ha_prev):
@@ -424,7 +416,7 @@ def compute_temporal_frame_features(
         "trail_knee_angle": trail_knee_angle,
         "lead_shoulder_angle": lead_shoulder_angle,
         "trail_shoulder_angle": trail_shoulder_angle,
-        "shoulder_rotation_angle": shoulder_rotation_angle,
+        "lead_wrist_relative_x": lead_wrist_relative_x,
         "hip_rotation_angle": hip_rotation_angle,
         "trunk_lean": trunk_lean,
         "head_over_base_offset": head_over_base_offset,
@@ -439,7 +431,7 @@ def compute_temporal_frame_features(
         "lead_elbow_velocity": lead_elbow_velocity,
         "trail_elbow_velocity": trail_elbow_velocity,
         "body_center_velocity": body_center_velocity,
-        "shoulder_rotation_velocity": shoulder_rotation_velocity,
+        "lead_wrist_acceleration": lead_wrist_acceleration,
         "hip_rotation_velocity": hip_rotation_velocity,
         "frame_motion_energy": frame_motion_energy,
         "front_foot_commitment_signal": front_foot_commitment_signal,

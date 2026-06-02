@@ -31,7 +31,7 @@ MOTION_KEYS = (
     "lead_elbow_velocity",
     "trail_elbow_velocity",
     "body_center_velocity",
-    "shoulder_rotation_velocity",
+    "lead_wrist_acceleration",
     "hip_rotation_velocity",
     "frame_motion_energy",
 )

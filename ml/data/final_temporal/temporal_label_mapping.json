@@ -1,0 +1,18 @@
+{
+  "target_column": "shot_label",
+  "num_classes": 4,
+  "class_to_index": {
+    "cover_drive": 0,
+    "defensive_shot": 1,
+    "pull_shot": 2,
+    "sweep_shot": 3
+  },
+  "index_to_class": {
+    "0": "cover_drive",
+    "1": "defensive_shot",
+    "2": "pull_shot",
+    "3": "sweep_shot"
+  },
+  "created_at": "2026-05-31T17:25:31.507070Z",
+  "notes": "Stable temporal sequence label encoding for Phase 6.2. Classes are sorted by sklearn.preprocessing.LabelEncoder and y_sequence.npy stores int64 class indices aligned row-for-row with X_sequence.npy."
+}
