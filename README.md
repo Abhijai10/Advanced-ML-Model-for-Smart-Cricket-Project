@@ -45,18 +45,18 @@ The project is being developed through structured ML engineering phases:
 - ✅ Phase 5: Feature Engineering (Tabular Baseline)  
 - ✅ Phase 5.5: Temporal Feature Engineering Redesign  
 - ✅ Phase 6: Temporal ML Dataset Infrastructure  
+- ✅ Phase 7: Temporal Model Architecture Building 
 
 Current development is now focused on:
 
 ```text
-Temporal sequence learning for cricket motion understanding
+Temporal model training & evaluation
+```
+using :
+```
+GRU / BiLSTM temporal architectures
 ```
 
-using:
-
-```text
-GRU / BiLSTM temporal models
-```
 
 ---
 
@@ -77,6 +77,7 @@ Current completed outputs:
 - Full dataset validation system  
 - Dataset manifests and metadata registry  
 - Complete GRU/BiLSTM-ready dataset infrastructure  
+- Verified temporal model architectures (GRU / BiLSTM) 
 
 Current temporal dataset contract:
 
@@ -183,7 +184,13 @@ Temporal Dataset Validation
 ↓  
 Temporal Dataset Packaging & Manifest  
 ↓  
-GRU / BiLSTM-Ready Dataset Infrastructure
+GRU / BiLSTM-Ready Dataset Infrastructure 
+↓  
+GRU / BiLSTM Temporal Model Architecture  
+↓  
+Temporal Architecture Validation  
+↓  
+Phase 8 Training & Evaluation
 
 ---
 
@@ -515,6 +522,126 @@ This allows future model training pipelines to directly load finalized datasets 
 
 ---
 
+## 🧠 Phase 7 — Temporal Model Architecture Building (Completed)
+
+In this phase, the finalized temporal cricket dataset was converted into trainable temporal deep-learning model architectures.
+
+This phase created the bridge between:
+
+Temporal Dataset Infrastructure  
+→  
+Temporal Model Learning
+
+The goal was not training yet.
+
+Instead, Phase 7 focused on:
+
+- temporal architecture correctness  
+- dataset/model compatibility  
+- tensor validation  
+- reproducible model configuration  
+
+---
+
+### 🔹 Temporal Dataset Contract
+
+Official temporal tensor:
+
+```text
+X_sequence.shape = (80, 60, 32)
+```
+Meaning :
+```
+80 batting shots
+→ 60 frames per shot
+→ 32 biomechanical features per frame
+```
+Model input contract:
+```
+[B, 60, 32]
+```
+Model output contract:
+```
+[B, 4]
+```
+---
+### 🔹 Temporal Architectures Implemented
+
+#### 1. GRUClassifier
+
+A lightweight temporal baseline model designed for sequence learning with lower overfitting risk.
+
+Pipeline:
+```
+Temporal sequence
+→ GRU encoder
+→ final timestep representation
+→ classification head
+→ shot logits
+```
+Parameter count:
+```
+421,892
+```
+---
+#### 2. BiLSTMClassifier
+
+A bidirectional temporal model designed to understand full-shot motion context.
+
+Pipeline:
+```
+Temporal sequence
+→ Bidirectional LSTM
+→ final timestep representation
+→ classification head
+→ shot logits
+```
+Parameter count:
+```
+562,180
+```
+### 🔹 Architecture Validation
+
+Phase 7 included architecture validation before training.
+
+Validation included:
+
+* temporal tensor compatibility
+* GRU forward-pass testing
+* BiLSTM forward-pass testing
+* shape validation
+* bad-rank failure handling
+
+Verified tensor flow:
+```
+Input:
+[4, 60, 32]
+
+Output:
+[4, 4]
+```
+This ensures the models are fully compatible with the finalized temporal dataset and ready for Phase 8 training.
+
+---
+### 🔹  Why Phase 7 Matters
+
+Cricket shots are motion sequences, not static poses.
+
+Instead of learning isolated posture snapshots, Smart Cricket now learns:
+```
+stance
+→ backswing
+→ swing
+→ follow-through
+```
+This establishes the core temporal intelligence layer required for:
+
+* sequence-aware shot classification
+* motion understanding
+* future real-time cricket analysis
+* AI coaching systems
+
+---
 ## 📂 Project Structure
 
 ml/
@@ -550,14 +677,24 @@ ml/
 │   │   ├── validate_final_dataset.py
 │   │   └── create_dataset_manifest.py
 │   │
-│   └── dataset_temporal/
-│       ├── create_temporal_feature_schema.py
-│       ├── build_temporal_feature_tensor.py
-│       ├── validate_temporal_features.py
-│       ├── create_temporal_label_encoder.py
-│       ├── create_temporal_dataset_splits.py
-│       ├── validate_temporal_dataset.py
-│       └── create_temporal_dataset_manifest.py
+│   ├── dataset_temporal/
+│   │   ├── create_temporal_feature_schema.py
+│   │   ├── build_temporal_feature_tensor.py
+│   │   ├── validate_temporal_features.py
+│   │   ├── create_temporal_label_encoder.py
+│   │   ├── create_temporal_dataset_splits.py
+│   │   ├── validate_temporal_dataset.py
+│   │   └── create_temporal_dataset_manifest.py
+│   └── models/
+│       ├── __init__.py
+│       ├── model_config.py
+│       ├── gru_classifier.py
+│       ├── test_gru_shapes.py
+│       ├── bilstm_classifier.py
+│       ├── test_bilstm_shapes.py
+│       ├── model_utils.py
+│       └── validate_temporal_architectures.py
+│
 │
 ├── data/
 │   ├── raw_videos/
@@ -746,7 +883,7 @@ Shape:
 (80, 60, 32)
 ```
 
-Phase 7 will use:
+Phase 8 will use:
 
 ```text
 ml/data/final_temporal/
@@ -760,12 +897,13 @@ as the official training dataset.
 
 Future phases will include:
 
-- sequence models (GRU/BiLSTM)
-- advanced motion understanding
-- technique scoring
-- cricket coaching feedback
-- real-time inference
-- AI-assisted batting analysis
+- temporal model training & evaluation  
+- GRU vs BiLSTM comparison  
+- advanced motion understanding  
+- technique scoring  
+- cricket coaching feedback  
+- real-time inference  
+- AI-assisted batting analysis  
 
 ---
 

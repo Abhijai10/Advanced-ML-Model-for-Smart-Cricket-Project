@@ -2,13 +2,17 @@
 
 Current Phase:
 - Phase 6 Completed (Temporal Dataset Infrastructure)
-- Preparing Phase 7 — Temporal Sequence Model Training
+- Phase 7 Completed
+- Preparing Phase 8 — Temporal Model Training & Evaluation
 
 Project Architecture Status:
 - Baseline tabular ML pipeline completed
 - Temporal sequence-learning redesign completed
 - Roadmap-aligned rank-3 dataset infrastructure completed
 - GRU/BiLSTM-ready temporal dataset finalized
+- temporal model architecture layer completed
+- GRU architecture validated
+- BiLSTM architecture validated
 
 Project Status:
 - Full preprocessing pipeline completed
@@ -20,6 +24,12 @@ Project Status:
 - Temporal dataset validation completed
 - Temporal dataset packaging and manifest system completed
 - Baseline tabular dataset preserved for comparison
+- temporal dataset/model contract verification completed
+- GRU temporal architecture completed
+- BiLSTM temporal architecture completed
+- temporal architecture validation completed
+- model configuration system completed
+- shape validation system completed
 
 Current Outputs:
 
@@ -54,6 +64,16 @@ Primary Temporal Dataset:
 - temporal_dataset_report.md
 - temporal_feature_validation_report.md
 - temporal_feature_health.json
+
+ml/src/models/
+- __init__.py
+- model_config.py
+- gru_classifier.py
+- test_gru_shapes.py
+- bilstm_classifier.py
+- test_bilstm_shapes.py
+- model_utils.py
+- validate_temporal_architectures.py
 
 Current Dataset Status:
 - 80 validated ML samples
@@ -221,7 +241,42 @@ Validation Results:
 - feature schema consistency verified
 
 ---
+## Phase 7 — Temporal Model Architecture Building
 
+Completed:
+- temporal dataset/model contract verification
+- reusable temporal model configuration system
+- GRU temporal architecture implementation
+- BiLSTM temporal architecture implementation
+- tensor shape validation pipeline
+- architecture forward-pass validation
+- parameter-count inspection system
+- training-ready temporal model foundation
+
+Official Tensor Contract:
+
+```text
+Input: [B, 60, 32]  
+Output: [B, 4] 
+```
+
+Temporal Architectures:
+- GRUClassifier
+- BiLSTMClassifier
+
+Validation Results:
+- tensor contract verified
+- GRU forward-pass validated
+- BiLSTM forward-pass validated
+- shape tests passing
+- architecture compatibility confirmed
+
+Engineering Purpose:
+- establish temporal motion-learning capability
+- safely transition into Phase 8 training & evaluation
+- preserve roadmap-aligned sequence learning
+
+---
 # 📂 Current Dataset State
 
 Total Videos:
@@ -309,7 +364,11 @@ Locked:
 # 🧠 Current ML Direction
 
 Current ML Stage:
-- Preparing temporal sequence model training
+- Preparing temporal model training & evaluation
+
+Temporal architectures completed:
+- GRU
+- BiLSTM
 
 Primary Planned Models:
 - GRU
@@ -364,6 +423,8 @@ Raw Video
 
 → Temporal Dataset Validation
 → Temporal Dataset Packaging
+→ Temporal Model Architecture Building
+→ Temporal Architecture Validation
 → GRU / BiLSTM Training
 → Technique Understanding
 → Coaching Feedback Engine
@@ -384,6 +445,10 @@ Current Technical Observations:
 - deterministic split system operational
 - all dataset artifacts validated
 - reproducible dataset infrastructure completed
+- GRU architecture validated successfully
+- BiLSTM architecture validated successfully
+- tensor contract verification passed
+- shape validation system operational
 
 Observed Engineering Concerns:
 - limited dataset size for deep sequence models
@@ -420,16 +485,17 @@ Likely Stable Components:
 # 🚀 Current Focus
 
 Current Work:
-- Preparing Phase 7 — Temporal Sequence Model Training
+- Preparing Phase 8 — Temporal Model Training & Evaluation
 
 Immediate Goals:
-- sequence model architecture setup
-- GRU experimentation
-- BiLSTM experimentation
+- training loop implementation
+- GRU training
+- BiLSTM training
+- validation metrics
+- checkpointing
 - overfitting prevention
-- evaluation metrics
+- model comparison
 - confusion matrix analysis
-- best temporal model selection
 
 Next Major Milestone:
 First working temporal cricket shot classification model.
