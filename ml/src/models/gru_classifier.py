@@ -10,6 +10,7 @@ import torch
 from torch import nn
 
 from .model_config import DEFAULT_TEMPORAL_CONFIG, TemporalClassifierConfig
+from .model_utils import validate_sequence_input
 
 
 class GRUClassifier(nn.Module):
@@ -39,12 +40,18 @@ class GRUClassifier(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Return class logits for a batch of temporal cricket sequences."""
-        if x.ndim != 3:
-            raise ValueError(f"Expected input rank 3 [B, T, F], got shape {tuple(x.shape)}.")
+        validate_sequence_input(x, self.config.sequence_length, self.config.input_size)
 
-        # GRU output keeps one hidden representation per timestep.
-        out, _hidden = self.gru(x)
+        _out, h_n = self.gru(x)
 
-        # Use the final timestep representation for shot classification.
-        last_timestep = out[:, -1, :]
-        return self.classifier(last_timestep)
+        # h_n layout is [num_layers * num_directions, batch, hidden_size].
+        # For a bidirectional final layer, -2 is forward and -1 is backward.
+        if self.config.gru_bidirectional:
+            final_forward = h_n[-2]
+            final_backward = h_n[-1]
+            readout = torch.cat((final_forward, final_backward), dim=1)
+        else:
+            # For a unidirectional GRU, -1 is the final layer's final hidden state.
+            readout = h_n[-1]
+
+        return self.classifier(readout)

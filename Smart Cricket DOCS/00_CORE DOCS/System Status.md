@@ -30,6 +30,10 @@ Project Status:
 - temporal architecture validation completed
 - model configuration system completed
 - shape validation system completed
+- pre-Phase-8 hardening completed
+- bidirectional recurrent readout corrected to use final forward/backward hidden states
+- player-overlap audit available for the current deterministic split
+- Phase 8 experiment contract locked
 
 Current Outputs:
 
@@ -74,6 +78,10 @@ ml/src/models/
 - test_bilstm_shapes.py
 - model_utils.py
 - validate_temporal_architectures.py
+
+Pre-Phase-8 Hardening:
+- ml/src/dataset_temporal/inspect_player_split_overlap.py
+- Smart Cricket DOCS/00_CORE DOCS/Phase 8 Experiment Contract.md
 
 Current Dataset Status:
 - 80 validated ML samples
@@ -248,6 +256,8 @@ Completed:
 - reusable temporal model configuration system
 - GRU temporal architecture implementation
 - BiLSTM temporal architecture implementation
+- bidirectional hidden-state readout correction
+- strengthened temporal input validation
 - tensor shape validation pipeline
 - architecture forward-pass validation
 - parameter-count inspection system
@@ -270,6 +280,9 @@ Validation Results:
 - BiLSTM forward-pass validated
 - shape tests passing
 - architecture compatibility confirmed
+- current split audited as development/in-distribution; exact sample leakage absent
+- player identity overlap may exist and must not be presented as unseen-player generalization
+- Phase 8 experiment rules documented before training
 
 Engineering Purpose:
 - establish temporal motion-learning capability
@@ -358,6 +371,7 @@ Locked:
 - artifact validation system
 - dataset manifest architecture
 - fixed label encoding system
+- current 56/12/12 temporal split is a development/in-distribution split, not a person-disjoint generalization proof
 
 ---
 

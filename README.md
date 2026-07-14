@@ -46,6 +46,7 @@ The project is being developed through structured ML engineering phases:
 - ✅ Phase 5.5: Temporal Feature Engineering Redesign  
 - ✅ Phase 6: Temporal ML Dataset Infrastructure  
 - ✅ Phase 7: Temporal Model Architecture Building 
+- ✅ Pre-Phase-8 Hardening: Architecture & Experiment Readiness Gate
 
 Current development is now focused on:
 
@@ -78,6 +79,10 @@ Current completed outputs:
 - Dataset manifests and metadata registry  
 - Complete GRU/BiLSTM-ready dataset infrastructure  
 - Verified temporal model architectures (GRU / BiLSTM) 
+- Correct bidirectional recurrent hidden-state readout
+- Strong temporal model input validation
+- Player-overlap audit for the current development split
+- Locked Phase 8 experiment contract
 
 Current temporal dataset contract:
 
@@ -129,6 +134,12 @@ The project now contains a fully validated and packaged temporal machine-learnin
 - BiLSTM training  
 - temporal motion learning  
 - sequence-aware cricket shot classification  
+
+Important split interpretation:
+
+- The current deterministic 56/12/12 split is useful for development and in-distribution evaluation.
+- It is not a person-disjoint split and must not be presented as proof of unseen-player generalization.
+- Future unseen-player evaluation should use a documented player-held-out protocol.
 
 ---
 
@@ -189,6 +200,8 @@ GRU / BiLSTM-Ready Dataset Infrastructure
 GRU / BiLSTM Temporal Model Architecture  
 ↓  
 Temporal Architecture Validation  
+↓  
+Pre-Phase-8 Hardening & Experiment Contract  
 ↓  
 Phase 8 Training & Evaluation
 
