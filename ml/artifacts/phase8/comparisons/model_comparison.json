@@ -1,0 +1,22 @@
+[
+  {
+    "model_name": "bigru",
+    "num_seeds": 3,
+    "mean_validation_macro_f1": 0.8353174603174603,
+    "std_validation_macro_f1": 0.0030865772194651297,
+    "mean_validation_accuracy": 0.8333333333333334,
+    "mean_train_validation_accuracy_gap": 0.16666666666666663,
+    "mean_validation_loss": 0.9045224454667832,
+    "parameter_count": 421892
+  },
+  {
+    "model_name": "bilstm",
+    "num_seeds": 3,
+    "mean_validation_macro_f1": 0.7236111111111111,
+    "std_validation_macro_f1": 0.04705101014919297,
+    "mean_validation_accuracy": 0.7222222222222222,
+    "mean_train_validation_accuracy_gap": 0.2718253968253968,
+    "mean_validation_loss": 1.1715917189915974,
+    "parameter_count": 562180
+  }
+]

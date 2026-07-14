@@ -47,15 +47,12 @@ The project is being developed through structured ML engineering phases:
 - ✅ Phase 6: Temporal ML Dataset Infrastructure  
 - ✅ Phase 7: Temporal Model Architecture Building 
 - ✅ Pre-Phase-8 Hardening: Architecture & Experiment Readiness Gate
+- ✅ Phase 8: Temporal Model Training & Evaluation
 
 Current development is now focused on:
 
 ```text
-Temporal model training & evaluation
-```
-using :
-```
-GRU / BiLSTM temporal architectures
+Phase 9 — Shot Segmentation planning
 ```
 
 
@@ -83,6 +80,8 @@ Current completed outputs:
 - Strong temporal model input validation
 - Player-overlap audit for the current development split
 - Locked Phase 8 experiment contract
+- Completed Phase 8 temporal training and evaluation
+- Validation-selected bidirectional GRU checkpoint for later phases
 
 Current temporal dataset contract:
 
@@ -134,6 +133,21 @@ The project now contains a fully validated and packaged temporal machine-learnin
 - BiLSTM training  
 - temporal motion learning  
 - sequence-aware cricket shot classification  
+
+Phase 8 trained the official bidirectional GRU and BiLSTM architectures across seeds 42, 123, and 2026. Model selection used validation macro F1 only, then evaluated the selected checkpoint once on the holdout test split.
+
+Phase 8 result summary:
+
+- Selected model: bidirectional GRU (`bigru`)
+- Mean validation macro F1: `0.8353`
+- Mean validation accuracy: `0.8333`
+- Final holdout test accuracy: `0.6667`
+- Final holdout test macro F1: `0.6762`
+- Best checkpoint: `ml/artifacts/phase8/best_model/checkpoint.pt`
+
+Important limitation:
+
+- The official split is deterministic and class-balanced, but not person-disjoint. These results represent sample-stratified, in-distribution development performance, not proof of unseen-player generalization.
 
 Important split interpretation:
 
@@ -633,7 +647,64 @@ Input:
 Output:
 [4, 4]
 ```
-This ensures the models are fully compatible with the finalized temporal dataset and ready for Phase 8 training.
+This ensured the models were fully compatible with the finalized temporal dataset before Phase 8 training.
+
+---
+
+## 🧪 Phase 8 — Temporal Model Training & Evaluation (Completed)
+
+Phase 8 added the reproducible training and evaluation layer for the temporal dataset.
+
+Implemented systems:
+
+- PyTorch temporal Dataset/DataLoader infrastructure
+- Train-only feature standardization
+- Reproducibility and environment capture
+- Supervised GRU/BiLSTM trainer
+- Validation macro-F1 checkpointing
+- Early stopping, gradient clipping, and AdamW optimization
+- Per-seed metrics, histories, checkpoints, plots, and predictions
+- Model comparison and best-model selection
+- Final holdout test evaluation
+- Failure analysis and person-overlap limitation reporting
+
+Models trained:
+
+```text
+bigru seeds: 42, 123, 2026
+bilstm seeds: 42, 123, 2026
+```
+
+Aggregate validation comparison:
+
+```text
+bigru  mean macro F1 = 0.8353, std = 0.0031, params = 421,892
+bilstm mean macro F1 = 0.7236, std = 0.0471, params = 562,180
+```
+
+Final selected checkpoint:
+
+```text
+ml/artifacts/phase8/best_model/checkpoint.pt
+```
+
+Final holdout test metrics for selected `bigru` checkpoint:
+
+```text
+accuracy        = 0.6667
+macro precision = 0.7083
+macro recall    = 0.6667
+macro F1        = 0.6762
+weighted F1     = 0.6762
+```
+
+Primary Phase 8 artifacts:
+
+- `ml/artifacts/phase8/Phase 8 Training and Evaluation Report.md`
+- `ml/artifacts/phase8/comparisons/model_comparison.json`
+- `ml/artifacts/phase8/comparisons/final_test_metrics.json`
+- `ml/artifacts/phase8/phase8_failure_analysis.md`
+- `ml/artifacts/phase8/best_model/`
 
 ---
 ### 🔹  Why Phase 7 Matters
@@ -707,6 +778,19 @@ ml/
 │       ├── test_bilstm_shapes.py
 │       ├── model_utils.py
 │       └── validate_temporal_architectures.py
+│   │
+│   └── training/
+│       ├── training_config.py
+│       ├── reproducibility.py
+│       ├── temporal_dataset.py
+│       ├── feature_scaler.py
+│       ├── trainer.py
+│       ├── checkpointing.py
+│       ├── metrics.py
+│       ├── train_temporal_models.py
+│       ├── evaluate_temporal_model.py
+│       ├── compare_temporal_models.py
+│       └── tests/
 │
 │
 ├── data/
@@ -896,13 +980,19 @@ Shape:
 (80, 60, 32)
 ```
 
-Phase 8 will use:
+Phase 8 used:
 
 ```text
 ml/data/final_temporal/
 ```
 
-as the official training dataset.
+as the official training dataset and selected:
+
+```text
+ml/artifacts/phase8/best_model/checkpoint.pt
+```
+
+for later temporal-model phases.
 
 ---
 
@@ -910,8 +1000,7 @@ as the official training dataset.
 
 Future phases will include:
 
-- temporal model training & evaluation  
-- GRU vs BiLSTM comparison  
+- shot segmentation
 - advanced motion understanding  
 - technique scoring  
 - cricket coaching feedback  

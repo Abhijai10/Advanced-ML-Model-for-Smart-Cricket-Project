@@ -1,0 +1,47 @@
+{
+  "epsilon": 1e-06,
+  "mean_shape": [
+    32
+  ],
+  "std_shape": [
+    32
+  ],
+  "fitting_split": "train",
+  "created_at": "2026-07-14T21:13:44.624237Z",
+  "feature_schema_path": "ml/data/final_temporal/temporal_feature_schema.json",
+  "dataset_version": "phase_6_temporal_v1",
+  "feature_columns": [
+    "lead_elbow_angle",
+    "trail_elbow_angle",
+    "lead_knee_angle",
+    "trail_knee_angle",
+    "lead_shoulder_angle",
+    "trail_shoulder_angle",
+    "lead_wrist_relative_x",
+    "hip_rotation_angle",
+    "trunk_lean",
+    "head_over_base_offset",
+    "head_to_lead_knee_alignment",
+    "shoulder_hip_separation",
+    "stance_width",
+    "body_center_offset_x",
+    "body_center_offset_y",
+    "upper_body_balance_offset",
+    "lead_wrist_velocity",
+    "trail_wrist_velocity",
+    "lead_elbow_velocity",
+    "trail_elbow_velocity",
+    "body_center_velocity",
+    "lead_wrist_acceleration",
+    "hip_rotation_velocity",
+    "frame_motion_energy",
+    "front_foot_commitment_signal",
+    "back_foot_loading_signal",
+    "weight_transfer_signal",
+    "follow_through_height_signal",
+    "follow_through_extension_signal",
+    "lead_elbow_extension_signal",
+    "bat_side_wrist_height_signal",
+    "stance_to_swing_progress_signal"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "run_id": "smoke_bigru_7",
+  "model_name": "bigru",
+  "seed": 7,
+  "smoke": true,
+  "parameter_count": 421892,
+  "best_epoch": 2,
+  "best_validation_macro_f1": 0.375,
+  "best_validation_accuracy": 0.4166666666666667,
+  "best_validation_loss": 1.207995096842448,
+  "final_training_accuracy": 0.5892857142857143,
+  "train_validation_accuracy_gap": 0.17261904761904762,
+  "checkpoint_path": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase8/experiments/smoke_bigru_7/checkpoints/best.pt",
+  "run_dir": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase8/experiments/smoke_bigru_7"
+}

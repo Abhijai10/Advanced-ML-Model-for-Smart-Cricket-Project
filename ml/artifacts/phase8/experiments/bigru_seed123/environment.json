@@ -1,0 +1,14 @@
+{
+  "python_version": "3.13.9 | packaged by Anaconda, Inc. | (main, Oct 21 2025, 19:11:29) [Clang 20.1.8 ]",
+  "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+  "processor": "arm",
+  "numpy_version": "2.4.4",
+  "torch_version": "2.11.0",
+  "sklearn_version": "1.8.0",
+  "device": "cpu",
+  "cuda_available": false,
+  "mps_available": false,
+  "git_commit_sha": "ff9617a",
+  "dataset_manifest_version": "phase_6_temporal_v1",
+  "determinism_note": "Seeds and deterministic flags are set where practical; bitwise determinism may still differ across CPU, CUDA, and MPS backends."
+}

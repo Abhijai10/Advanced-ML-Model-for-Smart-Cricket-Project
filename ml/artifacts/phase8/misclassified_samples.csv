@@ -1,0 +1,5 @@
+split,row_index,video_id,file_name,person_id,quality,true_label_index,true_label_name,predicted_label_index,predicted_label_name,confidence,correct,run_id,checkpoint_epoch,model_name,seed,probability_cover_drive,probability_defensive_shot,probability_pull_shot,probability_sweep_shot
+test,56,61,pull_shot_good_05.mov,playerC,good,2,pull_shot,1,defensive_shot,0.467300534248352,False,bigru_seed42,14,bigru,42,0.2943378686904907,0.467300534248352,0.2325013577938079,0.0058603002689778
+test,13,14,cover_drive_good_02.mov,playerA,good,0,cover_drive,3,sweep_shot,0.6302573680877686,False,bigru_seed42,14,bigru,42,0.254075825214386,0.0020478931255638,0.1136188879609108,0.6302573680877686
+test,69,74,sweep_shot_bad_02.mov,playerB,bad,3,sweep_shot,2,pull_shot,0.988636553287506,False,bigru_seed42,14,bigru,42,0.0006478620343841,0.0056302989833056,0.988636553287506,0.0050852848216891
+test,33,34,defensive_shot_good_02.mov,playerA,good,1,defensive_shot,3,sweep_shot,0.6852043867111206,False,bigru_seed42,14,bigru,42,0.0140505228191614,0.298228919506073,0.0025161469820886,0.6852043867111206

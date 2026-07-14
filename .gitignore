@@ -53,6 +53,7 @@ ml/data/samples/
 # =========================
 ml/models/
 *.pt
+!ml/artifacts/phase8/best_model/checkpoint.pt
 *.pth
 *.onnx
 *.tflite

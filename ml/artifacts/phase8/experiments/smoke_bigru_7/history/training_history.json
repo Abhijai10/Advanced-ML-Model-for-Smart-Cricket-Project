@@ -1,0 +1,35 @@
+[
+  {
+    "epoch": 1,
+    "training_loss": 1.397638542311532,
+    "validation_loss": 1.291538953781128,
+    "training_accuracy": 0.23214285714285715,
+    "validation_accuracy": 0.3333333333333333,
+    "validation_macro_f1": 0.24285714285714285,
+    "learning_rate": 0.001,
+    "epoch_duration": 0.2617518901824951,
+    "best_checkpoint": true
+  },
+  {
+    "epoch": 2,
+    "training_loss": 1.276976227760315,
+    "validation_loss": 1.207995096842448,
+    "training_accuracy": 0.48214285714285715,
+    "validation_accuracy": 0.4166666666666667,
+    "validation_macro_f1": 0.375,
+    "learning_rate": 0.001,
+    "epoch_duration": 0.24770212173461914,
+    "best_checkpoint": true
+  },
+  {
+    "epoch": 3,
+    "training_loss": 1.1156120811189925,
+    "validation_loss": 1.1937837600708008,
+    "training_accuracy": 0.5892857142857143,
+    "validation_accuracy": 0.3333333333333333,
+    "validation_macro_f1": 0.25396825396825395,
+    "learning_rate": 0.001,
+    "epoch_duration": 0.30388522148132324,
+    "best_checkpoint": false
+  }
+]

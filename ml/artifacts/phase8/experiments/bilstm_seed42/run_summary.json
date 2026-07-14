@@ -1,0 +1,15 @@
+{
+  "run_id": "bilstm_seed42",
+  "model_name": "bilstm",
+  "seed": 42,
+  "smoke": false,
+  "parameter_count": 562180,
+  "best_epoch": 15,
+  "best_validation_macro_f1": 0.7541666666666667,
+  "best_validation_accuracy": 0.75,
+  "best_validation_loss": 1.2601161400477092,
+  "final_training_accuracy": 1.0,
+  "train_validation_accuracy_gap": 0.25,
+  "checkpoint_path": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase8/experiments/bilstm_seed42/checkpoints/best.pt",
+  "run_dir": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase8/experiments/bilstm_seed42"
+}

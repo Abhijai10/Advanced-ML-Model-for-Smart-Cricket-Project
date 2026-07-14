@@ -1,0 +1,15 @@
+{
+  "run_id": "bigru_seed123",
+  "model_name": "bigru",
+  "seed": 123,
+  "smoke": false,
+  "parameter_count": 421892,
+  "best_epoch": 9,
+  "best_validation_macro_f1": 0.8309523809523809,
+  "best_validation_accuracy": 0.8333333333333334,
+  "best_validation_loss": 0.8300330638885498,
+  "final_training_accuracy": 1.0,
+  "train_validation_accuracy_gap": 0.16666666666666663,
+  "checkpoint_path": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase8/experiments/bigru_seed123/checkpoints/best.pt",
+  "run_dir": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase8/experiments/bigru_seed123"
+}

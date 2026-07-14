@@ -1,0 +1,18 @@
+{
+  "status": "readiness_documented_not_run",
+  "reason": "The official Phase 8 model selection uses the locked 56/12/12 development split. Leave-one-player-out evaluation is scientifically useful, but with only four players it needs a separately locked validation policy before reporting numbers.",
+  "official_split_policy": "sample-stratified development split; not person-disjoint",
+  "future_protocol_recommendation": "Design a group-aware protocol with train-only scaler fitting inside every fold, a predeclared validation strategy on training players, and no fold-level test tuning.",
+  "available_players": [
+    "playerA",
+    "playerB",
+    "playerC",
+    "playerD"
+  ],
+  "samples_per_player": {
+    "playerA": 20,
+    "playerB": 20,
+    "playerC": 20,
+    "playerD": 20
+  }
+}

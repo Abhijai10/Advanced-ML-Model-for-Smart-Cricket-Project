@@ -3,7 +3,8 @@
 Current Phase:
 - Phase 6 Completed (Temporal Dataset Infrastructure)
 - Phase 7 Completed
-- Preparing Phase 8 — Temporal Model Training & Evaluation
+- Phase 8 Completed — Temporal Model Training & Evaluation
+- Preparing Phase 9 — Shot Segmentation
 
 Project Architecture Status:
 - Baseline tabular ML pipeline completed
@@ -34,6 +35,12 @@ Project Status:
 - bidirectional recurrent readout corrected to use final forward/backward hidden states
 - player-overlap audit available for the current deterministic split
 - Phase 8 experiment contract locked
+- Phase 8 training pipeline completed
+- train-only temporal feature scaler completed
+- reproducibility and environment capture completed
+- checkpointing and evaluation system completed
+- bidirectional GRU and BiLSTM trained across seeds 42, 123, and 2026
+- validation-selected best model artifact created
 
 Current Outputs:
 
@@ -82,6 +89,14 @@ ml/src/models/
 Pre-Phase-8 Hardening:
 - ml/src/dataset_temporal/inspect_player_split_overlap.py
 - Smart Cricket DOCS/00_CORE DOCS/Phase 8 Experiment Contract.md
+
+Phase 8 Training Artifacts:
+- ml/src/training/
+- ml/artifacts/phase8/Phase 8 Training and Evaluation Report.md
+- ml/artifacts/phase8/comparisons/model_comparison.json
+- ml/artifacts/phase8/comparisons/final_test_metrics.json
+- ml/artifacts/phase8/phase8_failure_analysis.md
+- ml/artifacts/phase8/best_model/checkpoint.pt
 
 Current Dataset Status:
 - 80 validated ML samples
@@ -290,6 +305,65 @@ Engineering Purpose:
 - preserve roadmap-aligned sequence learning
 
 ---
+## Phase 8 — Temporal Model Training & Evaluation
+
+Completed:
+- PyTorch Dataset/DataLoader infrastructure for temporal tensors
+- train-only feature standardization
+- reproducibility controls and environment metadata
+- supervised trainer for GRU/BiGRU and BiLSTM
+- AdamW optimization with CrossEntropyLoss
+- validation macro-F1 checkpoint selection
+- early stopping, gradient clipping, and learning-rate scheduling
+- per-seed metrics, histories, plots, predictions, and checkpoints
+- model comparison and selected best-model artifact
+- final holdout test evaluation
+- failure analysis with sample traceability
+- person-overlap limitation documented
+
+Official Experiments:
+```text
+bigru:  seeds 42, 123, 2026
+bilstm: seeds 42, 123, 2026
+```
+
+Aggregate Validation Results:
+```text
+bigru:  mean macro F1 = 0.8353, std = 0.0031, mean accuracy = 0.8333
+bilstm: mean macro F1 = 0.7236, std = 0.0471, mean accuracy = 0.7222
+```
+
+Selected Model:
+```text
+bidirectional GRU (bigru)
+```
+
+Selected Checkpoint:
+```text
+ml/artifacts/phase8/best_model/checkpoint.pt
+```
+
+Final Holdout Test Results:
+```text
+accuracy        = 0.6667
+macro precision = 0.7083
+macro recall    = 0.6667
+macro F1        = 0.6762
+weighted F1     = 0.6762
+```
+
+Confusion Matrix Summary:
+- cover_drive predicted as sweep_shot: 1
+- defensive_shot predicted as sweep_shot: 1
+- pull_shot predicted as defensive_shot: 1
+- sweep_shot predicted as pull_shot: 1
+
+Generalization Limitation:
+- current metrics represent sample-stratified, in-distribution development performance
+- current split is not person-disjoint
+- results must not be presented as unseen-player generalization
+
+---
 # 📂 Current Dataset State
 
 Total Videos:
@@ -378,14 +452,14 @@ Locked:
 # 🧠 Current ML Direction
 
 Current ML Stage:
-- Preparing temporal model training & evaluation
+- Temporal model training complete; preparing shot segmentation
 
 Temporal architectures completed:
 - GRU
 - BiLSTM
 
-Primary Planned Models:
-- GRU
+Primary Trained Models:
+- bidirectional GRU
 - BiLSTM
 
 Purpose:
@@ -393,7 +467,7 @@ Purpose:
 - motion progression understanding
 - sequence-aware biomechanical learning
 
-Baseline Comparison Models:
+Future Baseline Comparison Models:
 - Logistic Regression
 - Random Forest
 - Support Vector Machine (SVM)
@@ -440,8 +514,10 @@ Raw Video
 → Temporal Model Architecture Building
 → Temporal Architecture Validation
 → GRU / BiLSTM Training
-→ Technique Understanding
-→ Coaching Feedback Engine
+→ Phase 8 Best Temporal Checkpoint
+→ Shot Segmentation
+→ Future Technique Understanding
+→ Future Coaching Feedback Engine
 
 ---
 
@@ -463,15 +539,19 @@ Current Technical Observations:
 - BiLSTM architecture validated successfully
 - tensor contract verification passed
 - shape validation system operational
+- Phase 8 training and evaluation completed
+- selected bidirectional GRU reached final holdout test macro F1 of 0.6762
+- validation/test gap and 56-sample training size indicate overfitting risk remains
 
 Observed Engineering Concerns:
 - limited dataset size for deep sequence models
 - some motion-related features may require redesign in future iterations
 - future scaling will require larger and more diverse cricket datasets
+- current split is not person-disjoint, so unseen-player claims are not supported
 
 Current Engineering Decision:
 - prioritize roadmap-aligned temporal sequence learning
-- compare temporal models against classical ML baselines
+- carry the validation-selected bidirectional GRU checkpoint into later temporal phases
 - prevent overfitting through careful regularization
 - stabilize temporal training before architectural expansion
 
@@ -499,20 +579,16 @@ Likely Stable Components:
 # 🚀 Current Focus
 
 Current Work:
-- Preparing Phase 8 — Temporal Model Training & Evaluation
+- Preparing Phase 9 — Shot Segmentation
 
 Immediate Goals:
-- training loop implementation
-- GRU training
-- BiLSTM training
-- validation metrics
-- checkpointing
-- overfitting prevention
-- model comparison
-- confusion matrix analysis
+- design shot segmentation boundaries
+- preserve Phase 8 checkpoint/evaluation traceability
+- avoid changing the locked Phase 8 dataset split or model-selection record
+- plan how segmented clips will feed the existing temporal model contract
 
 Next Major Milestone:
-First working temporal cricket shot classification model.
+Roadmap-aligned shot segmentation layer that can feed the trained temporal classifier.
 
 ---
 
