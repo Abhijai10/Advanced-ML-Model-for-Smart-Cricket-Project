@@ -1,0 +1,17 @@
+{
+  "phase": "Phase 13",
+  "version": "phase_13_api_integration_v1",
+  "created_at": "2026-08-03T19:04:18.944698Z",
+  "health_endpoint_passed": true,
+  "analyze_endpoint_passed": true,
+  "error_handling_passed": true,
+  "sample_status_code": 200,
+  "error_status_code": 422,
+  "validation_errors": [],
+  "validation_passed": true,
+  "output_files": {
+    "sample_api_response": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase13/sample_api_response.json",
+    "api_health": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase13/api_health.json",
+    "api_validation_report": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase13/api_validation_report.md"
+  }
+}

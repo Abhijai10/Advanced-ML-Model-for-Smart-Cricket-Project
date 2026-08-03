@@ -52,11 +52,12 @@ The project is being developed through structured ML engineering phases:
 - ✅ Phase 10: Technique Scoring System
 - ✅ Phase 11: Feedback Engine
 - ✅ Phase 12: Offline Inference Pipeline
+- ✅ Phase 13: API Integration
 
 Current development is now focused on:
 
 ```text
-Phase 13 — API Integration planning
+Phase 14 — Voice Output planning
 ```
 
 
@@ -95,6 +96,8 @@ Current completed outputs:
 - TTS-friendly spoken feedback strings prepared for future voice output
 - Offline Phase 12 inference pipeline returning stable structured JSON
 - Integrated prediction, segmentation, scoring, and feedback orchestration for finalized temporal sequences
+- Phase 13 FastAPI backend wrapper with `/health` and `/analyze`
+- Frontend-consumable API response that calls the Phase 12 pipeline without duplicating ML logic
 
 Current temporal dataset contract:
 
@@ -205,6 +208,17 @@ Phase 12 connects the core ML modules into one offline analysis result:
 - Output schema stable: `True`
 - Sample output: `ml/artifacts/phase12/sample_output.json`
 
+Phase 13 exposes the analysis pipeline through a backend API:
+
+- API framework: FastAPI
+- Health endpoint: `GET /health`
+- Analyze endpoint: `POST /analyze`
+- Sample upload filename: `cover_drive_average_02.mov`
+- Analyze status code: `200`
+- Unknown video error status code: `422`
+- Validation passed: `True`
+- Sample response: `ml/artifacts/phase13/sample_api_response.json`
+
 Important split interpretation:
 
 - The current deterministic 56/12/12 split is useful for development and in-distribution evaluation.
@@ -282,6 +296,8 @@ Phase 10 Technique Scoring
 Phase 11 Feedback Engine
 ↓
 Phase 12 Offline Inference Pipeline
+↓
+Phase 13 API Integration
 
 ---
 
@@ -998,6 +1014,58 @@ Important interpretation:
 - It uses the real Phase 8 checkpoint, Phase 9 segmenter, Phase 10 scorer, and Phase 11 feedback engine.
 - Raw video upload handling belongs to Phase 13 API integration.
 - Voice/TTS output remains Phase 14.
+
+---
+
+## 🌐 Phase 13 — API Integration (Completed)
+
+Phase 13 exposes the Smart Cricket analysis pipeline through a backend API boundary.
+
+Core idea:
+
+```text
+uploaded video
+→ API validation
+→ Phase 12 inference pipeline
+→ structured JSON response
+```
+
+Implemented systems:
+
+- `backend/api/app.py`
+- `backend/api/routes.py`
+- `backend/api/schemas.py`
+- `backend/api/services.py`
+- `backend/api/validate_api.py`
+- `backend/api/tests/test_api.py`
+
+Primary Phase 13 artifacts:
+
+- `ml/artifacts/phase13/sample_api_response.json`
+- `ml/artifacts/phase13/api_health.json`
+- `ml/artifacts/phase13/api_validation_report.md`
+
+Validation result:
+
+```text
+Health endpoint passed: True
+Analyze endpoint passed: True
+Error handling passed: True
+Validation passed: True
+```
+
+Important interpretation:
+
+- The API layer calls Phase 12 and does not duplicate ML business logic.
+- Phase 13 v1 validates upload transport using known finalized dataset video filenames.
+- Arbitrary raw-video preprocessing is intentionally left for later hardening.
+- Voice/TTS output remains Phase 14.
+
+Run locally:
+
+```bash
+PYTHONPATH=. ml/venv/bin/uvicorn backend.api.app:app --reload
+```
 
 ---
 ### 🔹  Why Phase 7 Matters

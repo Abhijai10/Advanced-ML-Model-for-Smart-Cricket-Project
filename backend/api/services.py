@@ -1,0 +1,128 @@
+"""Service layer that keeps API transport separate from ML inference logic."""
+
+from __future__ import annotations
+
+import shutil
+import sys
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from fastapi import UploadFile
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+ML_SRC = PROJECT_ROOT / "ml" / "src"
+if str(ML_SRC) not in sys.path:
+    sys.path.insert(0, str(ML_SRC))
+
+from inference.analysis_pipeline import analyze_sequence, load_dataset_sequence  # noqa: E402
+from inference.inference_config import PHASE12_VERSION  # noqa: E402
+
+
+PHASE13_VERSION = "phase_13_api_integration_v1"
+ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv"}
+MAX_UPLOAD_BYTES = 250 * 1024 * 1024
+
+
+class APIValidationError(ValueError):
+    """Expected user/input validation error for API responses."""
+
+    def __init__(self, message: str, error_code: str = "invalid_request") -> None:
+        super().__init__(message)
+        self.error_code = error_code
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _validate_video_upload(file: UploadFile) -> str:
+    filename = Path(file.filename or "").name
+    if not filename:
+        raise APIValidationError("Upload must include a filename.", "missing_filename")
+    suffix = Path(filename).suffix.lower()
+    if suffix not in ALLOWED_VIDEO_EXTENSIONS:
+        raise APIValidationError(
+            f"Unsupported file type {suffix!r}. Expected one of {sorted(ALLOWED_VIDEO_EXTENSIONS)}.",
+            "unsupported_file_type",
+        )
+    return filename
+
+
+def _save_upload_to_temp(file: UploadFile, filename: str) -> tuple[Path, int]:
+    temp_dir = Path(tempfile.mkdtemp(prefix="smart_cricket_api_"))
+    temp_path = temp_dir / filename
+    total_bytes = 0
+    try:
+        with temp_path.open("wb") as out:
+            while True:
+                chunk = file.file.read(1024 * 1024)
+                if not chunk:
+                    break
+                total_bytes += len(chunk)
+                if total_bytes > MAX_UPLOAD_BYTES:
+                    raise APIValidationError("Uploaded video exceeds maximum size.", "file_too_large")
+                out.write(chunk)
+        return temp_path, total_bytes
+    except Exception:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        raise
+
+
+def _cleanup_temp_path(path: Path) -> None:
+    shutil.rmtree(path.parent, ignore_errors=True)
+
+
+def analyze_uploaded_video(file: UploadFile) -> dict[str, Any]:
+    """Analyze one uploaded cricket video using the Phase 12 pipeline.
+
+    Phase 13 v1 accepts a video upload and uses the upload filename to resolve a
+    finalized temporal sequence from the locked v1 dataset. Arbitrary raw-video
+    feature extraction remains a later integration hardening task.
+    """
+    filename = _validate_video_upload(file)
+    temp_path, upload_bytes = _save_upload_to_temp(file, filename)
+    try:
+        try:
+            sequence, source_metadata = load_dataset_sequence(file_name=filename)
+        except ValueError as exc:
+            raise APIValidationError(
+                (
+                    "Uploaded filename is not present in the finalized temporal dataset. "
+                    "Phase 13 v1 validates API integration against known v1 dataset videos; "
+                    "arbitrary raw-video preprocessing is intentionally deferred."
+                ),
+                "unknown_dataset_video",
+            ) from exc
+
+        result = analyze_sequence(sequence, source_metadata).to_dict()
+        result["api_metadata"] = {
+            "phase": "Phase 13",
+            "version": PHASE13_VERSION,
+            "created_at": _utc_now(),
+            "upload_filename": filename,
+            "upload_bytes": upload_bytes,
+            "temporary_file_saved": True,
+            "temporary_file_cleaned": True,
+            "pipeline_version": PHASE12_VERSION,
+            "api_note": (
+                "API transport is separate from ML business logic. This endpoint calls "
+                "the Phase 12 offline inference pipeline."
+            ),
+        }
+        return result
+    finally:
+        _cleanup_temp_path(temp_path)
+
+
+def api_health() -> dict[str, Any]:
+    """Return API health information without running inference."""
+    return {
+        "status": "ok",
+        "service": "smart_cricket_api",
+        "phase": "Phase 13",
+        "inference_ready": True,
+        "version": PHASE13_VERSION,
+    }

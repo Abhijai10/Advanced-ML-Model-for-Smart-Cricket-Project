@@ -8,7 +8,8 @@ Current Phase:
 - Phase 10 Completed — Technique Scoring System
 - Phase 11 Completed — Feedback Engine
 - Phase 12 Completed — Offline Inference Pipeline
-- Preparing Phase 13 — API Integration
+- Phase 13 Completed — API Integration
+- Preparing Phase 14 — Voice Output
 
 Project Architecture Status:
 - Baseline tabular ML pipeline completed
@@ -55,6 +56,9 @@ Project Status:
 - spoken feedback strings generated for future voice output
 - Phase 12 offline inference pipeline completed
 - prediction, segmentation, scoring, and feedback modules connected into one structured JSON result
+- Phase 13 FastAPI backend integration completed
+- `/health` and `/analyze` endpoints validated
+- API response calls Phase 12 pipeline without duplicating ML logic
 
 Current Outputs:
 
@@ -139,6 +143,12 @@ Phase 12 Inference Artifacts:
 - ml/artifacts/phase12/sample_output.json
 - ml/artifacts/phase12/inference_health.json
 - ml/artifacts/phase12/inference_report.md
+
+Phase 13 API Artifacts:
+- backend/api/
+- ml/artifacts/phase13/sample_api_response.json
+- ml/artifacts/phase13/api_health.json
+- ml/artifacts/phase13/api_validation_report.md
 
 Current Dataset Status:
 - 80 validated ML samples
@@ -606,8 +616,57 @@ Interpretation:
 - Phase 12 v1 orchestrates finalized temporal sequences using the locked `[60, 32]` feature contract
 - the pipeline uses the real Phase 8 selected checkpoint and scaler
 - the pipeline calls existing business logic instead of duplicating model, scoring, or feedback code
-- raw video upload handling and HTTP transport remain Phase 13
+- HTTP transport is handled by Phase 13
 - voice output remains Phase 14
+
+---
+
+## Phase 13 — API Integration
+
+Completed:
+- created `backend/api/`
+- implemented FastAPI app boundary
+- implemented `GET /health`
+- implemented `POST /analyze`
+- implemented request validation and upload handling
+- implemented stable response schemas
+- implemented service layer that calls the Phase 12 pipeline
+- implemented clean user/input error handling
+- implemented API validation script
+- implemented API tests
+- generated sample API response, health JSON, and validation report artifacts
+
+Phase 13 takes:
+```text
+uploaded video file
+```
+
+and produces:
+```text
+JSON response with prediction, score, feedback, and debug metadata
+```
+
+Validation Results:
+```text
+Health endpoint passed: True
+Analyze endpoint passed: True
+Error handling passed: True
+Sample status code: 200
+Unknown video error status code: 422
+Validation passed: True
+```
+
+Interpretation:
+- the API layer does not duplicate model, scoring, segmentation, or feedback logic
+- API transport calls the Phase 12 offline inference pipeline
+- Phase 13 v1 validates uploads using known finalized dataset video filenames
+- arbitrary raw-video preprocessing remains a future hardening task
+- voice output remains Phase 14
+
+Run Command:
+```bash
+PYTHONPATH=. ml/venv/bin/uvicorn backend.api.app:app --reload
+```
 
 ---
 # 📂 Current Dataset State
@@ -765,7 +824,8 @@ Raw Video
 → Technique Scoring
 → Feedback Engine
 → Offline Inference Pipeline
-→ Future API Integration
+→ API Integration
+→ Future Voice Output
 
 ---
 
@@ -798,6 +858,8 @@ Current Technical Observations:
 - feedback outputs include detected issues, tips, detailed feedback, spoken feedback, and debug metadata
 - Phase 12 inference validation passed
 - sample inference output returns prediction, segmentation, score, feedback, and debug metadata
+- Phase 13 API validation passed
+- API response returns prediction, score, feedback, debug metadata, and API metadata
 
 Observed Engineering Concerns:
 - limited dataset size for deep sequence models
@@ -807,6 +869,7 @@ Observed Engineering Concerns:
 - v1 technique templates are derived from available train-split examples and should later be coach-reviewed or replaced with professional references
 - feedback quality depends on v1 scoring templates and should be coach-reviewed before production claims
 - Phase 12 v1 analyzes finalized temporal sequences; raw video upload orchestration remains a future integration layer
+- Phase 13 v1 validates upload transport against known finalized dataset filenames; arbitrary raw-video support needs later hardening
 
 Current Engineering Decision:
 - prioritize roadmap-aligned temporal sequence learning
@@ -838,16 +901,16 @@ Likely Stable Components:
 # 🚀 Current Focus
 
 Current Work:
-- Preparing Phase 13 — API Integration
+- Preparing Phase 14 — Voice Output
 
 Immediate Goals:
-- expose the offline inference pipeline through a backend-accessible API
-- keep API logic separate from ML business logic
-- return the stable Phase 12 JSON response shape
-- avoid implementing voice output before Phase 14
+- convert spoken feedback text into audio-ready output
+- keep TTS as a separate service boundary
+- preserve visible feedback and spoken feedback consistency
+- avoid hardcoding one provider too early
 
 Next Major Milestone:
-Roadmap-aligned API integration that calls the Phase 12 pipeline without duplicating ML logic.
+Roadmap-aligned voice output layer that converts Phase 11/13 spoken feedback into audio-ready coaching output.
 
 ---
 

@@ -1,0 +1,73 @@
+{
+  "predicted_shot": "cover_drive",
+  "shot_confidence": 0.9917518496513367,
+  "technique_match_score": 96.4375,
+  "detected_issues": [],
+  "coaching_tips": [
+    "Maintain this movement pattern and keep the shot repeatable under match tempo.",
+    "Keep the movement smooth and repeatable."
+  ],
+  "detailed_feedback": "Your cover drive technique match score is 96.4/100, which is currently in the strong band. Stronger measured areas include front-foot commitment, lead elbow position. No priority technique issue crossed the v1 feedback threshold. Primary coaching focus: Maintain this movement pattern and keep the shot repeatable under match tempo.",
+  "spoken_feedback": "cover drive scored 96 out of 100. Maintain this movement pattern and keep the shot repeatable under match tempo. Focus on one adjustment at a time and repeat the movement with control.",
+  "debug_metadata": {
+    "phase": "Phase 12",
+    "version": "phase_12_offline_inference_v1",
+    "created_at": "2026-08-03T19:04:18.938880Z",
+    "pipeline_mode": "offline_temporal_sequence",
+    "input_contract": "[60, 32] temporal feature sequence",
+    "model_artifact": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase8/best_model/checkpoint.pt",
+    "template_artifact": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase10/ideal_template_schema.json",
+    "segmentation_completed": true,
+    "feedback_source": "Phase 11 feedback engine",
+    "pipeline_note": "Phase 12 v1 orchestrates finalized temporal sequences. Raw video upload/API handling is intentionally deferred to later roadmap phases.",
+    "feedback_debug_metadata": {
+      "feedback_version": "phase_11_feedback_engine_v1",
+      "source_phase": "Phase 10",
+      "issue_rule_threshold": 75.0,
+      "num_component_scores": 8,
+      "num_detected_issues": 0,
+      "score_band": "strong",
+      "prediction_correct": true,
+      "note": "Feedback is generated from measurable template deviations and should not be treated as a certified coaching diagnosis."
+    }
+  },
+  "source_metadata": {
+    "sample_index": 1,
+    "row_index": 1,
+    "video_id": "002",
+    "file_name": "cover_drive_average_02.mov",
+    "source_file": "cover_drive/cover_drive_average_02.mov",
+    "true_label_name": "cover_drive",
+    "sequence_path": "data/processed/pose_sequences/002_cover_drive_average_02_sequence.json"
+  },
+  "prediction": {
+    "predicted_shot": "cover_drive",
+    "shot_confidence": 0.9917518496513367,
+    "class_probabilities": {
+      "cover_drive": 0.9917518496513367,
+      "defensive_shot": 0.0038616808596998453,
+      "pull_shot": 0.0001249201741302386,
+      "sweep_shot": 0.004261541645973921
+    }
+  },
+  "segmentation": {
+    "start_frame": 8,
+    "end_frame": 59,
+    "peak_frame": 22,
+    "prediction_trigger_frame": 59,
+    "completed": true,
+    "completion_reason": "sequence_end_completion",
+    "trigger_count": 1
+  },
+  "api_metadata": {
+    "phase": "Phase 13",
+    "version": "phase_13_api_integration_v1",
+    "created_at": "2026-08-03T19:04:18.939068Z",
+    "upload_filename": "cover_drive_average_02.mov",
+    "upload_bytes": 24,
+    "temporary_file_saved": true,
+    "temporary_file_cleaned": true,
+    "pipeline_version": "phase_12_offline_inference_v1",
+    "api_note": "API transport is separate from ML business logic. This endpoint calls the Phase 12 offline inference pipeline."
+  }
+}
