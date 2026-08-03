@@ -54,54 +54,28 @@ function App() {
   async function saveResult(result: AnalysisResponse, sourceName: string) {
     setLatestResult(result);
     const duration = segmentDurationSeconds(result);
+    const localRow: AnalysisSession = {
+      id: crypto.randomUUID(),
+      user_id: userId ?? "demo",
+      video_file_name: sourceName,
+      predicted_shot: result.predicted_shot,
+      shot_confidence: result.shot_confidence,
+      technique_match_score: result.technique_match_score,
+      shot_start_frame: result.segmentation.start_frame,
+      shot_end_frame: result.segmentation.end_frame,
+      shot_duration_seconds: duration,
+      spoken_feedback: result.spoken_feedback,
+      coaching_tips: result.coaching_tips,
+      full_result: result,
+      created_at: new Date().toISOString(),
+    };
 
     if (!supabase || !userId) {
-      const localRow: AnalysisSession = {
-        id: crypto.randomUUID(),
-        user_id: "demo",
-        video_file_name: sourceName,
-        predicted_shot: result.predicted_shot,
-        shot_confidence: result.shot_confidence,
-        technique_match_score: result.technique_match_score,
-        shot_start_frame: result.segmentation.start_frame,
-        shot_end_frame: result.segmentation.end_frame,
-        shot_duration_seconds: duration,
-        spoken_feedback: result.spoken_feedback,
-        coaching_tips: result.coaching_tips,
-        full_result: result,
-        created_at: new Date().toISOString(),
-      };
       setHistory((rows) => [localRow, ...rows].slice(0, 20));
       return;
     }
 
-    const { data, error } = await supabase
-      .from("analysis_sessions")
-      .insert({
-        user_id: userId,
-        video_file_name: sourceName,
-        predicted_shot: result.predicted_shot,
-        shot_confidence: result.shot_confidence,
-        technique_match_score: result.technique_match_score,
-        shot_start_frame: result.segmentation.start_frame,
-        shot_end_frame: result.segmentation.end_frame,
-        shot_duration_seconds: duration,
-        spoken_feedback: result.spoken_feedback,
-        coaching_tips: result.coaching_tips,
-        full_result: result,
-      })
-      .select()
-      .single();
-
-    if (!error && data) {
-      await supabase.from("shot_timeline_events").insert({
-        user_id: userId,
-        analysis_session_id: data.id,
-        shot_label: result.predicted_shot,
-        duration_seconds: duration,
-      });
-      setHistory((rows) => [data as AnalysisSession, ...rows].slice(0, 20));
-    }
+    setHistory((rows) => [localRow, ...rows].slice(0, 20));
   }
 
   async function signOut() {

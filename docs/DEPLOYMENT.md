@@ -39,3 +39,4 @@ Set:
 - Use persistent object storage or a cleanup policy for generated audio.
 - Put a reverse proxy in front of the API for TLS and stronger distributed rate limiting.
 - Move analysis history writes server-side before relying on analytics or billing.
+- Do not re-enable browser-side writes for `analysis_sessions.full_result`; trusted history must be created from backend inference output.

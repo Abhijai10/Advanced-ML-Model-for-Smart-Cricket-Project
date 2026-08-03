@@ -25,6 +25,7 @@ It should not be described as fully production-ready yet. The remaining blockers
 - Voice artifacts are unique per request and exposed through `/audio/<filename>`.
 - UI duration uses backend timing from source video timestamps when available.
 - Frontend sends Supabase access tokens when a user is signed in.
+- Frontend no longer writes model results into Supabase directly; authenticated history writes are local-only until server-side persistence is connected.
 
 ## Environment
 
@@ -66,4 +67,12 @@ python -m pytest backend/api/tests/test_api.py
 
 The migration in `supabase/migrations/202608040001_smart_cricket_app_schema.sql` enables RLS and grants authenticated Data API access explicitly. This is required for new Supabase projects because public tables may no longer be exposed automatically.
 
-The current frontend can save analysis history directly under owner-scoped RLS. For stricter production integrity, move history creation to the backend with a Supabase service role key stored only on the server, so clients cannot submit forged `full_result` payloads.
+The current frontend reads history from owner-scoped RLS tables but does not write analysis results directly. This prevents browser clients from storing forged model results as trusted history.
+
+To make authenticated history durable in production, add a backend persistence path with:
+
+- explicit Supabase project selection;
+- `SUPABASE_URL` and a server-only service role or secret key;
+- backend-only inserts immediately after verified inference;
+- no service-role or secret key exposure to frontend bundles;
+- integration tests against a real or local Supabase instance.
