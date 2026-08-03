@@ -1,0 +1,884 @@
+{
+  "schema_name": "smart_cricket_ideal_technique_template_schema",
+  "phase": "Phase 10",
+  "version": "phase_10_technique_scoring_v1",
+  "created_at": "2026-08-03T18:11:25.951460Z",
+  "dataset_split_used": "train",
+  "template_strategy": "Prefer good-quality training examples per shot class; fall back to all training examples when fewer than three good-quality examples are available.",
+  "score_range": [
+    0,
+    100
+  ],
+  "component_weight_sum": 1.0,
+  "template_quantiles": {
+    "low": 10.0,
+    "high": 90.0
+  },
+  "shot_templates": {
+    "cover_drive": {
+      "class_index": 0,
+      "template_source": "train_split_good_quality_examples",
+      "template_sample_count": 6,
+      "components": {
+        "head_stability_score": {
+          "weight": 0.14,
+          "description": "Keeps head and upper body close to the stable base line.",
+          "features": {
+            "head_over_base_offset:abs_mean": {
+              "feature_name": "head_over_base_offset",
+              "statistic": "abs_mean",
+              "expected_low": 0.1767094983846012,
+              "expected_high": 0.3438093381662232,
+              "template_center": 0.20533550277662774,
+              "template_std": 0.08823494721762212
+            },
+            "head_to_lead_knee_alignment:abs_mean": {
+              "feature_name": "head_to_lead_knee_alignment",
+              "statistic": "abs_mean",
+              "expected_low": 0.19325822416576557,
+              "expected_high": 0.44552825430097676,
+              "template_center": 0.3012370552906456,
+              "template_std": 0.11255618485350362
+            },
+            "upper_body_balance_offset:abs_mean": {
+              "feature_name": "upper_body_balance_offset",
+              "statistic": "abs_mean",
+              "expected_low": 0.12733105514392568,
+              "expected_high": 0.22964885436619323,
+              "template_center": 0.15413312881816332,
+              "template_std": 0.046703262328669566
+            }
+          }
+        },
+        "front_foot_commitment_score": {
+          "weight": 0.12,
+          "description": "Measures whether the shot develops into a committed front-foot action.",
+          "features": {
+            "front_foot_commitment_signal:final_mean": {
+              "feature_name": "front_foot_commitment_signal",
+              "statistic": "final_mean",
+              "expected_low": 0.057527356466744096,
+              "expected_high": 0.5376764728222042,
+              "template_center": 0.18039029757492242,
+              "template_std": 0.22574712091988078
+            },
+            "stance_to_swing_progress_signal:final_mean": {
+              "feature_name": "stance_to_swing_progress_signal",
+              "statistic": "final_mean",
+              "expected_low": 0.7970338974893093,
+              "expected_high": 0.8809322024881839,
+              "template_center": 0.8389830499887466,
+              "template_std": 0.0
+            }
+          }
+        },
+        "lead_elbow_score": {
+          "weight": 0.13,
+          "description": "Tracks lead-elbow shape and extension through the shot.",
+          "features": {
+            "lead_elbow_angle:mean": {
+              "feature_name": "lead_elbow_angle",
+              "statistic": "mean",
+              "expected_low": 113.1444858233134,
+              "expected_high": 133.6622919400533,
+              "template_center": 123.45628945032755,
+              "template_std": 9.468877173243413
+            },
+            "lead_elbow_extension_signal:final_mean": {
+              "feature_name": "lead_elbow_extension_signal",
+              "statistic": "final_mean",
+              "expected_low": 0.5767948150634765,
+              "expected_high": 0.6951361998915673,
+              "template_center": 0.6382628209888935,
+              "template_std": 0.049245436177351776
+            }
+          }
+        },
+        "knee_bend_score": {
+          "weight": 0.12,
+          "description": "Compares lower-body posture with the expected shot template.",
+          "features": {
+            "lead_knee_angle:mean": {
+              "feature_name": "lead_knee_angle",
+              "statistic": "mean",
+              "expected_low": 112.58372875849406,
+              "expected_high": 144.00407377878824,
+              "template_center": 128.36744861602784,
+              "template_std": 14.97164074824607
+            },
+            "trail_knee_angle:mean": {
+              "feature_name": "trail_knee_angle",
+              "statistic": "mean",
+              "expected_low": 134.23220488230388,
+              "expected_high": 155.1625513712565,
+              "template_center": 137.73638547261555,
+              "template_std": 9.191944886796726
+            }
+          }
+        },
+        "weight_transfer_score": {
+          "weight": 0.13,
+          "description": "Captures shift of body mass through the batting movement.",
+          "features": {
+            "weight_transfer_signal:final_mean": {
+              "feature_name": "weight_transfer_signal",
+              "statistic": "final_mean",
+              "expected_low": -0.0036462976480834187,
+              "expected_high": 0.0029566882585640997,
+              "template_center": 0.00016578960639890283,
+              "template_std": 0.002852546533302765
+            },
+            "body_center_offset_x:range": {
+              "feature_name": "body_center_offset_x",
+              "statistic": "range",
+              "expected_low": 0.20757045806385577,
+              "expected_high": 0.6881859228014946,
+              "template_center": 0.5411078967154026,
+              "template_std": 0.21433526143671602
+            }
+          }
+        },
+        "follow_through_score": {
+          "weight": 0.14,
+          "description": "Measures whether the motion finishes with the expected extension and height.",
+          "features": {
+            "follow_through_height_signal:final_mean": {
+              "feature_name": "follow_through_height_signal",
+              "statistic": "final_mean",
+              "expected_low": -0.7177283227443695,
+              "expected_high": -0.39982445321511473,
+              "template_center": -0.5400346901034936,
+              "template_std": 0.13462230542272047
+            },
+            "follow_through_extension_signal:final_mean": {
+              "feature_name": "follow_through_extension_signal",
+              "statistic": "final_mean",
+              "expected_low": 0.785350401699543,
+              "expected_high": 1.1464872032403945,
+              "template_center": 1.0378905564546586,
+              "template_std": 0.1735108229151673
+            },
+            "bat_side_wrist_height_signal:final_mean": {
+              "feature_name": "bat_side_wrist_height_signal",
+              "statistic": "final_mean",
+              "expected_low": -0.5497445527464151,
+              "expected_high": -0.40738538597943263,
+              "template_center": -0.5070447345497087,
+              "template_std": 0.07332200800713813
+            }
+          }
+        },
+        "rotation_score": {
+          "weight": 0.12,
+          "description": "Scores rotational mechanics without depending on dead shoulder-angle features.",
+          "features": {
+            "hip_rotation_angle:range": {
+              "feature_name": "hip_rotation_angle",
+              "statistic": "range",
+              "expected_low": 35.932656332850456,
+              "expected_high": 206.33250045776367,
+              "template_center": 143.52298134565353,
+              "template_std": 70.74355239653529
+            },
+            "hip_rotation_velocity:max_abs": {
+              "feature_name": "hip_rotation_velocity",
+              "statistic": "max_abs",
+              "expected_low": 12.497323036193848,
+              "expected_high": 154.14205169677734,
+              "template_center": 110.5572280883789,
+              "template_std": 60.65757723071564
+            },
+            "shoulder_hip_separation:mean": {
+              "feature_name": "shoulder_hip_separation",
+              "statistic": "mean",
+              "expected_low": -17.57964202115933,
+              "expected_high": -9.883474776272973,
+              "template_center": -12.569740614232916,
+              "template_std": 3.2788754726362566
+            }
+          }
+        },
+        "balance_score": {
+          "weight": 0.1,
+          "description": "Checks stable base width and centered posture during the sequence.",
+          "features": {
+            "stance_width:mean": {
+              "feature_name": "stance_width",
+              "statistic": "mean",
+              "expected_low": 0.2714855610703429,
+              "expected_high": 0.46447350371939444,
+              "template_center": 0.3843933730813054,
+              "template_std": 0.08588465079198779
+            },
+            "body_center_offset_y:abs_mean": {
+              "feature_name": "body_center_offset_y",
+              "statistic": "abs_mean",
+              "expected_low": 0.2867555607110262,
+              "expected_high": 0.4377216922429701,
+              "template_center": 0.40705423134689533,
+              "template_std": 0.08283114457404528
+            },
+            "upper_body_balance_offset:abs_mean": {
+              "feature_name": "upper_body_balance_offset",
+              "statistic": "abs_mean",
+              "expected_low": 0.12733105514392568,
+              "expected_high": 0.22964885436619323,
+              "template_center": 0.15413312881816332,
+              "template_std": 0.046703262328669566
+            }
+          }
+        }
+      }
+    },
+    "defensive_shot": {
+      "class_index": 1,
+      "template_source": "train_split_good_quality_examples",
+      "template_sample_count": 4,
+      "components": {
+        "head_stability_score": {
+          "weight": 0.14,
+          "description": "Keeps head and upper body close to the stable base line.",
+          "features": {
+            "head_over_base_offset:abs_mean": {
+              "feature_name": "head_over_base_offset",
+              "statistic": "abs_mean",
+              "expected_low": 0.16893686633722002,
+              "expected_high": 0.208758874568933,
+              "template_center": 0.19600487493589752,
+              "template_std": 0.019249782850576803
+            },
+            "head_to_lead_knee_alignment:abs_mean": {
+              "feature_name": "head_to_lead_knee_alignment",
+              "statistic": "abs_mean",
+              "expected_low": 0.14495569784388257,
+              "expected_high": 0.18858842859083477,
+              "template_center": 0.16487517958157696,
+              "template_std": 0.02047643505275843
+            },
+            "upper_body_balance_offset:abs_mean": {
+              "feature_name": "upper_body_balance_offset",
+              "statistic": "abs_mean",
+              "expected_low": 0.10255650072940625,
+              "expected_high": 0.11271967147457568,
+              "template_center": 0.10622235847016176,
+              "template_std": 0.0048549612373024785
+            }
+          }
+        },
+        "front_foot_commitment_score": {
+          "weight": 0.12,
+          "description": "Measures whether the shot develops into a committed front-foot action.",
+          "features": {
+            "front_foot_commitment_signal:final_mean": {
+              "feature_name": "front_foot_commitment_signal",
+              "statistic": "final_mean",
+              "expected_low": -0.16903679535549598,
+              "expected_high": 0.016278007549699422,
+              "template_center": -0.12172033027745784,
+              "template_std": 0.09221554792783232
+            },
+            "stance_to_swing_progress_signal:final_mean": {
+              "feature_name": "stance_to_swing_progress_signal",
+              "statistic": "final_mean",
+              "expected_low": 0.7970338974893093,
+              "expected_high": 0.8809322024881839,
+              "template_center": 0.8389830499887466,
+              "template_std": 0.0
+            }
+          }
+        },
+        "lead_elbow_score": {
+          "weight": 0.13,
+          "description": "Tracks lead-elbow shape and extension through the shot.",
+          "features": {
+            "lead_elbow_angle:mean": {
+              "feature_name": "lead_elbow_angle",
+              "statistic": "mean",
+              "expected_low": 103.57482472101847,
+              "expected_high": 128.648674214681,
+              "template_center": 114.19450600941975,
+              "template_std": 11.878975018120107
+            },
+            "lead_elbow_extension_signal:final_mean": {
+              "feature_name": "lead_elbow_extension_signal",
+              "statistic": "final_mean",
+              "expected_low": 0.4864928184449673,
+              "expected_high": 0.659940986931324,
+              "template_center": 0.5702886454761028,
+              "template_std": 0.08578673865851208
+            }
+          }
+        },
+        "knee_bend_score": {
+          "weight": 0.12,
+          "description": "Compares lower-body posture with the expected shot template.",
+          "features": {
+            "lead_knee_angle:mean": {
+              "feature_name": "lead_knee_angle",
+              "statistic": "mean",
+              "expected_low": 99.81680908838908,
+              "expected_high": 136.96685105641683,
+              "template_center": 113.01035022735596,
+              "template_std": 17.75505326805962
+            },
+            "trail_knee_angle:mean": {
+              "feature_name": "trail_knee_angle",
+              "statistic": "mean",
+              "expected_low": 130.94090806325278,
+              "expected_high": 145.03405780792235,
+              "template_center": 135.63549416859945,
+              "template_std": 6.763660041799313
+            }
+          }
+        },
+        "weight_transfer_score": {
+          "weight": 0.13,
+          "description": "Captures shift of body mass through the batting movement.",
+          "features": {
+            "weight_transfer_signal:final_mean": {
+              "feature_name": "weight_transfer_signal",
+              "statistic": "final_mean",
+              "expected_low": -0.0005938681703628389,
+              "expected_high": 0.0017420770312310198,
+              "template_center": 0.001087868656395585,
+              "template_std": 0.0011535255816335535
+            },
+            "body_center_offset_x:range": {
+              "feature_name": "body_center_offset_x",
+              "statistic": "range",
+              "expected_low": 0.16785767618566752,
+              "expected_high": 0.2471203699707985,
+              "template_center": 0.23351942747831345,
+              "template_std": 0.04174898467765824
+            }
+          }
+        },
+        "follow_through_score": {
+          "weight": 0.14,
+          "description": "Measures whether the motion finishes with the expected extension and height.",
+          "features": {
+            "follow_through_height_signal:final_mean": {
+              "feature_name": "follow_through_height_signal",
+              "statistic": "final_mean",
+              "expected_low": -0.6413235235959291,
+              "expected_high": -0.34620241319760675,
+              "template_center": -0.5226431436836719,
+              "template_std": 0.13880113762686797
+            },
+            "follow_through_extension_signal:final_mean": {
+              "feature_name": "follow_through_extension_signal",
+              "statistic": "final_mean",
+              "expected_low": 0.5998418888449669,
+              "expected_high": 1.1990596683323385,
+              "template_center": 0.8156567394733429,
+              "template_std": 0.2923100130339029
+            },
+            "bat_side_wrist_height_signal:final_mean": {
+              "feature_name": "bat_side_wrist_height_signal",
+              "statistic": "final_mean",
+              "expected_low": -0.5923190888017417,
+              "expected_high": -0.3079875976964831,
+              "template_center": -0.4602259568870068,
+              "template_std": 0.13406682478766796
+            }
+          }
+        },
+        "rotation_score": {
+          "weight": 0.12,
+          "description": "Scores rotational mechanics without depending on dead shoulder-angle features.",
+          "features": {
+            "hip_rotation_angle:range": {
+              "feature_name": "hip_rotation_angle",
+              "statistic": "range",
+              "expected_low": 15.628950440883637,
+              "expected_high": 41.22754893302918,
+              "template_center": 20.785342156887054,
+              "template_std": 13.837674002665795
+            },
+            "hip_rotation_velocity:max_abs": {
+              "feature_name": "hip_rotation_velocity",
+              "statistic": "max_abs",
+              "expected_low": 4.672549104690551,
+              "expected_high": 9.090949535369873,
+              "template_center": 6.47417140007019,
+              "template_std": 2.1211403731103107
+            },
+            "shoulder_hip_separation:mean": {
+              "feature_name": "shoulder_hip_separation",
+              "statistic": "mean",
+              "expected_low": -16.64761692756166,
+              "expected_high": -7.0740800229522085,
+              "template_center": -8.392599900842955,
+              "template_std": 5.288045348333017
+            }
+          }
+        },
+        "balance_score": {
+          "weight": 0.1,
+          "description": "Checks stable base width and centered posture during the sequence.",
+          "features": {
+            "stance_width:mean": {
+              "feature_name": "stance_width",
+              "statistic": "mean",
+              "expected_low": 0.2636770292992393,
+              "expected_high": 0.37701597487864397,
+              "template_center": 0.32775050451358156,
+              "template_std": 0.054749503162732686
+            },
+            "body_center_offset_y:abs_mean": {
+              "feature_name": "body_center_offset_y",
+              "statistic": "abs_mean",
+              "expected_low": 0.25413033336400986,
+              "expected_high": 0.34983077353487413,
+              "template_center": 0.28472951004902525,
+              "template_std": 0.048396559141739084
+            },
+            "upper_body_balance_offset:abs_mean": {
+              "feature_name": "upper_body_balance_offset",
+              "statistic": "abs_mean",
+              "expected_low": 0.10255650072940625,
+              "expected_high": 0.11271967147457568,
+              "template_center": 0.10622235847016176,
+              "template_std": 0.0048549612373024785
+            }
+          }
+        }
+      }
+    },
+    "pull_shot": {
+      "class_index": 2,
+      "template_source": "train_split_good_quality_examples",
+      "template_sample_count": 7,
+      "components": {
+        "head_stability_score": {
+          "weight": 0.14,
+          "description": "Keeps head and upper body close to the stable base line.",
+          "features": {
+            "head_over_base_offset:abs_mean": {
+              "feature_name": "head_over_base_offset",
+              "statistic": "abs_mean",
+              "expected_low": 0.1696621028590016,
+              "expected_high": 0.3001201048785394,
+              "template_center": 0.23471330931060946,
+              "template_std": 0.056462697407071
+            },
+            "head_to_lead_knee_alignment:abs_mean": {
+              "feature_name": "head_to_lead_knee_alignment",
+              "statistic": "abs_mean",
+              "expected_low": 0.2648255804615716,
+              "expected_high": 0.3383435905208656,
+              "template_center": 0.281954952973562,
+              "template_std": 0.03375556285701516
+            },
+            "upper_body_balance_offset:abs_mean": {
+              "feature_name": "upper_body_balance_offset",
+              "statistic": "abs_mean",
+              "expected_low": 0.13471033410169186,
+              "expected_high": 0.23264372987827908,
+              "template_center": 0.17018206525147736,
+              "template_std": 0.04304972145760201
+            }
+          }
+        },
+        "front_foot_commitment_score": {
+          "weight": 0.12,
+          "description": "Measures whether the shot develops into a committed front-foot action.",
+          "features": {
+            "front_foot_commitment_signal:final_mean": {
+              "feature_name": "front_foot_commitment_signal",
+              "statistic": "final_mean",
+              "expected_low": -0.33603005816228687,
+              "expected_high": -0.0728599152364768,
+              "template_center": -0.25180041380226614,
+              "template_std": 0.10820216003719604
+            },
+            "stance_to_swing_progress_signal:final_mean": {
+              "feature_name": "stance_to_swing_progress_signal",
+              "statistic": "final_mean",
+              "expected_low": 0.7970338974893093,
+              "expected_high": 0.8809322024881839,
+              "template_center": 0.8389830499887466,
+              "template_std": 1.1102230246251565e-16
+            }
+          }
+        },
+        "lead_elbow_score": {
+          "weight": 0.13,
+          "description": "Tracks lead-elbow shape and extension through the shot.",
+          "features": {
+            "lead_elbow_angle:mean": {
+              "feature_name": "lead_elbow_angle",
+              "statistic": "mean",
+              "expected_low": 115.0054149500529,
+              "expected_high": 141.24823858896892,
+              "template_center": 129.78268636067708,
+              "template_std": 11.873607328087322
+            },
+            "lead_elbow_extension_signal:final_mean": {
+              "feature_name": "lead_elbow_extension_signal",
+              "statistic": "final_mean",
+              "expected_low": 0.46498906761407854,
+              "expected_high": 0.6911303177475929,
+              "template_center": 0.5856301113963127,
+              "template_std": 0.10327513616829329
+            }
+          }
+        },
+        "knee_bend_score": {
+          "weight": 0.12,
+          "description": "Compares lower-body posture with the expected shot template.",
+          "features": {
+            "lead_knee_angle:mean": {
+              "feature_name": "lead_knee_angle",
+              "statistic": "mean",
+              "expected_low": 113.67080909729005,
+              "expected_high": 126.69184290568035,
+              "template_center": 122.69257494608561,
+              "template_std": 6.389848955267954
+            },
+            "trail_knee_angle:mean": {
+              "feature_name": "trail_knee_angle",
+              "statistic": "mean",
+              "expected_low": 123.82856552124024,
+              "expected_high": 133.51378959655761,
+              "template_center": 131.8337432861328,
+              "template_std": 4.204062725314785
+            }
+          }
+        },
+        "weight_transfer_score": {
+          "weight": 0.13,
+          "description": "Captures shift of body mass through the batting movement.",
+          "features": {
+            "weight_transfer_signal:final_mean": {
+              "feature_name": "weight_transfer_signal",
+              "statistic": "final_mean",
+              "expected_low": -0.012615394815802573,
+              "expected_high": -3.574944799765906e-05,
+              "template_center": -0.007973530749677594,
+              "template_std": 0.005324136950722339
+            },
+            "body_center_offset_x:range": {
+              "feature_name": "body_center_offset_x",
+              "statistic": "range",
+              "expected_low": 0.343490070104599,
+              "expected_high": 0.582215616106987,
+              "template_center": 0.4775377959012985,
+              "template_std": 0.10508799311052897
+            }
+          }
+        },
+        "follow_through_score": {
+          "weight": 0.14,
+          "description": "Measures whether the motion finishes with the expected extension and height.",
+          "features": {
+            "follow_through_height_signal:final_mean": {
+              "feature_name": "follow_through_height_signal",
+              "statistic": "final_mean",
+              "expected_low": -0.5193520203977823,
+              "expected_high": -0.11606491710990666,
+              "template_center": -0.43938116086646917,
+              "template_std": 0.1716157939479118
+            },
+            "follow_through_extension_signal:final_mean": {
+              "feature_name": "follow_through_extension_signal",
+              "statistic": "final_mean",
+              "expected_low": 0.9249977290630341,
+              "expected_high": 1.4792225921154025,
+              "template_center": 1.1421273052692413,
+              "template_std": 0.32005319904561363
+            },
+            "bat_side_wrist_height_signal:final_mean": {
+              "feature_name": "bat_side_wrist_height_signal",
+              "statistic": "final_mean",
+              "expected_low": -0.47779425263404846,
+              "expected_high": -0.07634147956967352,
+              "template_center": -0.3560081424191594,
+              "template_std": 0.16996814939586116
+            }
+          }
+        },
+        "rotation_score": {
+          "weight": 0.12,
+          "description": "Scores rotational mechanics without depending on dead shoulder-angle features.",
+          "features": {
+            "hip_rotation_angle:range": {
+              "feature_name": "hip_rotation_angle",
+              "statistic": "range",
+              "expected_low": 89.94732742309571,
+              "expected_high": 287.94216766357425,
+              "template_center": 196.66764640808105,
+              "template_std": 84.18462484052074
+            },
+            "hip_rotation_velocity:max_abs": {
+              "feature_name": "hip_rotation_velocity",
+              "statistic": "max_abs",
+              "expected_low": 28.611102294921878,
+              "expected_high": 165.20003662109374,
+              "template_center": 140.70741271972656,
+              "template_std": 58.398055814989725
+            },
+            "shoulder_hip_separation:mean": {
+              "feature_name": "shoulder_hip_separation",
+              "statistic": "mean",
+              "expected_low": -9.413548494577407,
+              "expected_high": 19.506196229457856,
+              "template_center": -0.2904407997926076,
+              "template_std": 11.78407585231087
+            }
+          }
+        },
+        "balance_score": {
+          "weight": 0.1,
+          "description": "Checks stable base width and centered posture during the sequence.",
+          "features": {
+            "stance_width:mean": {
+              "feature_name": "stance_width",
+              "statistic": "mean",
+              "expected_low": 0.30447174512781205,
+              "expected_high": 0.5470527548591296,
+              "template_center": 0.3475388951599598,
+              "template_std": 0.11203442700398392
+            },
+            "body_center_offset_y:abs_mean": {
+              "feature_name": "body_center_offset_y",
+              "statistic": "abs_mean",
+              "expected_low": 0.36782383422056836,
+              "expected_high": 0.4265669352809588,
+              "template_center": 0.3928772640724977,
+              "template_std": 0.02643119427153057
+            },
+            "upper_body_balance_offset:abs_mean": {
+              "feature_name": "upper_body_balance_offset",
+              "statistic": "abs_mean",
+              "expected_low": 0.13471033410169186,
+              "expected_high": 0.23264372987827908,
+              "template_center": 0.17018206525147736,
+              "template_std": 0.04304972145760201
+            }
+          }
+        }
+      }
+    },
+    "sweep_shot": {
+      "class_index": 3,
+      "template_source": "train_split_good_quality_examples",
+      "template_sample_count": 7,
+      "components": {
+        "head_stability_score": {
+          "weight": 0.14,
+          "description": "Keeps head and upper body close to the stable base line.",
+          "features": {
+            "head_over_base_offset:abs_mean": {
+              "feature_name": "head_over_base_offset",
+              "statistic": "abs_mean",
+              "expected_low": 0.1739867478158946,
+              "expected_high": 0.2967253068508581,
+              "template_center": 0.22554637019056828,
+              "template_std": 0.05936659752355102
+            },
+            "head_to_lead_knee_alignment:abs_mean": {
+              "feature_name": "head_to_lead_knee_alignment",
+              "statistic": "abs_mean",
+              "expected_low": 0.12344482185212352,
+              "expected_high": 0.2616884202013413,
+              "template_center": 0.154505650876672,
+              "template_std": 0.06315562784766951
+            },
+            "upper_body_balance_offset:abs_mean": {
+              "feature_name": "upper_body_balance_offset",
+              "statistic": "abs_mean",
+              "expected_low": 0.10483560338383541,
+              "expected_high": 0.19539696824892114,
+              "template_center": 0.12471347592945677,
+              "template_std": 0.04081345355828602
+            }
+          }
+        },
+        "front_foot_commitment_score": {
+          "weight": 0.12,
+          "description": "Measures whether the shot develops into a committed front-foot action.",
+          "features": {
+            "front_foot_commitment_signal:final_mean": {
+              "feature_name": "front_foot_commitment_signal",
+              "statistic": "final_mean",
+              "expected_low": -0.153376876283437,
+              "expected_high": -0.038225385467521834,
+              "template_center": -0.0658765185624361,
+              "template_std": 0.05677906543733864
+            },
+            "stance_to_swing_progress_signal:final_mean": {
+              "feature_name": "stance_to_swing_progress_signal",
+              "statistic": "final_mean",
+              "expected_low": 0.7970338974893093,
+              "expected_high": 0.8809322024881839,
+              "template_center": 0.8389830499887466,
+              "template_std": 1.1102230246251565e-16
+            }
+          }
+        },
+        "lead_elbow_score": {
+          "weight": 0.13,
+          "description": "Tracks lead-elbow shape and extension through the shot.",
+          "features": {
+            "lead_elbow_angle:mean": {
+              "feature_name": "lead_elbow_angle",
+              "statistic": "mean",
+              "expected_low": 116.53559059143066,
+              "expected_high": 130.17826398213703,
+              "template_center": 125.06294784545898,
+              "template_std": 5.591091996845587
+            },
+            "lead_elbow_extension_signal:final_mean": {
+              "feature_name": "lead_elbow_extension_signal",
+              "statistic": "final_mean",
+              "expected_low": 0.5812040585279464,
+              "expected_high": 0.6964308583736419,
+              "template_center": 0.6051779434084892,
+              "template_std": 0.048762497967104516
+            }
+          }
+        },
+        "knee_bend_score": {
+          "weight": 0.12,
+          "description": "Compares lower-body posture with the expected shot template.",
+          "features": {
+            "lead_knee_angle:mean": {
+              "feature_name": "lead_knee_angle",
+              "statistic": "mean",
+              "expected_low": 87.4941167195638,
+              "expected_high": 114.5527188873291,
+              "template_center": 99.32159547805786,
+              "template_std": 12.466126896165838
+            },
+            "trail_knee_angle:mean": {
+              "feature_name": "trail_knee_angle",
+              "statistic": "mean",
+              "expected_low": 108.03211864471436,
+              "expected_high": 127.29305863062542,
+              "template_center": 115.07436637878418,
+              "template_std": 9.559194498464235
+            }
+          }
+        },
+        "weight_transfer_score": {
+          "weight": 0.13,
+          "description": "Captures shift of body mass through the batting movement.",
+          "features": {
+            "weight_transfer_signal:final_mean": {
+              "feature_name": "weight_transfer_signal",
+              "statistic": "final_mean",
+              "expected_low": -0.0032402146465028633,
+              "expected_high": 0.0037282111949753036,
+              "template_center": 0.0008977145189419389,
+              "template_std": 0.0032683235849754987
+            },
+            "body_center_offset_x:range": {
+              "feature_name": "body_center_offset_x",
+              "statistic": "range",
+              "expected_low": 0.31346367597579955,
+              "expected_high": 0.5037872195243835,
+              "template_center": 0.3689506947994232,
+              "template_std": 0.08749313244587265
+            }
+          }
+        },
+        "follow_through_score": {
+          "weight": 0.14,
+          "description": "Measures whether the motion finishes with the expected extension and height.",
+          "features": {
+            "follow_through_height_signal:final_mean": {
+              "feature_name": "follow_through_height_signal",
+              "statistic": "final_mean",
+              "expected_low": -0.6385383257269859,
+              "expected_high": -0.38043369606137273,
+              "template_center": -0.449644785374403,
+              "template_std": 0.12072022489676476
+            },
+            "follow_through_extension_signal:final_mean": {
+              "feature_name": "follow_through_extension_signal",
+              "statistic": "final_mean",
+              "expected_low": 0.746615389585495,
+              "expected_high": 1.324632581472397,
+              "template_center": 0.9158118546009064,
+              "template_std": 0.2669403430992837
+            },
+            "bat_side_wrist_height_signal:final_mean": {
+              "feature_name": "bat_side_wrist_height_signal",
+              "statistic": "final_mean",
+              "expected_low": -0.5812406225502491,
+              "expected_high": -0.3305262745916843,
+              "template_center": -0.4553835247643292,
+              "template_std": 0.10322478340502607
+            }
+          }
+        },
+        "rotation_score": {
+          "weight": 0.12,
+          "description": "Scores rotational mechanics without depending on dead shoulder-angle features.",
+          "features": {
+            "hip_rotation_angle:range": {
+              "feature_name": "hip_rotation_angle",
+              "statistic": "range",
+              "expected_low": 35.09187278747559,
+              "expected_high": 80.41194801330568,
+              "template_center": 52.179086685180664,
+              "template_std": 23.302701566919257
+            },
+            "hip_rotation_velocity:max_abs": {
+              "feature_name": "hip_rotation_velocity",
+              "statistic": "max_abs",
+              "expected_low": 13.204326629638672,
+              "expected_high": 46.95795288085938,
+              "template_center": 22.481603622436523,
+              "template_std": 16.64551968150194
+            },
+            "shoulder_hip_separation:mean": {
+              "feature_name": "shoulder_hip_separation",
+              "statistic": "mean",
+              "expected_low": -8.948355228404203,
+              "expected_high": -2.167045830817272,
+              "template_center": -6.362613977988561,
+              "template_std": 2.727553249709172
+            }
+          }
+        },
+        "balance_score": {
+          "weight": 0.1,
+          "description": "Checks stable base width and centered posture during the sequence.",
+          "features": {
+            "stance_width:mean": {
+              "feature_name": "stance_width",
+              "statistic": "mean",
+              "expected_low": 0.22970629225174585,
+              "expected_high": 0.35554007153958084,
+              "template_center": 0.3031098915884892,
+              "template_std": 0.05070510302304272
+            },
+            "body_center_offset_y:abs_mean": {
+              "feature_name": "body_center_offset_y",
+              "statistic": "abs_mean",
+              "expected_low": 0.21445877344657976,
+              "expected_high": 0.3787244856109222,
+              "template_center": 0.31559869622190795,
+              "template_std": 0.06922721831299415
+            },
+            "upper_body_balance_offset:abs_mean": {
+              "feature_name": "upper_body_balance_offset",
+              "statistic": "abs_mean",
+              "expected_low": 0.10483560338383541,
+              "expected_high": 0.19539696824892114,
+              "template_center": 0.12471347592945677,
+              "template_std": 0.04081345355828602
+            }
+          }
+        }
+      }
+    }
+  },
+  "notes": [
+    "Templates are derived only from the train split to avoid using validation/test samples as ideal references.",
+    "Classifier confidence is stored separately and is not used as the technique score.",
+    "Future versions can replace these v1 templates with coach-reviewed professional reference clips."
+  ]
+}

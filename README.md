@@ -49,11 +49,12 @@ The project is being developed through structured ML engineering phases:
 - ✅ Pre-Phase-8 Hardening: Architecture & Experiment Readiness Gate
 - ✅ Phase 8: Temporal Model Training & Evaluation
 - ✅ Phase 9: Shot Segmentation
+- ✅ Phase 10: Technique Scoring System
 
 Current development is now focused on:
 
 ```text
-Phase 10 — Technique Scoring System planning
+Phase 11 — Feedback Engine planning
 ```
 
 
@@ -85,6 +86,9 @@ Current completed outputs:
 - Validation-selected bidirectional GRU checkpoint for later phases
 - Explainable Phase 9 shot segmentation state machine
 - Single-prediction trigger validation for all 80 finalized sequences
+- Rule-based Phase 10 technique scoring from measurable biomechanical deviations
+- Shot-specific ideal technique templates derived from train-split references
+- Component-level scoring prepared for the Phase 11 feedback engine
 
 Current temporal dataset contract:
 
@@ -160,6 +164,19 @@ Phase 9 then added the shot segmentation and prediction-gating layer:
 - Single-trigger result: `80/80` finalized clips produced exactly one prediction trigger
 - Debug report: `ml/artifacts/phase9/segmentation_debug_report.md`
 
+Phase 10 adds the first interpretable technique scoring layer:
+
+- Scoring strategy: rule-based template matching
+- Template source: train split, preferring good-quality examples when enough are available
+- Score range: `0-100`
+- Components: head stability, front-foot commitment, lead elbow, knee bend, weight transfer, follow-through, rotation, and balance
+- Test samples scored: `12`
+- Mean technique match score: `84.6328`
+- Minimum technique match score: `53.6322`
+- Maximum technique match score: `97.0846`
+- Classifier confidence used as technique score: `False`
+- Report: `ml/artifacts/phase10/technique_score_report.json`
+
 Important split interpretation:
 
 - The current deterministic 56/12/12 split is useful for development and in-distribution evaluation.
@@ -231,6 +248,8 @@ Pre-Phase-8 Hardening & Experiment Contract
 Phase 8 Training & Evaluation
 ↓
 Phase 9 Shot Segmentation & Prediction Gating
+↓
+Phase 10 Technique Scoring
 
 ---
 
@@ -771,7 +790,7 @@ Important interpretation:
 - The current dataset already contains clipped one-shot sequences, so many clips complete at sequence end.
 - This is acceptable for finalized clips and is explicitly reported.
 - Live-stream segmentation will need separate buffering and latency validation in later phases.
-- Phase 9 does not retrain the Phase 8 classifier and does not implement Phase 10 scoring.
+- Phase 9 itself does not retrain the Phase 8 classifier; Phase 10 now consumes its stabilized prediction boundary.
 
 Primary Phase 9 artifacts:
 
@@ -779,6 +798,75 @@ Primary Phase 9 artifacts:
 - `ml/artifacts/phase9/segmentation_health.json`
 - `ml/artifacts/phase9/segmentation_segments.csv`
 - `ml/artifacts/phase9/segmentation_state_trace.csv`
+
+---
+
+## 🧮 Phase 10 — Technique Scoring System (Completed)
+
+Phase 10 separates shot recognition from shot quality.
+
+The classifier answers:
+
+```text
+What shot does the model think this is?
+```
+
+The technique scoring system answers:
+
+```text
+How well does the movement match measurable reference mechanics for that shot?
+```
+
+Core idea:
+
+```text
+predicted shot + temporal features + ideal templates
+→ component scores
+→ technique_match_score
+```
+
+Implemented systems:
+
+- `ml/src/scoring/score_config.py`
+- `ml/src/scoring/technique_scoring.py`
+- `ml/src/scoring/validate_technique_scoring.py`
+- `ml/src/scoring/tests/test_technique_scoring.py`
+
+Scoring components:
+
+- `head_stability_score`
+- `front_foot_commitment_score`
+- `lead_elbow_score`
+- `knee_bend_score`
+- `weight_transfer_score`
+- `follow_through_score`
+- `rotation_score`
+- `balance_score`
+
+Primary Phase 10 artifacts:
+
+- `ml/artifacts/phase10/ideal_template_schema.json`
+- `ml/artifacts/phase10/technique_scores.csv`
+- `ml/artifacts/phase10/technique_score_report.json`
+- `ml/artifacts/phase10/technique_score_report.md`
+- `ml/artifacts/phase10/technique_scoring_health.json`
+
+Validation result:
+
+```text
+Templates created: 4
+Components per template: 8
+Samples scored: 12
+Score range valid: True
+Validation passed: True
+```
+
+Important interpretation:
+
+- Technique scores are v1 template-match scores, not coach-certified biomechanical truth labels.
+- Phase 10 does not use classifier confidence as technique quality.
+- The templates are train-split-derived because professional reference clips are not yet available.
+- Phase 11 should consume component scores and deviation summaries to generate specific coaching feedback.
 
 ---
 ### 🔹  Why Phase 7 Matters
@@ -872,6 +960,13 @@ ml/
 │       ├── state_machine.py
 │       ├── shot_segmenter.py
 │       ├── validate_shot_segmentation.py
+│       └── tests/
+│   │
+│   └── scoring/
+│       ├── __init__.py
+│       ├── score_config.py
+│       ├── technique_scoring.py
+│       ├── validate_technique_scoring.py
 │       └── tests/
 │
 │

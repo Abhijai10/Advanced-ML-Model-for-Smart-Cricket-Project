@@ -5,7 +5,8 @@ Current Phase:
 - Phase 7 Completed
 - Phase 8 Completed — Temporal Model Training & Evaluation
 - Phase 9 Completed — Shot Segmentation
-- Preparing Phase 10 — Technique Scoring System
+- Phase 10 Completed — Technique Scoring System
+- Preparing Phase 11 — Feedback Engine
 
 Project Architecture Status:
 - Baseline tabular ML pipeline completed
@@ -44,6 +45,9 @@ Project Status:
 - validation-selected best model artifact created
 - Phase 9 explainable shot segmentation completed
 - one-shot prediction trigger validation completed for all 80 finalized sequences
+- Phase 10 rule-based technique scoring completed
+- shot-specific ideal technique templates generated from train-split references
+- component-level scoring generated for downstream feedback
 
 Current Outputs:
 
@@ -107,6 +111,14 @@ Phase 9 Segmentation Artifacts:
 - ml/artifacts/phase9/segmentation_health.json
 - ml/artifacts/phase9/segmentation_segments.csv
 - ml/artifacts/phase9/segmentation_state_trace.csv
+
+Phase 10 Technique Scoring Artifacts:
+- ml/src/scoring/
+- ml/artifacts/phase10/ideal_template_schema.json
+- ml/artifacts/phase10/technique_scores.csv
+- ml/artifacts/phase10/technique_score_report.json
+- ml/artifacts/phase10/technique_score_report.md
+- ml/artifacts/phase10/technique_scoring_health.json
 
 Current Dataset Status:
 - 80 validated ML samples
@@ -411,6 +423,73 @@ Interpretation:
 - live-stream timing and buffering must be validated in later inference phases
 
 ---
+
+## Phase 10 — Technique Scoring System
+
+Completed:
+- created `ml/src/scoring/`
+- implemented rule-based technique scoring
+- implemented shot-specific ideal template generation
+- implemented component score functions
+- implemented feature-deviation summaries
+- implemented downstream recommendations for Phase 11
+- implemented Phase 10 validation entry point
+- generated machine-readable and human-readable scoring reports
+
+Core Distinction:
+```text
+classifier confidence != technique quality
+```
+
+Phase 10 takes:
+```text
+predicted shot
+engineered temporal features
+ideal templates
+```
+
+and produces:
+```text
+technique_match_score
+component scores
+deviation summary
+recommendations
+```
+
+Scoring Components:
+- head_stability_score
+- front_foot_commitment_score
+- lead_elbow_score
+- knee_bend_score
+- weight_transfer_score
+- follow_through_score
+- rotation_score
+- balance_score
+
+Validation Results:
+```text
+Templates created: 4
+Components per template: 8
+Samples scored: 12
+Score range valid: True
+Validation passed: True
+```
+
+Score Summary:
+```text
+Mean technique match score: 84.6328
+Minimum technique match score: 53.6322
+Maximum technique match score: 97.0846
+```
+
+Interpretation:
+- v1 templates are train-split-derived references, not professional coach-certified gold standards
+- validation/test samples are not used to build ideal templates
+- classifier confidence is recorded for traceability but never used as technique score
+- Phase 10 does not generate natural-language coaching feedback; that remains Phase 11
+- Phase 11 should convert component scores and deviation summaries into user-facing feedback
+
+---
 # 📂 Current Dataset State
 
 Total Videos:
@@ -591,12 +670,15 @@ Current Technical Observations:
 - validation/test gap and 56-sample training size indicate overfitting risk remains
 - Phase 9 segmentation validation passed on all 80 finalized sequences
 - Phase 9 emits one prediction trigger per finalized sequence
+- Phase 10 technique scoring validation passed
+- technique scoring returns 0-100 match scores with component-level explanations
 
 Observed Engineering Concerns:
 - limited dataset size for deep sequence models
 - some motion-related features may require redesign in future iterations
 - future scaling will require larger and more diverse cricket datasets
 - current split is not person-disjoint, so unseen-player claims are not supported
+- v1 technique templates are derived from available train-split examples and should later be coach-reviewed or replaced with professional references
 
 Current Engineering Decision:
 - prioritize roadmap-aligned temporal sequence learning
@@ -628,16 +710,16 @@ Likely Stable Components:
 # 🚀 Current Focus
 
 Current Work:
-- Preparing Phase 10 — Technique Scoring System
+- Preparing Phase 11 — Feedback Engine
 
 Immediate Goals:
-- design explainable technique scoring from features and predicted shot labels
-- preserve Phase 9 segmentation boundaries as the upstream trigger
-- avoid generating coaching feedback before Phase 11
-- keep scoring interpretable and biomechanically grounded
+- convert Phase 10 component scores into clear coaching feedback
+- keep feedback grounded in measurable deviations
+- avoid overclaiming biomechanical causes beyond available feature evidence
+- preserve classifier confidence and technique score as separate concepts
 
 Next Major Milestone:
-Roadmap-aligned technique scoring layer that compares user movement against shot-specific reference behavior.
+Roadmap-aligned feedback engine that explains the weakest measured technique components in human-readable coaching language.
 
 ---
 
