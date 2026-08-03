@@ -1,0 +1,732 @@
+{
+  "phase": "Phase 11",
+  "version": "phase_11_feedback_engine_v1",
+  "created_at": "2026-08-03T18:19:18.565860Z",
+  "input_report": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase10/technique_score_report.json",
+  "feedback_philosophy": [
+    "Feedback is linked to measurable component scores and feature deviations.",
+    "Detailed feedback explains what went wrong, why it matters, and how to improve.",
+    "Spoken feedback is concise and TTS-friendly for future Phase 14 voice output."
+  ],
+  "outputs": [
+    {
+      "file_name": "defensive_shot_good_06.mov",
+      "predicted_shot": "defensive_shot",
+      "true_label_name": "defensive_shot",
+      "technique_match_score": 69.9773,
+      "classifier_confidence": 0.8433389067649841,
+      "detected_issues": [
+        {
+          "component_name": "rotation_score",
+          "feature_name": "hip_rotation_velocity",
+          "statistic": "max_abs",
+          "severity": "high",
+          "issue": "Your hip-rotation velocity moved outside the expected range.",
+          "why_it_matters": "Unstable rotation speed can disturb balance and shot timing.",
+          "coaching_tip": "Use controlled hip rotation so the swing stays balanced.",
+          "evidence": {
+            "feature_score": 0.0,
+            "actual_value": 24.971275329589844,
+            "expected_low": 4.672549104690551,
+            "expected_high": 9.090949535369873,
+            "deviation": 15.88032579421997
+          }
+        },
+        {
+          "component_name": "weight_transfer_score",
+          "feature_name": "body_center_offset_x",
+          "statistic": "range",
+          "severity": "high",
+          "issue": "Your body-center movement range was outside the template range.",
+          "why_it_matters": "Too much or too little center movement can affect balance and timing.",
+          "coaching_tip": "Move through the shot with control, keeping your center of mass stable.",
+          "evidence": {
+            "feature_score": 0.0,
+            "actual_value": 0.45030272006988525,
+            "expected_low": 0.16785767618566752,
+            "expected_high": 0.2471203699707985,
+            "deviation": 0.20318235009908675
+          }
+        },
+        {
+          "component_name": "head_stability_score",
+          "feature_name": "upper_body_balance_offset",
+          "statistic": "abs_mean",
+          "severity": "high",
+          "issue": "Your upper-body balance offset was outside the template range.",
+          "why_it_matters": "Upper-body balance affects control and makes the follow-through easier to stabilize.",
+          "coaching_tip": "Stay tall through the torso and avoid leaning away during the swing.",
+          "evidence": {
+            "feature_score": 0.0,
+            "actual_value": 0.1785051751571397,
+            "expected_low": 0.10255650072940625,
+            "expected_high": 0.11271967147457568,
+            "deviation": 0.06578550368256403
+          }
+        }
+      ],
+      "coaching_tips": [
+        "Use controlled hip rotation so the swing stays balanced.",
+        "Move through the shot with control, keeping your center of mass stable.",
+        "Stay tall through the torso and avoid leaning away during the swing."
+      ],
+      "detailed_feedback": "Your defensive shot technique match score is 70.0/100, which is currently in the needs attention band. Stronger measured areas include lead elbow position, follow-through. The main areas to work on are head stability, body rotation. Primary coaching focus: Use controlled hip rotation so the swing stays balanced.",
+      "spoken_feedback": "defensive shot scored 70 out of 100. Use controlled hip rotation so the swing stays balanced. Focus on one adjustment at a time and repeat the movement with control.",
+      "debug_metadata": {
+        "feedback_version": "phase_11_feedback_engine_v1",
+        "source_phase": "Phase 10",
+        "issue_rule_threshold": 75.0,
+        "num_component_scores": 8,
+        "num_detected_issues": 3,
+        "score_band": "needs attention",
+        "prediction_correct": true,
+        "note": "Feedback is generated from measurable template deviations and should not be treated as a certified coaching diagnosis."
+      }
+    },
+    {
+      "file_name": "defensive_shot_average_04.mov",
+      "predicted_shot": "defensive_shot",
+      "true_label_name": "defensive_shot",
+      "technique_match_score": 81.2516,
+      "classifier_confidence": 0.7108601927757263,
+      "detected_issues": [
+        {
+          "component_name": "head_stability_score",
+          "feature_name": "head_to_lead_knee_alignment",
+          "statistic": "abs_mean",
+          "severity": "high",
+          "issue": "Your head-to-lead-knee alignment moved outside the expected range.",
+          "why_it_matters": "Head and front-side alignment helps keep the body organized through impact.",
+          "coaching_tip": "Let your head travel with the front side instead of drifting away from the shot line.",
+          "evidence": {
+            "feature_score": 7.937941060850218,
+            "actual_value": 0.2689268091848741,
+            "expected_low": 0.14495569784388257,
+            "expected_high": 0.18858842859083477,
+            "deviation": 0.08033838059403933
+          }
+        },
+        {
+          "component_name": "balance_score",
+          "feature_name": "stance_width",
+          "statistic": "mean",
+          "severity": "medium",
+          "issue": "Your stance width was outside the expected range.",
+          "why_it_matters": "A stable stance gives the body a reliable base for the shot.",
+          "coaching_tip": "Set your stance wide enough for balance but not so wide that movement becomes restricted.",
+          "evidence": {
+            "feature_score": 54.45700609361362,
+            "actual_value": 0.48025187303622563,
+            "expected_low": 0.2636770292992393,
+            "expected_high": 0.37701597487864397,
+            "deviation": 0.10323589815758166
+          }
+        },
+        {
+          "component_name": "head_stability_score",
+          "feature_name": "upper_body_balance_offset",
+          "statistic": "abs_mean",
+          "severity": "medium",
+          "issue": "Your upper-body balance offset was outside the template range.",
+          "why_it_matters": "Upper-body balance affects control and makes the follow-through easier to stabilize.",
+          "coaching_tip": "Stay tall through the torso and avoid leaning away during the swing.",
+          "evidence": {
+            "feature_score": 57.08556384724732,
+            "actual_value": 0.12144260631563762,
+            "expected_low": 0.10255650072940625,
+            "expected_high": 0.11271967147457568,
+            "deviation": 0.008722934841061944
+          }
+        }
+      ],
+      "coaching_tips": [
+        "Let your head travel with the front side instead of drifting away from the shot line.",
+        "Set your stance wide enough for balance but not so wide that movement becomes restricted.",
+        "Stay tall through the torso and avoid leaning away during the swing."
+      ],
+      "detailed_feedback": "Your defensive shot technique match score is 81.3/100, which is currently in the solid band. Stronger measured areas include lead elbow position, body rotation. The main areas to work on are head stability, balance. Primary coaching focus: Let your head travel with the front side instead of drifting away from the shot line.",
+      "spoken_feedback": "defensive shot scored 81 out of 100. Let your head travel with the front side instead of drifting away from the shot line. Focus on one adjustment at a time and repeat the movement with control.",
+      "debug_metadata": {
+        "feedback_version": "phase_11_feedback_engine_v1",
+        "source_phase": "Phase 10",
+        "issue_rule_threshold": 75.0,
+        "num_component_scores": 8,
+        "num_detected_issues": 3,
+        "score_band": "solid",
+        "prediction_correct": true,
+        "note": "Feedback is generated from measurable template deviations and should not be treated as a certified coaching diagnosis."
+      }
+    },
+    {
+      "file_name": "pull_shot_average_05.mov",
+      "predicted_shot": "pull_shot",
+      "true_label_name": "pull_shot",
+      "technique_match_score": 93.8226,
+      "classifier_confidence": 0.7490328550338745,
+      "detected_issues": [
+        {
+          "component_name": "follow_through_score",
+          "feature_name": "follow_through_extension_signal",
+          "statistic": "final_mean",
+          "severity": "medium",
+          "issue": "Your follow-through extension was outside the template range.",
+          "why_it_matters": "A complete follow-through helps show that energy carried through the ball.",
+          "coaching_tip": "Complete your follow-through instead of stopping the movement early.",
+          "evidence": {
+            "feature_score": 51.8952785757832,
+            "actual_value": 2.0124392449855804,
+            "expected_low": 0.9249977290630341,
+            "expected_high": 1.4792225921154025,
+            "deviation": 0.5332166528701778
+          }
+        },
+        {
+          "component_name": "balance_score",
+          "feature_name": "body_center_offset_y",
+          "statistic": "abs_mean",
+          "severity": "medium",
+          "issue": "Your vertical body-center offset differed from the template.",
+          "why_it_matters": "Vertical balance affects stability through contact and follow-through.",
+          "coaching_tip": "Keep your body height controlled instead of rising or dipping abruptly.",
+          "evidence": {
+            "feature_score": 62.049811187767034,
+            "actual_value": 0.32323759868741037,
+            "expected_low": 0.36782383422056836,
+            "expected_high": 0.4265669352809588,
+            "deviation": 0.04458623553315799
+          }
+        }
+      ],
+      "coaching_tips": [
+        "Complete your follow-through instead of stopping the movement early.",
+        "Keep your body height controlled instead of rising or dipping abruptly."
+      ],
+      "detailed_feedback": "Your pull shot technique match score is 93.8/100, which is currently in the strong band. Stronger measured areas include head stability, body rotation. The main areas to work on are follow-through, balance. Primary coaching focus: Complete your follow-through instead of stopping the movement early.",
+      "spoken_feedback": "pull shot scored 94 out of 100. Complete your follow-through instead of stopping the movement early. Focus on one adjustment at a time and repeat the movement with control.",
+      "debug_metadata": {
+        "feedback_version": "phase_11_feedback_engine_v1",
+        "source_phase": "Phase 10",
+        "issue_rule_threshold": 75.0,
+        "num_component_scores": 8,
+        "num_detected_issues": 2,
+        "score_band": "strong",
+        "prediction_correct": true,
+        "note": "Feedback is generated from measurable template deviations and should not be treated as a certified coaching diagnosis."
+      }
+    },
+    {
+      "file_name": "sweep_shot_good_01.mov",
+      "predicted_shot": "sweep_shot",
+      "true_label_name": "sweep_shot",
+      "technique_match_score": 91.2192,
+      "classifier_confidence": 0.98513662815094,
+      "detected_issues": [
+        {
+          "component_name": "knee_bend_score",
+          "feature_name": "trail_knee_angle",
+          "statistic": "mean",
+          "severity": "high",
+          "issue": "Your trail-knee bend was outside the expected range.",
+          "why_it_matters": "The back leg helps load and release power through the shot.",
+          "coaching_tip": "Use the back leg as a stable support while transferring into the shot.",
+          "evidence": {
+            "feature_score": 35.29372150212432,
+            "actual_value": 152.21913356781005,
+            "expected_low": 108.03211864471436,
+            "expected_high": 127.29305863062542,
+            "deviation": 24.926074937184623
+          }
+        },
+        {
+          "component_name": "front_foot_commitment_score",
+          "feature_name": "front_foot_commitment_signal",
+          "statistic": "final_mean",
+          "severity": "medium",
+          "issue": "Your front-foot commitment signal did not match the shot template.",
+          "why_it_matters": "Committed footwork creates a stronger base for shot execution.",
+          "coaching_tip": "Move decisively into position before completing the swing.",
+          "evidence": {
+            "feature_score": 52.38717453356947,
+            "actual_value": 0.0714283712208271,
+            "expected_low": -0.153376876283437,
+            "expected_high": -0.038225385467521834,
+            "deviation": 0.10965375668834892
+          }
+        }
+      ],
+      "coaching_tips": [
+        "Use the back leg as a stable support while transferring into the shot.",
+        "Move decisively into position before completing the swing."
+      ],
+      "detailed_feedback": "Your sweep shot technique match score is 91.2/100, which is currently in the strong band. Stronger measured areas include weight transfer, follow-through. The main areas to work on are knee bend, front-foot commitment. Primary coaching focus: Use the back leg as a stable support while transferring into the shot.",
+      "spoken_feedback": "sweep shot scored 91 out of 100. Use the back leg as a stable support while transferring into the shot. Focus on one adjustment at a time and repeat the movement with control.",
+      "debug_metadata": {
+        "feedback_version": "phase_11_feedback_engine_v1",
+        "source_phase": "Phase 10",
+        "issue_rule_threshold": 75.0,
+        "num_component_scores": 8,
+        "num_detected_issues": 2,
+        "score_band": "strong",
+        "prediction_correct": true,
+        "note": "Feedback is generated from measurable template deviations and should not be treated as a certified coaching diagnosis."
+      }
+    },
+    {
+      "file_name": "pull_shot_average_01.mov",
+      "predicted_shot": "pull_shot",
+      "true_label_name": "pull_shot",
+      "technique_match_score": 97.0846,
+      "classifier_confidence": 0.9949211478233336,
+      "detected_issues": [
+        {
+          "component_name": "follow_through_score",
+          "feature_name": "follow_through_extension_signal",
+          "statistic": "final_mean",
+          "severity": "low",
+          "issue": "Your follow-through extension was outside the template range.",
+          "why_it_matters": "A complete follow-through helps show that energy carried through the ball.",
+          "coaching_tip": "Complete your follow-through instead of stopping the movement early.",
+          "evidence": {
+            "feature_score": 71.82567996062066,
+            "actual_value": 1.7915207654237748,
+            "expected_low": 0.9249977290630341,
+            "expected_high": 1.4792225921154025,
+            "deviation": 0.3122981733083723
+          }
+        }
+      ],
+      "coaching_tips": [
+        "Complete your follow-through instead of stopping the movement early."
+      ],
+      "detailed_feedback": "Your pull shot technique match score is 97.1/100, which is currently in the strong band. Stronger measured areas include head stability, front-foot commitment. The main areas to work on are follow-through, weight transfer. Primary coaching focus: Complete your follow-through instead of stopping the movement early.",
+      "spoken_feedback": "pull shot scored 97 out of 100. Complete your follow-through instead of stopping the movement early. Focus on one adjustment at a time and repeat the movement with control.",
+      "debug_metadata": {
+        "feedback_version": "phase_11_feedback_engine_v1",
+        "source_phase": "Phase 10",
+        "issue_rule_threshold": 75.0,
+        "num_component_scores": 8,
+        "num_detected_issues": 1,
+        "score_band": "strong",
+        "prediction_correct": true,
+        "note": "Feedback is generated from measurable template deviations and should not be treated as a certified coaching diagnosis."
+      }
+    },
+    {
+      "file_name": "pull_shot_good_05.mov",
+      "predicted_shot": "defensive_shot",
+      "true_label_name": "pull_shot",
+      "technique_match_score": 53.6322,
+      "classifier_confidence": 0.467300534248352,
+      "detected_issues": [
+        {
+          "component_name": "rotation_score",
+          "feature_name": "hip_rotation_angle",
+          "statistic": "range",
+          "severity": "high",
+          "issue": "Your hip-rotation range differed from the shot template.",
+          "why_it_matters": "Hip rotation contributes to power and body sequencing.",
+          "coaching_tip": "Rotate through the hips smoothly without forcing or over-rotating.",
+          "evidence": {
+            "feature_score": 0.0,
+            "actual_value": 106.9071102142334,
+            "expected_low": 15.628950440883637,
+            "expected_high": 41.22754893302918,
+            "deviation": 65.67956128120422
+          }
+        },
+        {
+          "component_name": "rotation_score",
+          "feature_name": "hip_rotation_velocity",
+          "statistic": "max_abs",
+          "severity": "high",
+          "issue": "Your hip-rotation velocity moved outside the expected range.",
+          "why_it_matters": "Unstable rotation speed can disturb balance and shot timing.",
+          "coaching_tip": "Use controlled hip rotation so the swing stays balanced.",
+          "evidence": {
+            "feature_score": 0.0,
+            "actual_value": 62.33556365966797,
+            "expected_low": 4.672549104690551,
+            "expected_high": 9.090949535369873,
+            "deviation": 53.244614124298096
+          }
+        },
+        {
+          "component_name": "weight_transfer_score",
+          "feature_name": "body_center_offset_x",
+          "statistic": "range",
+          "severity": "high",
+          "issue": "Your body-center movement range was outside the template range.",
+          "why_it_matters": "Too much or too little center movement can affect balance and timing.",
+          "coaching_tip": "Move through the shot with control, keeping your center of mass stable.",
+          "evidence": {
+            "feature_score": 0.0,
+            "actual_value": 0.7086334228515625,
+            "expected_low": 0.16785767618566752,
+            "expected_high": 0.2471203699707985,
+            "deviation": 0.461513052880764
+          }
+        }
+      ],
+      "coaching_tips": [
+        "Rotate through the hips smoothly without forcing or over-rotating.",
+        "Use controlled hip rotation so the swing stays balanced.",
+        "Move through the shot with control, keeping your center of mass stable."
+      ],
+      "detailed_feedback": "Your defensive shot technique match score is 53.6/100, which is currently in the priority issue band. Stronger measured areas include follow-through, lead elbow position. The main areas to work on are head stability, weight transfer. Primary coaching focus: Rotate through the hips smoothly without forcing or over-rotating.",
+      "spoken_feedback": "defensive shot scored 54 out of 100. Rotate through the hips smoothly without forcing or over-rotating. Focus on one adjustment at a time and repeat the movement with control.",
+      "debug_metadata": {
+        "feedback_version": "phase_11_feedback_engine_v1",
+        "source_phase": "Phase 10",
+        "issue_rule_threshold": 75.0,
+        "num_component_scores": 8,
+        "num_detected_issues": 3,
+        "score_band": "priority issue",
+        "prediction_correct": false,
+        "note": "Feedback is generated from measurable template deviations and should not be treated as a certified coaching diagnosis."
+      }
+    },
+    {
+      "file_name": "sweep_shot_average_08.mov",
+      "predicted_shot": "sweep_shot",
+      "true_label_name": "sweep_shot",
+      "technique_match_score": 87.4476,
+      "classifier_confidence": 0.9288209080696106,
+      "detected_issues": [
+        {
+          "component_name": "front_foot_commitment_score",
+          "feature_name": "front_foot_commitment_signal",
+          "statistic": "final_mean",
+          "severity": "high",
+          "issue": "Your front-foot commitment signal did not match the shot template.",
+          "why_it_matters": "Committed footwork creates a stronger base for shot execution.",
+          "coaching_tip": "Move decisively into position before completing the swing.",
+          "evidence": {
+            "feature_score": 5.398454872636571,
+            "actual_value": -0.37124705538153646,
+            "expected_low": -0.153376876283437,
+            "expected_high": -0.038225385467521834,
+            "deviation": 0.21787017909809947
+          }
+        },
+        {
+          "component_name": "weight_transfer_score",
+          "feature_name": "weight_transfer_signal",
+          "statistic": "final_mean",
+          "severity": "high",
+          "issue": "Your weight-transfer signal did not match the expected shot pattern.",
+          "why_it_matters": "Good weight transfer helps turn body movement into controlled bat speed.",
+          "coaching_tip": "Transfer your body weight smoothly toward the shot instead of staying stuck.",
+          "evidence": {
+            "feature_score": 37.031873244484295,
+            "actual_value": 0.012503985628427472,
+            "expected_low": -0.0032402146465028633,
+            "expected_high": 0.0037282111949753036,
+            "deviation": 0.008775774433452168
+          }
+        },
+        {
+          "component_name": "balance_score",
+          "feature_name": "stance_width",
+          "statistic": "mean",
+          "severity": "medium",
+          "issue": "Your stance width was outside the expected range.",
+          "why_it_matters": "A stable stance gives the body a reliable base for the shot.",
+          "coaching_tip": "Set your stance wide enough for balance but not so wide that movement becomes restricted.",
+          "evidence": {
+            "feature_score": 56.327267317419505,
+            "actual_value": 0.4654501716451099,
+            "expected_low": 0.22970629225174585,
+            "expected_high": 0.35554007153958084,
+            "deviation": 0.10991010010552904
+          }
+        }
+      ],
+      "coaching_tips": [
+        "Move decisively into position before completing the swing.",
+        "Transfer your body weight smoothly toward the shot instead of staying stuck.",
+        "Set your stance wide enough for balance but not so wide that movement becomes restricted."
+      ],
+      "detailed_feedback": "Your sweep shot technique match score is 87.4/100, which is currently in the solid band. Stronger measured areas include head stability, lead elbow position. The main areas to work on are front-foot commitment, weight transfer. Primary coaching focus: Move decisively into position before completing the swing.",
+      "spoken_feedback": "sweep shot scored 87 out of 100. Move decisively into position before completing the swing. Focus on one adjustment at a time and repeat the movement with control.",
+      "debug_metadata": {
+        "feedback_version": "phase_11_feedback_engine_v1",
+        "source_phase": "Phase 10",
+        "issue_rule_threshold": 75.0,
+        "num_component_scores": 8,
+        "num_detected_issues": 3,
+        "score_band": "solid",
+        "prediction_correct": true,
+        "note": "Feedback is generated from measurable template deviations and should not be treated as a certified coaching diagnosis."
+      }
+    },
+    {
+      "file_name": "cover_drive_good_02.mov",
+      "predicted_shot": "sweep_shot",
+      "true_label_name": "cover_drive",
+      "technique_match_score": 71.9494,
+      "classifier_confidence": 0.6302573680877686,
+      "detected_issues": [
+        {
+          "component_name": "rotation_score",
+          "feature_name": "hip_rotation_angle",
+          "statistic": "range",
+          "severity": "high",
+          "issue": "Your hip-rotation range differed from the shot template.",
+          "why_it_matters": "Hip rotation contributes to power and body sequencing.",
+          "coaching_tip": "Rotate through the hips smoothly without forcing or over-rotating.",
+          "evidence": {
+            "feature_score": 0.0,
+            "actual_value": 175.60865783691406,
+            "expected_low": 35.09187278747559,
+            "expected_high": 80.41194801330568,
+            "deviation": 95.19670982360839
+          }
+        },
+        {
+          "component_name": "front_foot_commitment_score",
+          "feature_name": "front_foot_commitment_signal",
+          "statistic": "final_mean",
+          "severity": "high",
+          "issue": "Your front-foot commitment signal did not match the shot template.",
+          "why_it_matters": "Committed footwork creates a stronger base for shot execution.",
+          "coaching_tip": "Move decisively into position before completing the swing.",
+          "evidence": {
+            "feature_score": 0.0,
+            "actual_value": 0.3555557165294886,
+            "expected_low": -0.153376876283437,
+            "expected_high": -0.038225385467521834,
+            "deviation": 0.39378110199701044
+          }
+        },
+        {
+          "component_name": "rotation_score",
+          "feature_name": "hip_rotation_velocity",
+          "statistic": "max_abs",
+          "severity": "high",
+          "issue": "Your hip-rotation velocity moved outside the expected range.",
+          "why_it_matters": "Unstable rotation speed can disturb balance and shot timing.",
+          "coaching_tip": "Use controlled hip rotation so the swing stays balanced.",
+          "evidence": {
+            "feature_score": 0.38146716956344306,
+            "actual_value": 114.20768737792969,
+            "expected_low": 13.204326629638672,
+            "expected_high": 46.95795288085938,
+            "deviation": 67.2497344970703
+          }
+        }
+      ],
+      "coaching_tips": [
+        "Rotate through the hips smoothly without forcing or over-rotating.",
+        "Move decisively into position before completing the swing.",
+        "Use controlled hip rotation so the swing stays balanced."
+      ],
+      "detailed_feedback": "Your sweep shot technique match score is 71.9/100, which is currently in the needs attention band. Stronger measured areas include follow-through, head stability. The main areas to work on are body rotation, front-foot commitment. Primary coaching focus: Rotate through the hips smoothly without forcing or over-rotating.",
+      "spoken_feedback": "sweep shot scored 72 out of 100. Rotate through the hips smoothly without forcing or over-rotating. Focus on one adjustment at a time and repeat the movement with control.",
+      "debug_metadata": {
+        "feedback_version": "phase_11_feedback_engine_v1",
+        "source_phase": "Phase 10",
+        "issue_rule_threshold": 75.0,
+        "num_component_scores": 8,
+        "num_detected_issues": 3,
+        "score_band": "needs attention",
+        "prediction_correct": false,
+        "note": "Feedback is generated from measurable template deviations and should not be treated as a certified coaching diagnosis."
+      }
+    },
+    {
+      "file_name": "sweep_shot_bad_02.mov",
+      "predicted_shot": "pull_shot",
+      "true_label_name": "sweep_shot",
+      "technique_match_score": 88.2129,
+      "classifier_confidence": 0.988636553287506,
+      "detected_issues": [
+        {
+          "component_name": "balance_score",
+          "feature_name": "body_center_offset_y",
+          "statistic": "abs_mean",
+          "severity": "high",
+          "issue": "Your vertical body-center offset differed from the template.",
+          "why_it_matters": "Vertical balance affects stability through contact and follow-through.",
+          "coaching_tip": "Keep your body height controlled instead of rising or dipping abruptly.",
+          "evidence": {
+            "feature_score": 18.83492757955437,
+            "actual_value": 0.27246607318520544,
+            "expected_low": 0.36782383422056836,
+            "expected_high": 0.4265669352809588,
+            "deviation": 0.09535776103536292
+          }
+        },
+        {
+          "component_name": "knee_bend_score",
+          "feature_name": "trail_knee_angle",
+          "statistic": "mean",
+          "severity": "medium",
+          "issue": "Your trail-knee bend was outside the expected range.",
+          "why_it_matters": "The back leg helps load and release power through the shot.",
+          "coaching_tip": "Use the back leg as a stable support while transferring into the shot.",
+          "evidence": {
+            "feature_score": 60.28812423897041,
+            "actual_value": 116.13619721730551,
+            "expected_low": 123.82856552124024,
+            "expected_high": 133.51378959655761,
+            "deviation": 7.692368303934728
+          }
+        },
+        {
+          "component_name": "knee_bend_score",
+          "feature_name": "lead_knee_angle",
+          "statistic": "mean",
+          "severity": "medium",
+          "issue": "Your lead-knee bend was outside the expected range.",
+          "why_it_matters": "Knee position affects base stability and weight control.",
+          "coaching_tip": "Set a stable front knee and avoid over-straightening or over-collapsing it.",
+          "evidence": {
+            "feature_score": 61.46961415533514,
+            "actual_value": 103.63669996261596,
+            "expected_low": 113.67080909729005,
+            "expected_high": 126.69184290568035,
+            "deviation": 10.034109134674082
+          }
+        }
+      ],
+      "coaching_tips": [
+        "Keep your body height controlled instead of rising or dipping abruptly.",
+        "Use the back leg as a stable support while transferring into the shot.",
+        "Set a stable front knee and avoid over-straightening or over-collapsing it."
+      ],
+      "detailed_feedback": "Your pull shot technique match score is 88.2/100, which is currently in the solid band. Stronger measured areas include front-foot commitment, lead elbow position. The main areas to work on are knee bend, balance. Primary coaching focus: Keep your body height controlled instead of rising or dipping abruptly.",
+      "spoken_feedback": "pull shot scored 88 out of 100. Keep your body height controlled instead of rising or dipping abruptly. Focus on one adjustment at a time and repeat the movement with control.",
+      "debug_metadata": {
+        "feedback_version": "phase_11_feedback_engine_v1",
+        "source_phase": "Phase 10",
+        "issue_rule_threshold": 75.0,
+        "num_component_scores": 8,
+        "num_detected_issues": 3,
+        "score_band": "solid",
+        "prediction_correct": false,
+        "note": "Feedback is generated from measurable template deviations and should not be treated as a certified coaching diagnosis."
+      }
+    },
+    {
+      "file_name": "defensive_shot_good_02.mov",
+      "predicted_shot": "sweep_shot",
+      "true_label_name": "defensive_shot",
+      "technique_match_score": 93.9159,
+      "classifier_confidence": 0.6852043867111206,
+      "detected_issues": [
+        {
+          "component_name": "knee_bend_score",
+          "feature_name": "trail_knee_angle",
+          "statistic": "mean",
+          "severity": "medium",
+          "issue": "Your trail-knee bend was outside the expected range.",
+          "why_it_matters": "The back leg helps load and release power through the shot.",
+          "coaching_tip": "Use the back leg as a stable support while transferring into the shot.",
+          "evidence": {
+            "feature_score": 55.23815470429818,
+            "actual_value": 144.5361629486084,
+            "expected_low": 108.03211864471436,
+            "expected_high": 127.29305863062542,
+            "deviation": 17.24310431798297
+          }
+        }
+      ],
+      "coaching_tips": [
+        "Use the back leg as a stable support while transferring into the shot."
+      ],
+      "detailed_feedback": "Your sweep shot technique match score is 93.9/100, which is currently in the strong band. Stronger measured areas include head stability, front-foot commitment. The main areas to work on are knee bend, weight transfer. Primary coaching focus: Use the back leg as a stable support while transferring into the shot.",
+      "spoken_feedback": "sweep shot scored 94 out of 100. Use the back leg as a stable support while transferring into the shot. Focus on one adjustment at a time and repeat the movement with control.",
+      "debug_metadata": {
+        "feedback_version": "phase_11_feedback_engine_v1",
+        "source_phase": "Phase 10",
+        "issue_rule_threshold": 75.0,
+        "num_component_scores": 8,
+        "num_detected_issues": 1,
+        "score_band": "strong",
+        "prediction_correct": false,
+        "note": "Feedback is generated from measurable template deviations and should not be treated as a certified coaching diagnosis."
+      }
+    },
+    {
+      "file_name": "cover_drive_average_02.mov",
+      "predicted_shot": "cover_drive",
+      "true_label_name": "cover_drive",
+      "technique_match_score": 96.4375,
+      "classifier_confidence": 0.9917518496513368,
+      "detected_issues": [],
+      "coaching_tips": [
+        "Maintain this movement pattern and keep the shot repeatable under match tempo.",
+        "Keep the movement smooth and repeatable."
+      ],
+      "detailed_feedback": "Your cover drive technique match score is 96.4/100, which is currently in the strong band. Stronger measured areas include front-foot commitment, lead elbow position. The main areas to work on are weight transfer, balance. Primary coaching focus: Maintain this movement pattern and keep the shot repeatable under match tempo.",
+      "spoken_feedback": "cover drive scored 96 out of 100. Maintain this movement pattern and keep the shot repeatable under match tempo. Focus on one adjustment at a time and repeat the movement with control.",
+      "debug_metadata": {
+        "feedback_version": "phase_11_feedback_engine_v1",
+        "source_phase": "Phase 10",
+        "issue_rule_threshold": 75.0,
+        "num_component_scores": 8,
+        "num_detected_issues": 0,
+        "score_band": "strong",
+        "prediction_correct": true,
+        "note": "Feedback is generated from measurable template deviations and should not be treated as a certified coaching diagnosis."
+      }
+    },
+    {
+      "file_name": "cover_drive_bad_01.mov",
+      "predicted_shot": "cover_drive",
+      "true_label_name": "cover_drive",
+      "technique_match_score": 90.6432,
+      "classifier_confidence": 0.9141826629638672,
+      "detected_issues": [
+        {
+          "component_name": "follow_through_score",
+          "feature_name": "bat_side_wrist_height_signal",
+          "statistic": "final_mean",
+          "severity": "high",
+          "issue": "Your bat-side wrist height did not match the expected finish.",
+          "why_it_matters": "Wrist height affects the shape and control of the shot finish.",
+          "coaching_tip": "Keep the bat-side wrist moving into a controlled finish position.",
+          "evidence": {
+            "feature_score": 39.73944929169748,
+            "actual_value": -0.23581255022436381,
+            "expected_low": -0.5497445527464151,
+            "expected_high": -0.40738538597943263,
+            "deviation": 0.17157283575506882
+          }
+        },
+        {
+          "component_name": "follow_through_score",
+          "feature_name": "follow_through_height_signal",
+          "statistic": "final_mean",
+          "severity": "low",
+          "issue": "Your follow-through height differed from the expected shot pattern.",
+          "why_it_matters": "Follow-through height reflects how the bat and body finish after contact.",
+          "coaching_tip": "Finish the shot fully while keeping the bat path controlled.",
+          "evidence": {
+            "feature_score": 69.51986976509659,
+            "actual_value": -0.20602942630648613,
+            "expected_low": -0.7177283227443695,
+            "expected_high": -0.39982445321511473,
+            "deviation": 0.1937950269086286
+          }
+        }
+      ],
+      "coaching_tips": [
+        "Keep the bat-side wrist moving into a controlled finish position.",
+        "Finish the shot fully while keeping the bat path controlled."
+      ],
+      "detailed_feedback": "Your cover drive technique match score is 90.6/100, which is currently in the strong band. Stronger measured areas include weight transfer, knee bend. The main areas to work on are follow-through, lead elbow position. Primary coaching focus: Keep the bat-side wrist moving into a controlled finish position.",
+      "spoken_feedback": "cover drive scored 91 out of 100. Keep the bat-side wrist moving into a controlled finish position. Focus on one adjustment at a time and repeat the movement with control.",
+      "debug_metadata": {
+        "feedback_version": "phase_11_feedback_engine_v1",
+        "source_phase": "Phase 10",
+        "issue_rule_threshold": 75.0,
+        "num_component_scores": 8,
+        "num_detected_issues": 2,
+        "score_band": "strong",
+        "prediction_correct": true,
+        "note": "Feedback is generated from measurable template deviations and should not be treated as a certified coaching diagnosis."
+      }
+    }
+  ]
+}

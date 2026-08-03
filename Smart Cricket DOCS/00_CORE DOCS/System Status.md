@@ -6,7 +6,8 @@ Current Phase:
 - Phase 8 Completed — Temporal Model Training & Evaluation
 - Phase 9 Completed — Shot Segmentation
 - Phase 10 Completed — Technique Scoring System
-- Preparing Phase 11 — Feedback Engine
+- Phase 11 Completed — Feedback Engine
+- Preparing Phase 12 — Inference Pipeline
 
 Project Architecture Status:
 - Baseline tabular ML pipeline completed
@@ -48,6 +49,9 @@ Project Status:
 - Phase 10 rule-based technique scoring completed
 - shot-specific ideal technique templates generated from train-split references
 - component-level scoring generated for downstream feedback
+- Phase 11 rule-based feedback engine completed
+- coaching tips generated from measurable feature deviations
+- spoken feedback strings generated for future voice output
 
 Current Outputs:
 
@@ -119,6 +123,13 @@ Phase 10 Technique Scoring Artifacts:
 - ml/artifacts/phase10/technique_score_report.json
 - ml/artifacts/phase10/technique_score_report.md
 - ml/artifacts/phase10/technique_scoring_health.json
+
+Phase 11 Feedback Artifacts:
+- ml/src/feedback/
+- ml/artifacts/phase11/sample_feedback_outputs.json
+- ml/artifacts/phase11/feedback_outputs.csv
+- ml/artifacts/phase11/feedback_report.md
+- ml/artifacts/phase11/feedback_health.json
 
 Current Dataset Status:
 - 80 validated ML samples
@@ -486,8 +497,56 @@ Interpretation:
 - v1 templates are train-split-derived references, not professional coach-certified gold standards
 - validation/test samples are not used to build ideal templates
 - classifier confidence is recorded for traceability but never used as technique score
-- Phase 10 does not generate natural-language coaching feedback; that remains Phase 11
-- Phase 11 should convert component scores and deviation summaries into user-facing feedback
+- Phase 10 does not generate natural-language coaching feedback directly; Phase 11 consumes its structured outputs
+
+---
+
+## Phase 11 — Feedback Engine
+
+Completed:
+- created `ml/src/feedback/`
+- implemented structured feedback schema
+- implemented editable feedback rules
+- implemented coaching language templates
+- implemented feedback generation from Phase 10 component scores and deviations
+- implemented detailed feedback text
+- implemented TTS-friendly spoken feedback text
+- implemented debug metadata for each generated feedback output
+- implemented Phase 11 validation entry point
+- generated machine-readable and human-readable feedback reports
+
+Phase 11 takes:
+```text
+technique score
+component scores
+feature deviations
+predicted shot
+```
+
+and produces:
+```text
+detected_issues
+coaching_tips
+detailed_feedback
+spoken_feedback
+debug_metadata
+```
+
+Validation Results:
+```text
+Samples processed: 12
+Detected issues: 26
+Spoken feedback present: True
+Detailed feedback present: True
+Issues linked to features: True
+Validation passed: True
+```
+
+Interpretation:
+- feedback is generated from measurable Phase 10 deviations, not from generic shot labels alone
+- the engine explains what went wrong, why it matters, and how to improve
+- spoken feedback is short enough for future voice output
+- Phase 11 does not implement the full inference pipeline or TTS; those remain later phases
 
 ---
 # 📂 Current Dataset State
@@ -606,7 +665,7 @@ Purpose:
 Long-Term Direction:
 - temporal motion intelligence
 - technique scoring
-- coaching feedback generation
+- coaching feedback refinement
 - real-time inference
 - webcam-based batting analysis
 
@@ -643,7 +702,8 @@ Raw Video
 → Phase 8 Best Temporal Checkpoint
 → Shot Segmentation
 → Technique Scoring
-→ Future Coaching Feedback Engine
+→ Feedback Engine
+→ Future Inference Pipeline
 
 ---
 
@@ -672,6 +732,8 @@ Current Technical Observations:
 - Phase 9 emits one prediction trigger per finalized sequence
 - Phase 10 technique scoring validation passed
 - technique scoring returns 0-100 match scores with component-level explanations
+- Phase 11 feedback validation passed
+- feedback outputs include detected issues, tips, detailed feedback, spoken feedback, and debug metadata
 
 Observed Engineering Concerns:
 - limited dataset size for deep sequence models
@@ -679,6 +741,7 @@ Observed Engineering Concerns:
 - future scaling will require larger and more diverse cricket datasets
 - current split is not person-disjoint, so unseen-player claims are not supported
 - v1 technique templates are derived from available train-split examples and should later be coach-reviewed or replaced with professional references
+- feedback quality depends on v1 scoring templates and should be coach-reviewed before production claims
 
 Current Engineering Decision:
 - prioritize roadmap-aligned temporal sequence learning
@@ -710,16 +773,16 @@ Likely Stable Components:
 # 🚀 Current Focus
 
 Current Work:
-- Preparing Phase 11 — Feedback Engine
+- Preparing Phase 12 — Inference Pipeline
 
 Immediate Goals:
-- convert Phase 10 component scores into clear coaching feedback
-- keep feedback grounded in measurable deviations
-- avoid overclaiming biomechanical causes beyond available feature evidence
-- preserve classifier confidence and technique score as separate concepts
+- combine preprocessing, segmentation, prediction, scoring, and feedback into one offline analysis pipeline
+- preserve the validated module boundaries from Phases 8-11
+- keep inference output structured and debuggable
+- avoid adding API or voice layers before their roadmap phases
 
 Next Major Milestone:
-Roadmap-aligned feedback engine that explains the weakest measured technique components in human-readable coaching language.
+Roadmap-aligned inference pipeline that returns a complete structured analysis result for one cricket batting input.
 
 ---
 

@@ -1,0 +1,20 @@
+{
+  "phase": "Phase 11",
+  "version": "phase_11_feedback_engine_v1",
+  "created_at": "2026-08-03T18:19:18.566957Z",
+  "samples_processed": 12,
+  "detected_issue_count": 26,
+  "samples_with_spoken_feedback": 12,
+  "spoken_feedback_present": true,
+  "detailed_feedback_present": true,
+  "tips_present": true,
+  "issues_linked_to_features": true,
+  "debug_metadata_present": true,
+  "validation_passed": true,
+  "output_files": {
+    "sample_feedback_outputs": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase11/sample_feedback_outputs.json",
+    "feedback_outputs_csv": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase11/feedback_outputs.csv",
+    "feedback_report": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase11/feedback_report.md",
+    "feedback_health": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase11/feedback_health.json"
+  }
+}

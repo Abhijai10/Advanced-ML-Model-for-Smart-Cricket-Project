@@ -50,11 +50,12 @@ The project is being developed through structured ML engineering phases:
 - ✅ Phase 8: Temporal Model Training & Evaluation
 - ✅ Phase 9: Shot Segmentation
 - ✅ Phase 10: Technique Scoring System
+- ✅ Phase 11: Feedback Engine
 
 Current development is now focused on:
 
 ```text
-Phase 11 — Feedback Engine planning
+Phase 12 — Inference Pipeline planning
 ```
 
 
@@ -89,6 +90,8 @@ Current completed outputs:
 - Rule-based Phase 10 technique scoring from measurable biomechanical deviations
 - Shot-specific ideal technique templates derived from train-split references
 - Component-level scoring prepared for the Phase 11 feedback engine
+- Rule-based Phase 11 coaching feedback generated from feature-linked technique issues
+- TTS-friendly spoken feedback strings prepared for future voice output
 
 Current temporal dataset contract:
 
@@ -177,6 +180,16 @@ Phase 10 adds the first interpretable technique scoring layer:
 - Classifier confidence used as technique score: `False`
 - Report: `ml/artifacts/phase10/technique_score_report.json`
 
+Phase 11 turns technique scores and deviations into readable coaching feedback:
+
+- Feedback strategy: editable rule-based coaching rules
+- Input source: Phase 10 `technique_score_report.json`
+- Samples processed: `12`
+- Detected feature-linked issues: `26`
+- Spoken feedback present: `12/12`
+- Validation passed: `True`
+- Sample outputs: `ml/artifacts/phase11/sample_feedback_outputs.json`
+
 Important split interpretation:
 
 - The current deterministic 56/12/12 split is useful for development and in-distribution evaluation.
@@ -250,6 +263,8 @@ Phase 8 Training & Evaluation
 Phase 9 Shot Segmentation & Prediction Gating
 ↓
 Phase 10 Technique Scoring
+↓
+Phase 11 Feedback Engine
 
 ---
 
@@ -866,7 +881,56 @@ Important interpretation:
 - Technique scores are v1 template-match scores, not coach-certified biomechanical truth labels.
 - Phase 10 does not use classifier confidence as technique quality.
 - The templates are train-split-derived because professional reference clips are not yet available.
-- Phase 11 should consume component scores and deviation summaries to generate specific coaching feedback.
+- Phase 11 now consumes component scores and deviation summaries to generate specific coaching feedback.
+
+---
+
+## 🗣️ Phase 11 — Feedback Engine (Completed)
+
+Phase 11 makes Smart Cricket feel more like a coach instead of only a classifier.
+
+Core idea:
+
+```text
+component scores + feature deviations
+→ detected issues
+→ coaching tips
+→ detailed feedback
+→ spoken feedback
+```
+
+Implemented systems:
+
+- `ml/src/feedback/feedback_schema.py`
+- `ml/src/feedback/feedback_rules.py`
+- `ml/src/feedback/feedback_templates.py`
+- `ml/src/feedback/feedback_engine.py`
+- `ml/src/feedback/validate_feedback_engine.py`
+- `ml/src/feedback/tests/test_feedback_engine.py`
+
+Primary Phase 11 artifacts:
+
+- `ml/artifacts/phase11/sample_feedback_outputs.json`
+- `ml/artifacts/phase11/feedback_outputs.csv`
+- `ml/artifacts/phase11/feedback_report.md`
+- `ml/artifacts/phase11/feedback_health.json`
+
+Validation result:
+
+```text
+Samples processed: 12
+Detected issues: 26
+Spoken feedback present: True
+Issues linked to features: True
+Validation passed: True
+```
+
+Important interpretation:
+
+- Feedback is generated from measurable Phase 10 deviations.
+- The system explains what to improve, why it matters, and how to improve it.
+- Spoken feedback is concise and suitable for future TTS, but Phase 11 does not implement voice output.
+- The feedback is coaching-style guidance, not a certified biomechanical diagnosis.
 
 ---
 ### 🔹  Why Phase 7 Matters
@@ -967,6 +1031,15 @@ ml/
 │       ├── score_config.py
 │       ├── technique_scoring.py
 │       ├── validate_technique_scoring.py
+│       └── tests/
+│   │
+│   └── feedback/
+│       ├── __init__.py
+│       ├── feedback_schema.py
+│       ├── feedback_rules.py
+│       ├── feedback_templates.py
+│       ├── feedback_engine.py
+│       ├── validate_feedback_engine.py
 │       └── tests/
 │
 │
