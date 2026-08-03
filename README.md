@@ -53,11 +53,12 @@ The project is being developed through structured ML engineering phases:
 - ✅ Phase 11: Feedback Engine
 - ✅ Phase 12: Offline Inference Pipeline
 - ✅ Phase 13: API Integration
+- ✅ Phase 14: Voice Output
 
 Current development is now focused on:
 
 ```text
-Phase 14 — Voice Output planning
+Core roadmap completed through Phase 14
 ```
 
 
@@ -98,6 +99,8 @@ Current completed outputs:
 - Integrated prediction, segmentation, scoring, and feedback orchestration for finalized temporal sequences
 - Phase 13 FastAPI backend wrapper with `/health` and `/analyze`
 - Frontend-consumable API response that calls the Phase 12 pipeline without duplicating ML logic
+- Phase 14 voice output layer that converts `spoken_feedback` into playable audio metadata/artifacts
+- Frontend audio-ready response with text + audio file metadata
 
 Current temporal dataset contract:
 
@@ -219,6 +222,17 @@ Phase 13 exposes the analysis pipeline through a backend API:
 - Validation passed: `True`
 - Sample response: `ml/artifacts/phase13/sample_api_response.json`
 
+Phase 14 adds the voice output layer:
+
+- Input: Phase 13 `spoken_feedback`
+- Output audio format: `wav`
+- Audio provider used in this environment: `local_audio_cue_wav`
+- Audio generated: `True`
+- Audio playable: `True`
+- Audio bytes: `213580`
+- Frontend audio-ready response: `ml/artifacts/phase14/frontend_audio_ready_response.json`
+- Audio file: `ml/artifacts/phase14/audio_output/sample_spoken_feedback.wav`
+
 Important split interpretation:
 
 - The current deterministic 56/12/12 split is useful for development and in-distribution evaluation.
@@ -298,6 +312,8 @@ Phase 11 Feedback Engine
 Phase 12 Offline Inference Pipeline
 ↓
 Phase 13 API Integration
+↓
+Phase 14 Voice Output
 
 ---
 
@@ -1068,6 +1084,53 @@ PYTHONPATH=. ml/venv/bin/uvicorn backend.api.app:app --reload
 ```
 
 ---
+
+## 🔊 Phase 14 — Voice Output (Completed)
+
+Phase 14 converts the existing coaching `spoken_feedback` text into audio-ready output.
+
+Core idea:
+
+```text
+spoken_feedback
+→ TTS service boundary
+→ audio artifact
+→ frontend audio-ready response
+```
+
+Implemented systems:
+
+- `ml/src/voice/voice_config.py`
+- `ml/src/voice/tts_service.py`
+- `ml/src/voice/validate_voice_output.py`
+- `ml/src/voice/tests/test_tts_service.py`
+
+Primary Phase 14 artifacts:
+
+- `ml/artifacts/phase14/sample_voice_output.json`
+- `ml/artifacts/phase14/frontend_audio_ready_response.json`
+- `ml/artifacts/phase14/voice_health.json`
+- `ml/artifacts/phase14/voice_output_report.md`
+- `ml/artifacts/phase14/audio_output/sample_spoken_feedback.wav`
+
+Validation result:
+
+```text
+Audio generated: True
+Audio playable: True
+Audio bytes: 213580
+Spoken feedback matches analysis: True
+Validation passed: True
+```
+
+Important interpretation:
+
+- Phase 14 consumes existing feedback; it does not regenerate coaching advice.
+- TTS/audio generation is isolated behind a service boundary.
+- The local environment could not produce speech frames through macOS `say`, so the provider fell back to a playable WAV audio cue while preserving the exact spoken feedback text in the frontend response.
+- A cloud or production TTS provider can replace the local provider later without changing the feedback engine.
+
+---
 ### 🔹  Why Phase 7 Matters
 
 Cricket shots are motion sequences, not static poses.
@@ -1184,6 +1247,13 @@ ml/
 │       ├── analysis_pipeline.py
 │       ├── run_inference.py
 │       ├── validate_inference_pipeline.py
+│       └── tests/
+│   │
+│   └── voice/
+│       ├── __init__.py
+│       ├── voice_config.py
+│       ├── tts_service.py
+│       ├── validate_voice_output.py
 │       └── tests/
 │
 │

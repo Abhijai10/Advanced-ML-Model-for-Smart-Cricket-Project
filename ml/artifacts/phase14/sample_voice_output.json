@@ -1,0 +1,11 @@
+{
+  "spoken_feedback": "cover drive scored 96 out of 100. Maintain this movement pattern and keep the shot repeatable under match tempo. Focus on one adjustment at a time and repeat the movement with control.",
+  "provider": "local_audio_cue_wav",
+  "audio_path": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase14/audio_output/sample_spoken_feedback.wav",
+  "audio_format": "wav",
+  "audio_bytes": 213580,
+  "playable": true,
+  "generated_at": "2026-08-03T19:14:45.288716Z",
+  "voice_name": null,
+  "speech_rate": 175
+}

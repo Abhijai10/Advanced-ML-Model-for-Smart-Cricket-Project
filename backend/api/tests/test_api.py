@@ -31,6 +31,8 @@ class SmartCricketAPITests(unittest.TestCase):
         self.assertIn("coaching_tips", payload)
         self.assertTrue(payload["spoken_feedback"])
         self.assertIn("api_metadata", payload)
+        self.assertTrue(payload["voice_output"]["available"])
+        self.assertEqual(payload["voice_output"]["audio_format"], "wav")
 
     def test_unknown_video_returns_clean_error(self) -> None:
         response = self.client.post(

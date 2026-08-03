@@ -9,7 +9,8 @@ Current Phase:
 - Phase 11 Completed — Feedback Engine
 - Phase 12 Completed — Offline Inference Pipeline
 - Phase 13 Completed — API Integration
-- Preparing Phase 14 — Voice Output
+- Phase 14 Completed — Voice Output
+- Core roadmap completed through Phase 14
 
 Project Architecture Status:
 - Baseline tabular ML pipeline completed
@@ -59,6 +60,8 @@ Project Status:
 - Phase 13 FastAPI backend integration completed
 - `/health` and `/analyze` endpoints validated
 - API response calls Phase 12 pipeline without duplicating ML logic
+- Phase 14 voice output layer completed
+- playable audio artifact and frontend audio-ready response generated from `spoken_feedback`
 
 Current Outputs:
 
@@ -149,6 +152,14 @@ Phase 13 API Artifacts:
 - ml/artifacts/phase13/sample_api_response.json
 - ml/artifacts/phase13/api_health.json
 - ml/artifacts/phase13/api_validation_report.md
+
+Phase 14 Voice Artifacts:
+- ml/src/voice/
+- ml/artifacts/phase14/sample_voice_output.json
+- ml/artifacts/phase14/frontend_audio_ready_response.json
+- ml/artifacts/phase14/voice_health.json
+- ml/artifacts/phase14/voice_output_report.md
+- ml/artifacts/phase14/audio_output/sample_spoken_feedback.wav
 
 Current Dataset Status:
 - 80 validated ML samples
@@ -661,12 +672,56 @@ Interpretation:
 - API transport calls the Phase 12 offline inference pipeline
 - Phase 13 v1 validates uploads using known finalized dataset video filenames
 - arbitrary raw-video preprocessing remains a future hardening task
-- voice output remains Phase 14
+- voice output is completed in Phase 14
 
 Run Command:
 ```bash
 PYTHONPATH=. ml/venv/bin/uvicorn backend.api.app:app --reload
 ```
+
+---
+
+## Phase 14 — Voice Output
+
+Completed:
+- created `ml/src/voice/`
+- implemented voice configuration
+- implemented provider-separated TTS service boundary
+- implemented spoken feedback validation
+- generated playable local audio artifact
+- generated frontend audio-ready response
+- integrated audio metadata into the API response
+- implemented Phase 14 validation entry point
+- implemented voice tests
+- generated voice health JSON and report artifacts
+
+Phase 14 takes:
+```text
+spoken_feedback text
+```
+
+and produces:
+```text
+audio artifact
+frontend audio-ready response
+voice debug metadata
+```
+
+Validation Results:
+```text
+Provider: local_audio_cue_wav
+Audio generated: True
+Audio playable: True
+Audio bytes: 213580
+Spoken feedback matches analysis: True
+Validation passed: True
+```
+
+Interpretation:
+- Phase 14 consumes existing spoken feedback and does not regenerate coaching advice
+- the TTS/audio layer is isolated so a production provider can replace the local provider later
+- the local macOS `say` command produced header-only audio in this environment, so validation fell back to a playable WAV audio cue while keeping the exact spoken feedback text in the response
+- the core roadmap is now complete through API + audio-ready voice output
 
 ---
 # 📂 Current Dataset State
@@ -825,7 +880,7 @@ Raw Video
 → Feedback Engine
 → Offline Inference Pipeline
 → API Integration
-→ Future Voice Output
+→ Voice Output
 
 ---
 
@@ -860,6 +915,8 @@ Current Technical Observations:
 - sample inference output returns prediction, segmentation, score, feedback, and debug metadata
 - Phase 13 API validation passed
 - API response returns prediction, score, feedback, debug metadata, and API metadata
+- Phase 14 voice validation passed
+- API response includes voice output availability and audio metadata
 
 Observed Engineering Concerns:
 - limited dataset size for deep sequence models
@@ -870,6 +927,7 @@ Observed Engineering Concerns:
 - feedback quality depends on v1 scoring templates and should be coach-reviewed before production claims
 - Phase 12 v1 analyzes finalized temporal sequences; raw video upload orchestration remains a future integration layer
 - Phase 13 v1 validates upload transport against known finalized dataset filenames; arbitrary raw-video support needs later hardening
+- Phase 14 local fallback audio is playable but should be replaced with a production speech TTS provider for natural coaching voice
 
 Current Engineering Decision:
 - prioritize roadmap-aligned temporal sequence learning
@@ -901,16 +959,16 @@ Likely Stable Components:
 # 🚀 Current Focus
 
 Current Work:
-- Preparing Phase 14 — Voice Output
+- Core roadmap completed through Phase 14
 
 Immediate Goals:
-- convert spoken feedback text into audio-ready output
-- keep TTS as a separate service boundary
-- preserve visible feedback and spoken feedback consistency
-- avoid hardcoding one provider too early
+- perform final end-to-end audit
+- decide whether to harden arbitrary raw-video inference
+- consider production TTS provider integration
+- prepare deployment/frontend integration strategy
 
 Next Major Milestone:
-Roadmap-aligned voice output layer that converts Phase 11/13 spoken feedback into audio-ready coaching output.
+Post-roadmap hardening: production-grade raw-video inference, frontend integration, deployment, and coach-reviewed scoring/feedback calibration.
 
 ---
 

@@ -1,0 +1,20 @@
+{
+  "phase": "Phase 14",
+  "version": "phase_14_voice_output_v1",
+  "created_at": "2026-08-03T19:14:45.289285Z",
+  "provider": "local_audio_cue_wav",
+  "audio_generated": true,
+  "audio_playable": true,
+  "audio_bytes": 213580,
+  "spoken_feedback_matches_visible_feedback": true,
+  "frontend_audio_ready_response_created": true,
+  "validation_passed": true,
+  "output_files": {
+    "sample_voice_output": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase14/sample_voice_output.json",
+    "frontend_audio_ready_response": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase14/frontend_audio_ready_response.json",
+    "voice_health": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase14/voice_health.json",
+    "voice_report": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase14/voice_output_report.md",
+    "audio_output_dir": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase14/audio_output",
+    "audio_file": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase14/audio_output/sample_spoken_feedback.wav"
+  }
+}

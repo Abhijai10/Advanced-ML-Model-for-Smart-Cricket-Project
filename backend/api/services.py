@@ -19,6 +19,7 @@ if str(ML_SRC) not in sys.path:
 
 from inference.analysis_pipeline import analyze_sequence, load_dataset_sequence  # noqa: E402
 from inference.inference_config import PHASE12_VERSION  # noqa: E402
+from voice.tts_service import build_frontend_audio_ready_response, synthesize_spoken_feedback  # noqa: E402
 
 
 PHASE13_VERSION = "phase_13_api_integration_v1"
@@ -98,6 +99,11 @@ def analyze_uploaded_video(file: UploadFile) -> dict[str, Any]:
             ) from exc
 
         result = analyze_sequence(sequence, source_metadata).to_dict()
+        voice_ready = build_frontend_audio_ready_response(
+            analysis_response=result,
+            voice_output=synthesize_spoken_feedback(result["spoken_feedback"]),
+        )
+        result["voice_output"] = voice_ready["audio"]
         result["api_metadata"] = {
             "phase": "Phase 13",
             "version": PHASE13_VERSION,
@@ -107,6 +113,7 @@ def analyze_uploaded_video(file: UploadFile) -> dict[str, Any]:
             "temporary_file_saved": True,
             "temporary_file_cleaned": True,
             "pipeline_version": PHASE12_VERSION,
+            "voice_output_ready": bool(voice_ready["audio"]["available"]),
             "api_note": (
                 "API transport is separate from ML business logic. This endpoint calls "
                 "the Phase 12 offline inference pipeline."

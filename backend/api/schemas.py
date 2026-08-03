@@ -31,6 +31,7 @@ class AnalyzeResponse(BaseModel):
     source_metadata: dict[str, Any]
     prediction: dict[str, Any]
     segmentation: dict[str, Any]
+    voice_output: dict[str, Any]
     api_metadata: dict[str, Any]
 
 
