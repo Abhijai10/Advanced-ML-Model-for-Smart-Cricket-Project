@@ -30,6 +30,8 @@ def _fake_analysis(video_path: Path) -> dict:
         "debug_metadata": {"digest": digest},
         "source_metadata": {
             "file_name": video_path.name,
+            "frames_extracted": 60,
+            "frames_after_cleaning": 60,
             "resampled_timing": [
                 {"sequence_frame": i, "source_frame": i, "timestamp_seconds": i / 24.0}
                 for i in range(60)
@@ -46,6 +48,13 @@ def _fake_analysis(video_path: Path) -> dict:
             "trigger_count": 1,
         },
     }
+
+
+def _fake_low_quality_analysis(video_path: Path) -> dict:
+    payload = _fake_analysis(video_path)
+    payload["shot_confidence"] = 0.31
+    payload["source_metadata"]["frames_after_cleaning"] = 4
+    return payload
 
 
 def _fake_voice(spoken_feedback: str, **kwargs) -> VoiceOutput:
@@ -129,7 +138,24 @@ class SmartCricketAPITests(unittest.TestCase):
         digest = hashlib.sha256(content).hexdigest()
         self.assertEqual(payload["debug_metadata"]["digest"], digest)
         self.assertEqual(payload["api_metadata"]["analysis_mode"], "raw_video_upload")
+        self.assertEqual(payload["analysis_quality"]["status"], "ok")
         self.assertIn("/audio/test-request-", payload["voice_output"]["audio_url"])
+
+    def test_low_quality_result_is_marked_insufficient_quality(self) -> None:
+        content = self._make_video("low-quality.mp4", "blue")
+        with patch("backend.api.services.analyze_raw_video", side_effect=_fake_low_quality_analysis), patch(
+            "backend.api.services.synthesize_spoken_feedback",
+            side_effect=_fake_voice,
+        ):
+            response = self.client.post(
+                "/analyze",
+                files={"file": ("low-quality.mp4", content, "video/mp4")},
+                headers={"x-request-id": "test-request"},
+            )
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertEqual(payload["analysis_quality"]["status"], "insufficient_quality")
+        self.assertGreaterEqual(len(payload["analysis_quality"]["reasons"]), 2)
 
     def test_same_video_under_different_filenames_returns_same_digest(self) -> None:
         content = self._make_video("same.mp4", "red")

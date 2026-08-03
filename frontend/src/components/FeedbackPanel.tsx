@@ -22,12 +22,16 @@ export function FeedbackPanel({ result }: FeedbackPanelProps) {
   const probabilityEntries = Object.entries(result.prediction.class_probabilities ?? {});
   const audioUrl = result.voice_output.audio_url ? resolveApiUrl(result.voice_output.audio_url) : "";
   const duration = result.timing?.duration_seconds;
+  const qualityStatus = result.analysis_quality?.status ?? "ok";
+  const qualityLabel =
+    qualityStatus === "insufficient_quality" ? "Needs clearer video" : qualityStatus === "uncertain" ? "Uncertain" : "Ready";
 
   return (
     <aside className="feedback-panel" aria-label="Analysis feedback">
       <div className="result-topline">
         <span>Prediction</span>
         <strong>{shotName(result.predicted_shot)}</strong>
+        <em>{qualityLabel}</em>
       </div>
 
       <div className="score-grid">
@@ -61,6 +65,9 @@ export function FeedbackPanel({ result }: FeedbackPanelProps) {
 
       <section className="mini-section">
         <h3>Coaching tips</h3>
+        {result.analysis_quality?.reasons?.length ? (
+          <p className="quality-note">{result.analysis_quality.reasons[0]}</p>
+        ) : null}
         <ul className="tips-list">
           {result.coaching_tips.map((tip) => (
             <li key={tip}>{tip}</li>

@@ -164,6 +164,7 @@ def _attach_voice_and_metadata(
     analysis_mode: str,
     request_id: str,
 ) -> dict[str, Any]:
+    result["analysis_quality"] = _analysis_quality(result)
     audio_name = f"{request_id}-{uuid4().hex}.wav"
     voice_ready = build_frontend_audio_ready_response(
         analysis_response=result,
@@ -193,6 +194,39 @@ def _attach_voice_and_metadata(
         ),
     }
     return result
+
+
+def _analysis_quality(result: dict[str, Any]) -> dict[str, Any]:
+    """Return an honest quality state for frontend and persisted reports."""
+    source = result.get("source_metadata", {})
+    confidence = float(result.get("shot_confidence", 0.0) or 0.0)
+    frames_after_cleaning = source.get("frames_after_cleaning") if isinstance(source, dict) else None
+    frames_extracted = source.get("frames_extracted") if isinstance(source, dict) else None
+    confidence_threshold = SETTINGS.uncertainty_confidence_threshold / 100.0
+    reasons: list[str] = []
+    status = "ok"
+
+    if confidence < confidence_threshold:
+        status = "uncertain"
+        reasons.append(
+            f"Model confidence {confidence:.2f} is below the configured {confidence_threshold:.2f} threshold."
+        )
+    if isinstance(frames_after_cleaning, int) and frames_after_cleaning < SETTINGS.min_clean_pose_frames:
+        status = "insufficient_quality"
+        reasons.append(
+            f"Only {frames_after_cleaning} clean pose frames were available; at least {SETTINGS.min_clean_pose_frames} are recommended."
+        )
+    if not reasons:
+        reasons.append("Input quality and model confidence meet the current v1 thresholds.")
+
+    return {
+        "status": status,
+        "reasons": reasons,
+        "confidence_threshold": confidence_threshold,
+        "min_clean_pose_frames": SETTINGS.min_clean_pose_frames,
+        "frames_extracted": frames_extracted,
+        "frames_after_cleaning": frames_after_cleaning,
+    }
 
 
 def analyze_uploaded_video(file: UploadFile, *, request_id: str) -> dict[str, Any]:

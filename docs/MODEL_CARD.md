@@ -33,3 +33,13 @@ The model is intended for cricket-shot demo analysis and iterative coaching-feed
 - Calibration and uncertainty thresholds.
 - Explicit `uncertain` or insufficient-quality output for poor pose/video inputs.
 - Field testing with coaches and players.
+
+## Current Uncertainty Handling
+
+API responses include `analysis_quality.status`:
+
+- `ok` when confidence and pose-frame thresholds pass;
+- `uncertain` when model confidence is below the configured threshold;
+- `insufficient_quality` when too few clean pose frames are available.
+
+These thresholds are engineering safeguards, not calibrated clinical or coaching guarantees.

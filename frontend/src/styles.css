@@ -484,6 +484,17 @@ input:focus-visible,
   line-height: 1.05;
 }
 
+.result-topline em {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 5px 8px;
+  color: var(--primary);
+  background: var(--white);
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 850;
+}
+
 .score-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -539,6 +550,13 @@ input:focus-visible,
   padding-left: 18px;
   color: var(--ink);
   line-height: 1.5;
+}
+
+.quality-note {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .tips-list li + li {

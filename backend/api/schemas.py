@@ -36,6 +36,7 @@ class AnalyzeResponse(BaseModel):
     coaching_tips: list[str]
     detailed_feedback: str
     spoken_feedback: str
+    analysis_quality: dict[str, Any] = Field(default_factory=dict)
     debug_metadata: dict[str, Any]
     source_metadata: dict[str, Any]
     prediction: dict[str, Any]

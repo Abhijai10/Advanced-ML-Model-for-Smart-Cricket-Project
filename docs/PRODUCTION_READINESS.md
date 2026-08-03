@@ -26,6 +26,7 @@ It should not be described as fully production-ready yet. The remaining blockers
 - UI duration uses backend timing from source video timestamps when available.
 - Frontend sends Supabase access tokens when a user is signed in.
 - Frontend no longer writes model results into Supabase directly; authenticated history writes are local-only until server-side persistence is connected.
+- Analysis responses include `analysis_quality.status` with `ok`, `uncertain`, or `insufficient_quality` based on configurable confidence and clean-pose-frame thresholds.
 
 ## Environment
 

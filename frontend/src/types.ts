@@ -6,6 +6,10 @@ export type AnalysisResponse = {
   coaching_tips: string[];
   detailed_feedback: string;
   spoken_feedback: string;
+  analysis_quality?: {
+    status?: "ok" | "uncertain" | "insufficient_quality";
+    reasons?: string[];
+  };
   debug_metadata: Record<string, unknown>;
   source_metadata: Record<string, unknown>;
   prediction: {

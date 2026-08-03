@@ -51,6 +51,8 @@ class APISettings:
     max_upload_bytes: int = _int_env("SMART_CRICKET_MAX_UPLOAD_BYTES", 250 * 1024 * 1024)
     max_video_duration_seconds: int = _int_env("SMART_CRICKET_MAX_VIDEO_DURATION_SECONDS", 20)
     max_video_pixels: int = _int_env("SMART_CRICKET_MAX_VIDEO_PIXELS", 1920 * 1080)
+    uncertainty_confidence_threshold: int = _int_env("SMART_CRICKET_UNCERTAINTY_CONFIDENCE_PERCENT", 55)
+    min_clean_pose_frames: int = _int_env("SMART_CRICKET_MIN_CLEAN_POSE_FRAMES", 20)
 
 
 SETTINGS = APISettings()
