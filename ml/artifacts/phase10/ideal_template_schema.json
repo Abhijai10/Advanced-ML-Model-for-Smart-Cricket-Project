@@ -2,7 +2,7 @@
   "schema_name": "smart_cricket_ideal_technique_template_schema",
   "phase": "Phase 10",
   "version": "phase_10_technique_scoring_v1",
-  "created_at": "2026-08-03T18:11:25.951460Z",
+  "created_at": "2026-08-03T18:18:28.664890Z",
   "dataset_split_used": "train",
   "template_strategy": "Prefer good-quality training examples per shot class; fall back to all training examples when fewer than three good-quality examples are available.",
   "score_range": [
