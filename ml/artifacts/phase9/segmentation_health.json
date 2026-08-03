@@ -1,0 +1,26 @@
+{
+  "phase": "Phase 9 \u2014 Shot Segmentation",
+  "created_at": "2026-08-03T17:48:51.942609Z",
+  "input_tensor": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/data/final_temporal/X_sequence.npy",
+  "input_shape": [
+    80,
+    60,
+    32
+  ],
+  "total_sequences": 80,
+  "segments_detected": 80,
+  "single_trigger_sequences": 80,
+  "forced_sequence_end_completions": 65,
+  "validation_passed": true,
+  "thresholds": {
+    "start_threshold": 0.28,
+    "active_threshold": 0.18,
+    "end_threshold": 0.12,
+    "smoothing_window": 5
+  },
+  "notes": [
+    "Phase 9 uses explainable motion-energy thresholds and a state machine.",
+    "This phase does not retrain the Phase 8 classifier.",
+    "sequence_end_completion is allowed because finalized clips already contain one labeled shot."
+  ]
+}

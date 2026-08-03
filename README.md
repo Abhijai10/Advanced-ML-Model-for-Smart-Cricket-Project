@@ -48,11 +48,12 @@ The project is being developed through structured ML engineering phases:
 - ✅ Phase 7: Temporal Model Architecture Building 
 - ✅ Pre-Phase-8 Hardening: Architecture & Experiment Readiness Gate
 - ✅ Phase 8: Temporal Model Training & Evaluation
+- ✅ Phase 9: Shot Segmentation
 
 Current development is now focused on:
 
 ```text
-Phase 9 — Shot Segmentation planning
+Phase 10 — Technique Scoring System planning
 ```
 
 
@@ -82,6 +83,8 @@ Current completed outputs:
 - Locked Phase 8 experiment contract
 - Completed Phase 8 temporal training and evaluation
 - Validation-selected bidirectional GRU checkpoint for later phases
+- Explainable Phase 9 shot segmentation state machine
+- Single-prediction trigger validation for all 80 finalized sequences
 
 Current temporal dataset contract:
 
@@ -148,6 +151,14 @@ Phase 8 result summary:
 Important limitation:
 
 - The official split is deterministic and class-balanced, but not person-disjoint. These results represent sample-stratified, in-distribution development performance, not proof of unseen-player generalization.
+
+Phase 9 then added the shot segmentation and prediction-gating layer:
+
+- Segmentation strategy: explainable motion-energy thresholds + state machine
+- State path: `idle → preparation → backswing → swing → follow_through → completed → cooldown`
+- Validation result: `80/80` finalized clips produced one detected segment
+- Single-trigger result: `80/80` finalized clips produced exactly one prediction trigger
+- Debug report: `ml/artifacts/phase9/segmentation_debug_report.md`
 
 Important split interpretation:
 
@@ -218,6 +229,8 @@ Temporal Architecture Validation
 Pre-Phase-8 Hardening & Experiment Contract  
 ↓  
 Phase 8 Training & Evaluation
+↓
+Phase 9 Shot Segmentation & Prediction Gating
 
 ---
 
@@ -707,6 +720,67 @@ Primary Phase 8 artifacts:
 - `ml/artifacts/phase8/best_model/`
 
 ---
+
+## 🎬 Phase 9 — Shot Segmentation (Completed)
+
+Phase 9 prevents unstable repeated predictions during one batting motion.
+
+Instead of treating every frame as a prediction opportunity, the system now creates one final prediction trigger per detected shot segment.
+
+Core idea:
+
+```text
+motion stream → segmentation state machine → one completed shot → one prediction trigger
+```
+
+Implemented systems:
+
+- motion-energy extraction from the official 32-D temporal feature schema
+- smoothing and robust per-sequence normalization
+- explainable state machine:
+
+```text
+idle
+→ preparation
+→ backswing
+→ swing
+→ follow_through
+→ completed
+→ cooldown
+```
+
+- cooldown logic to suppress repeated triggers
+- segment summary CSV
+- per-frame state trace CSV
+- segmentation health JSON
+- debug report
+- unit tests for motion energy, state transitions, cooldown, and single-shot triggering
+
+Validation on the finalized temporal dataset:
+
+```text
+Input: X_sequence.npy = (80, 60, 32)
+Segments detected: 80 / 80
+Single-trigger sequences: 80 / 80
+Sequence-end completions: 65
+Validation passed: True
+```
+
+Important interpretation:
+
+- The current dataset already contains clipped one-shot sequences, so many clips complete at sequence end.
+- This is acceptable for finalized clips and is explicitly reported.
+- Live-stream segmentation will need separate buffering and latency validation in later phases.
+- Phase 9 does not retrain the Phase 8 classifier and does not implement Phase 10 scoring.
+
+Primary Phase 9 artifacts:
+
+- `ml/artifacts/phase9/segmentation_debug_report.md`
+- `ml/artifacts/phase9/segmentation_health.json`
+- `ml/artifacts/phase9/segmentation_segments.csv`
+- `ml/artifacts/phase9/segmentation_state_trace.csv`
+
+---
 ### 🔹  Why Phase 7 Matters
 
 Cricket shots are motion sequences, not static poses.
@@ -790,6 +864,14 @@ ml/
 │       ├── train_temporal_models.py
 │       ├── evaluate_temporal_model.py
 │       ├── compare_temporal_models.py
+│       └── tests/
+│   │
+│   └── segmentation/
+│       ├── __init__.py
+│       ├── motion_energy.py
+│       ├── state_machine.py
+│       ├── shot_segmenter.py
+│       ├── validate_shot_segmentation.py
 │       └── tests/
 │
 │
@@ -994,13 +1076,21 @@ ml/artifacts/phase8/best_model/checkpoint.pt
 
 for later temporal-model phases.
 
+Phase 9 now uses the same temporal features for segmentation:
+
+```text
+ml/data/final_temporal/X_sequence.npy
+→ motion-energy signal
+→ state machine
+→ one prediction trigger per completed shot
+```
+
 ---
 
 ### Long-Term Vision
 
 Future phases will include:
 
-- shot segmentation
 - advanced motion understanding  
 - technique scoring  
 - cricket coaching feedback  

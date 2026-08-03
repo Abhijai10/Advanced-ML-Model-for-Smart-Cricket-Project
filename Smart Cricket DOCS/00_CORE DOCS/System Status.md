@@ -4,7 +4,8 @@ Current Phase:
 - Phase 6 Completed (Temporal Dataset Infrastructure)
 - Phase 7 Completed
 - Phase 8 Completed — Temporal Model Training & Evaluation
-- Preparing Phase 9 — Shot Segmentation
+- Phase 9 Completed — Shot Segmentation
+- Preparing Phase 10 — Technique Scoring System
 
 Project Architecture Status:
 - Baseline tabular ML pipeline completed
@@ -41,6 +42,8 @@ Project Status:
 - checkpointing and evaluation system completed
 - bidirectional GRU and BiLSTM trained across seeds 42, 123, and 2026
 - validation-selected best model artifact created
+- Phase 9 explainable shot segmentation completed
+- one-shot prediction trigger validation completed for all 80 finalized sequences
 
 Current Outputs:
 
@@ -97,6 +100,13 @@ Phase 8 Training Artifacts:
 - ml/artifacts/phase8/comparisons/final_test_metrics.json
 - ml/artifacts/phase8/phase8_failure_analysis.md
 - ml/artifacts/phase8/best_model/checkpoint.pt
+
+Phase 9 Segmentation Artifacts:
+- ml/src/segmentation/
+- ml/artifacts/phase9/segmentation_debug_report.md
+- ml/artifacts/phase9/segmentation_health.json
+- ml/artifacts/phase9/segmentation_segments.csv
+- ml/artifacts/phase9/segmentation_state_trace.csv
 
 Current Dataset Status:
 - 80 validated ML samples
@@ -364,6 +374,43 @@ Generalization Limitation:
 - results must not be presented as unseen-player generalization
 
 ---
+## Phase 9 — Shot Segmentation
+
+Completed:
+- motion-energy extraction from the official 32-D temporal feature schema
+- robust per-sequence motion-energy normalization
+- temporal smoothing for stable event detection
+- explainable state machine:
+
+```text
+idle → preparation → backswing → swing → follow_through → completed → cooldown
+```
+
+- cooldown logic to reduce repeated predictions during one shot
+- single prediction-trigger generation per detected segment
+- per-sequence segment summary output
+- per-frame state trace output
+- segmentation health JSON
+- segmentation debug report
+- unit tests for motion energy, state transitions, cooldown, and shot triggering
+
+Validation Results:
+```text
+Input: X_sequence.npy = (80, 60, 32)
+Segments detected: 80 / 80
+Single-trigger sequences: 80 / 80
+Sequence-end completions: 65
+Validation passed: True
+```
+
+Interpretation:
+- finalized clips already contain one labeled batting shot
+- many clips remain motion-active until frame 59, so sequence-end completion is explicitly reported
+- the segmenter is an explainable prediction gate, not a learned segmentation model
+- Phase 9 does not retrain the Phase 8 classifier
+- live-stream timing and buffering must be validated in later inference phases
+
+---
 # 📂 Current Dataset State
 
 Total Videos:
@@ -452,7 +499,7 @@ Locked:
 # 🧠 Current ML Direction
 
 Current ML Stage:
-- Temporal model training complete; preparing shot segmentation
+- Shot segmentation complete; preparing technique scoring
 
 Temporal architectures completed:
 - GRU
@@ -516,7 +563,7 @@ Raw Video
 → GRU / BiLSTM Training
 → Phase 8 Best Temporal Checkpoint
 → Shot Segmentation
-→ Future Technique Understanding
+→ Technique Scoring
 → Future Coaching Feedback Engine
 
 ---
@@ -542,6 +589,8 @@ Current Technical Observations:
 - Phase 8 training and evaluation completed
 - selected bidirectional GRU reached final holdout test macro F1 of 0.6762
 - validation/test gap and 56-sample training size indicate overfitting risk remains
+- Phase 9 segmentation validation passed on all 80 finalized sequences
+- Phase 9 emits one prediction trigger per finalized sequence
 
 Observed Engineering Concerns:
 - limited dataset size for deep sequence models
@@ -579,16 +628,16 @@ Likely Stable Components:
 # 🚀 Current Focus
 
 Current Work:
-- Preparing Phase 9 — Shot Segmentation
+- Preparing Phase 10 — Technique Scoring System
 
 Immediate Goals:
-- design shot segmentation boundaries
-- preserve Phase 8 checkpoint/evaluation traceability
-- avoid changing the locked Phase 8 dataset split or model-selection record
-- plan how segmented clips will feed the existing temporal model contract
+- design explainable technique scoring from features and predicted shot labels
+- preserve Phase 9 segmentation boundaries as the upstream trigger
+- avoid generating coaching feedback before Phase 11
+- keep scoring interpretable and biomechanically grounded
 
 Next Major Milestone:
-Roadmap-aligned shot segmentation layer that can feed the trained temporal classifier.
+Roadmap-aligned technique scoring layer that compares user movement against shot-specific reference behavior.
 
 ---
 
