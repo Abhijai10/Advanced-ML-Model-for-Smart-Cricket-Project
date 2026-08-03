@@ -41,7 +41,7 @@ class SmartCricketAPITests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 422)
         detail = response.json()["detail"]
-        self.assertEqual(detail["error_code"], "unknown_dataset_video")
+        self.assertEqual(detail["error_code"], "raw_video_analysis_failed")
 
     def test_rejects_unsupported_file_type(self) -> None:
         response = self.client.post(

@@ -12,7 +12,7 @@
   "debug_metadata": {
     "phase": "Phase 12",
     "version": "phase_12_offline_inference_v1",
-    "created_at": "2026-08-03T19:14:55.063594Z",
+    "created_at": "2026-08-03T19:54:05.135049Z",
     "pipeline_mode": "offline_temporal_sequence",
     "input_contract": "[60, 32] temporal feature sequence",
     "model_artifact": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase8/best_model/checkpoint.pt",
@@ -69,13 +69,14 @@
   "api_metadata": {
     "phase": "Phase 13",
     "version": "phase_13_api_integration_v1",
-    "created_at": "2026-08-03T19:14:55.596737Z",
+    "created_at": "2026-08-03T19:54:05.705852Z",
     "upload_filename": "cover_drive_average_02.mov",
     "upload_bytes": 24,
     "temporary_file_saved": true,
     "temporary_file_cleaned": true,
+    "analysis_mode": "finalized_dataset_sequence",
     "pipeline_version": "phase_12_offline_inference_v1",
     "voice_output_ready": true,
-    "api_note": "API transport is separate from ML business logic. This endpoint calls the Phase 12 offline inference pipeline."
+    "api_note": "API transport is separate from ML business logic. This endpoint calls the Smart Cricket inference pipeline."
   }
 }

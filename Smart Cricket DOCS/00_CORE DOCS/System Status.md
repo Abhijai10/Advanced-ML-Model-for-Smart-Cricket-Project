@@ -62,6 +62,7 @@ Project Status:
 - API response calls Phase 12 pipeline without duplicating ML logic
 - Phase 14 voice output layer completed
 - playable audio artifact and frontend audio-ready response generated from `spoken_feedback`
+- React website/app shell completed for camera capture, Supabase auth, analysis history, and shot charts
 
 Current Outputs:
 
@@ -160,6 +161,13 @@ Phase 14 Voice Artifacts:
 - ml/artifacts/phase14/voice_health.json
 - ml/artifacts/phase14/voice_output_report.md
 - ml/artifacts/phase14/audio_output/sample_spoken_feedback.wav
+
+Website/App Artifacts:
+- frontend/
+- PRODUCT.md
+- DESIGN.md
+- supabase/migrations/202608040001_smart_cricket_app_schema.sql
+- ml/src/inference/raw_video_pipeline.py
 
 Current Dataset Status:
 - 80 validated ML samples
@@ -917,6 +925,9 @@ Current Technical Observations:
 - API response returns prediction, score, feedback, debug metadata, and API metadata
 - Phase 14 voice validation passed
 - API response includes voice output availability and audio metadata
+- website production build and lint pass
+- Supabase schema is prepared with authenticated owner-scoped RLS policies
+- API upload flow now has a raw-video preprocessing path for camera/upload analysis
 
 Observed Engineering Concerns:
 - limited dataset size for deep sequence models
@@ -959,12 +970,14 @@ Likely Stable Components:
 # 🚀 Current Focus
 
 Current Work:
-- Core roadmap completed through Phase 14
+- Core roadmap completed through Phase 14, with website/app shell added
 
 Immediate Goals:
 - perform final end-to-end audit
 - decide whether to harden arbitrary raw-video inference
 - consider production TTS provider integration
+- connect the Supabase migration to a chosen Smart Cricket Supabase project
+- run browser QA against the website after Supabase env values are configured
 - prepare deployment/frontend integration strategy
 
 Next Major Milestone:

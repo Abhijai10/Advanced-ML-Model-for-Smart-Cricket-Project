@@ -25,6 +25,11 @@ ENV/
 # =========================
 build/
 dist/
+node_modules/
+*.tsbuildinfo
+*.d.ts.map
+frontend/vite.config.js
+frontend/vite.config.d.ts
 *.egg-info/
 
 # =========================

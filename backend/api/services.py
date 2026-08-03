@@ -19,11 +19,12 @@ if str(ML_SRC) not in sys.path:
 
 from inference.analysis_pipeline import analyze_sequence, load_dataset_sequence  # noqa: E402
 from inference.inference_config import PHASE12_VERSION  # noqa: E402
+from inference.raw_video_pipeline import analyze_raw_video  # noqa: E402
 from voice.tts_service import build_frontend_audio_ready_response, synthesize_spoken_feedback  # noqa: E402
 
 
 PHASE13_VERSION = "phase_13_api_integration_v1"
-ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv"}
+ALLOWED_VIDEO_EXTENSIONS = {".avi", ".mkv", ".mov", ".mp4", ".webm"}
 MAX_UPLOAD_BYTES = 250 * 1024 * 1024
 
 
@@ -76,6 +77,37 @@ def _cleanup_temp_path(path: Path) -> None:
     shutil.rmtree(path.parent, ignore_errors=True)
 
 
+def _attach_voice_and_metadata(
+    result: dict[str, Any],
+    *,
+    filename: str,
+    upload_bytes: int,
+    analysis_mode: str,
+) -> dict[str, Any]:
+    voice_ready = build_frontend_audio_ready_response(
+        analysis_response=result,
+        voice_output=synthesize_spoken_feedback(result["spoken_feedback"]),
+    )
+    result["voice_output"] = voice_ready["audio"]
+    result["api_metadata"] = {
+        "phase": "Phase 13",
+        "version": PHASE13_VERSION,
+        "created_at": _utc_now(),
+        "upload_filename": filename,
+        "upload_bytes": upload_bytes,
+        "temporary_file_saved": True,
+        "temporary_file_cleaned": True,
+        "analysis_mode": analysis_mode,
+        "pipeline_version": PHASE12_VERSION,
+        "voice_output_ready": bool(voice_ready["audio"]["available"]),
+        "api_note": (
+            "API transport is separate from ML business logic. This endpoint calls "
+            "the Smart Cricket inference pipeline."
+        ),
+    }
+    return result
+
+
 def analyze_uploaded_video(file: UploadFile) -> dict[str, Any]:
     """Analyze one uploaded cricket video using the Phase 12 pipeline.
 
@@ -88,38 +120,33 @@ def analyze_uploaded_video(file: UploadFile) -> dict[str, Any]:
     try:
         try:
             sequence, source_metadata = load_dataset_sequence(file_name=filename)
+            result = analyze_sequence(sequence, source_metadata).to_dict()
+            return _attach_voice_and_metadata(
+                result,
+                filename=filename,
+                upload_bytes=upload_bytes,
+                analysis_mode="finalized_dataset_sequence",
+            )
         except ValueError as exc:
+            if Path(filename).suffix.lower() not in {".mp4", ".mov", ".avi", ".mkv", ".webm"}:
+                raise exc
+
+        try:
+            raw_result = analyze_raw_video(temp_path)
+        except Exception as exc:
             raise APIValidationError(
                 (
-                    "Uploaded filename is not present in the finalized temporal dataset. "
-                    "Phase 13 v1 validates API integration against known v1 dataset videos; "
-                    "arbitrary raw-video preprocessing is intentionally deferred."
+                    "The uploaded video could not be converted into a valid Smart Cricket "
+                    "temporal sequence. Record a clear batting motion with the full body visible."
                 ),
-                "unknown_dataset_video",
+                "raw_video_analysis_failed",
             ) from exc
-
-        result = analyze_sequence(sequence, source_metadata).to_dict()
-        voice_ready = build_frontend_audio_ready_response(
-            analysis_response=result,
-            voice_output=synthesize_spoken_feedback(result["spoken_feedback"]),
+        return _attach_voice_and_metadata(
+            raw_result,
+            filename=filename,
+            upload_bytes=upload_bytes,
+            analysis_mode="raw_video_upload",
         )
-        result["voice_output"] = voice_ready["audio"]
-        result["api_metadata"] = {
-            "phase": "Phase 13",
-            "version": PHASE13_VERSION,
-            "created_at": _utc_now(),
-            "upload_filename": filename,
-            "upload_bytes": upload_bytes,
-            "temporary_file_saved": True,
-            "temporary_file_cleaned": True,
-            "pipeline_version": PHASE12_VERSION,
-            "voice_output_ready": bool(voice_ready["audio"]["available"]),
-            "api_note": (
-                "API transport is separate from ML business logic. This endpoint calls "
-                "the Phase 12 offline inference pipeline."
-            ),
-        }
-        return result
     finally:
         _cleanup_temp_path(temp_path)
 

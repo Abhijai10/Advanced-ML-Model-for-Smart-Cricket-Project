@@ -101,6 +101,7 @@ Current completed outputs:
 - Frontend-consumable API response that calls the Phase 12 pipeline without duplicating ML logic
 - Phase 14 voice output layer that converts `spoken_feedback` into playable audio metadata/artifacts
 - Frontend audio-ready response with text + audio file metadata
+- React website/app shell with camera capture, Supabase auth integration, analysis history, and shot charts
 
 Current temporal dataset contract:
 
@@ -1129,6 +1130,51 @@ Important interpretation:
 - TTS/audio generation is isolated behind a service boundary.
 - The local environment could not produce speech frames through macOS `say`, so the provider fell back to a playable WAV audio cue while preserving the exact spoken feedback text in the frontend response.
 - A cloud or production TTS provider can replace the local provider later without changing the feedback engine.
+
+---
+
+## 🌐 Website App
+
+The repository includes a polished React website/app shell in `frontend/`.
+
+It provides:
+
+- project intro and creator credit for Abhijai Raghuvanshi
+- Supabase-ready login and account creation
+- camera recording and video upload workflow
+- model analysis submission to the FastAPI `/analyze` endpoint
+- side panel for prediction, technique score, shot segment, feedback, and spoken text
+- shot history chart showing shot counts and detected segment duration
+
+Run locally:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Frontend env setup:
+
+```bash
+cp frontend/.env.example frontend/.env
+```
+
+Then set:
+
+```text
+VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_key_here
+```
+
+Supabase schema:
+
+```text
+supabase/migrations/202608040001_smart_cricket_app_schema.sql
+```
+
+The schema uses authenticated owner-scoped RLS policies for profiles, analysis sessions, and shot timeline events.
 
 ---
 ### 🔹  Why Phase 7 Matters
