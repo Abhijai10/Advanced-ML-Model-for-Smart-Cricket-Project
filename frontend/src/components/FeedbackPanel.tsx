@@ -1,5 +1,6 @@
 import { Volume2 } from "lucide-react";
 import { shotName } from "../lib/history";
+import { resolveApiUrl } from "../lib/api";
 import type { AnalysisResponse } from "../types";
 
 type FeedbackPanelProps = {
@@ -19,6 +20,8 @@ export function FeedbackPanel({ result }: FeedbackPanelProps) {
   }
 
   const probabilityEntries = Object.entries(result.prediction.class_probabilities ?? {});
+  const audioUrl = result.voice_output.audio_url ? resolveApiUrl(result.voice_output.audio_url) : "";
+  const duration = result.timing?.duration_seconds;
 
   return (
     <aside className="feedback-panel" aria-label="Analysis feedback">
@@ -50,8 +53,8 @@ export function FeedbackPanel({ result }: FeedbackPanelProps) {
             <dd>{result.segmentation.end_frame ?? "Waiting"}</dd>
           </div>
           <div>
-            <dt>Status</dt>
-            <dd>{result.segmentation.completed ? "Completed" : "Incomplete"}</dd>
+            <dt>Duration</dt>
+            <dd>{typeof duration === "number" ? `${duration.toFixed(2)}s` : "Unavailable"}</dd>
           </div>
         </dl>
       </section>
@@ -68,9 +71,14 @@ export function FeedbackPanel({ result }: FeedbackPanelProps) {
       <section className="spoken-block">
         <div>
           <Volume2 size={18} aria-hidden="true" />
-          <h3>Spoken feedback</h3>
+          <h3>{result.voice_output.is_spoken_tts === false ? "Audio cue" : "Spoken feedback"}</h3>
         </div>
         <p>{result.spoken_feedback}</p>
+        {audioUrl ? (
+          <audio controls src={audioUrl}>
+            Your browser does not support audio playback.
+          </audio>
+        ) : null}
       </section>
 
       {probabilityEntries.length > 0 && (

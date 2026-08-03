@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smart-cricket"
+version = "0.15.0"
+description = "Smart Cricket video analysis prototype with API, ML inference, and React product UI."
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "fastapi==0.141.1",
+  "httpx2==2.9.1",
+  "joblib==1.5.3",
+  "matplotlib==3.10.9",
+  "mediapipe==0.10.35",
+  "numpy==2.4.4",
+  "opencv-python==4.13.0.92",
+  "pandas==3.0.2",
+  "pydantic==2.13.4",
+  "python-multipart==0.0.32",
+  "scikit-learn==1.8.0",
+  "torch==2.11.0",
+  "torchvision==0.26.0",
+  "tqdm==4.67.3",
+  "uvicorn==0.52.1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest==9.1.1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = [
+  ".",
+  "ml/src",
+  "ml/src/features",
+]
+testpaths = [
+  "backend/api/tests",
+  "ml/src",
+]
+addopts = "-p no:cacheprovider"
+
+[tool.setuptools]
+py-modules = []

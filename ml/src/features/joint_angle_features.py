@@ -26,6 +26,7 @@ from geometry_utils import (
     calculate_angle,
     get_landmark,
     landmark_to_array,
+    safe_circular_mean_degrees,
     safe_mean,
     safe_min,
 )
@@ -182,8 +183,8 @@ def extract_joint_angle_features(
         "lead_knee_angle_mean": safe_mean(lead_knee),
         "lead_knee_angle_min": safe_min(lead_knee),
         "trail_knee_angle_mean": safe_mean(trail_knee),
-        "shoulder_rotation_angle_mean": safe_mean(shoulder_line),
-        "hip_rotation_angle_mean": safe_mean(hip_line),
+        "shoulder_rotation_angle_mean": safe_circular_mean_degrees(shoulder_line),
+        "hip_rotation_angle_mean": safe_circular_mean_degrees(hip_line),
     }
 
 

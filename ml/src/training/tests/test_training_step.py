@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -65,6 +66,13 @@ class TrainingStepTests(unittest.TestCase):
             self.assertTrue(np.isfinite(stats["loss"]))
             self.assertEqual(stats["logits"].shape, (8, 4))
             self.assertFalse(torch.is_grad_enabled() and trainer.model.training)
+
+    def test_unknown_optimizer_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            trainer, _loader = self._trainer(tmp)
+            trainer.config = replace(trainer.config, optimizer_name="AdmaTypo")
+            with self.assertRaises(ValueError):
+                trainer._make_optimizer()
 
 
 if __name__ == "__main__":

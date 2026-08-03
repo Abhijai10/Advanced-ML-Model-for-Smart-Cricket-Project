@@ -80,10 +80,13 @@ def _array_paths(dataset_dir: Path) -> dict[str, Path]:
 def _load_split_arrays(dataset_dir: Path) -> dict[str, np.ndarray]:
     paths = _array_paths(dataset_dir)
     arrays = {name: np.load(path) for name, path in paths.items()}
-    if arrays["X_train"].shape != (56, 60, 32):
-        raise ValueError(f"Unexpected X_train shape: {arrays['X_train'].shape}")
-    if arrays["X_val"].shape != (12, 60, 32) or arrays["X_test"].shape != (12, 60, 32):
-        raise ValueError("Unexpected validation/test tensor shape.")
+    for split in ("train", "val", "test"):
+        X = arrays[f"X_{split}"]
+        y = arrays[f"y_{split}"]
+        if X.ndim != 3 or X.shape[1:] != (60, 32):
+            raise ValueError(f"Unexpected X_{split} shape: {X.shape}")
+        if y.shape != (X.shape[0],):
+            raise ValueError(f"Unexpected y_{split} shape: {y.shape}")
     return arrays
 
 

@@ -1,0 +1,25 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    SMART_CRICKET_AUDIO_OUTPUT_DIR=/tmp/smart-cricket-audio
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml ./
+RUN python -m pip install --upgrade pip \
+    && python -m pip install ".[dev]"
+
+COPY backend ./backend
+COPY ml/src ./ml/src
+COPY ml/artifacts/phase8/best_model ./ml/artifacts/phase8/best_model
+COPY ml/artifacts/phase10 ./ml/artifacts/phase10
+COPY ml/data/final_temporal ./ml/data/final_temporal
+COPY ml/models ./ml/models
+
+EXPOSE 8000
+CMD ["uvicorn", "backend.api.app:app", "--host", "0.0.0.0", "--port", "8000"]

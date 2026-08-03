@@ -5,9 +5,10 @@ import type { AnalysisResponse } from "../types";
 
 type CameraAnalysisProps = {
   onResult: (result: AnalysisResponse, sourceName: string) => Promise<void>;
+  accessToken?: string;
 };
 
-export function CameraAnalysis({ onResult }: CameraAnalysisProps) {
+export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -15,13 +16,15 @@ export function CameraAnalysis({ onResult }: CameraAnalysisProps) {
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [pendingClip, setPendingClip] = useState<{ blob: Blob; filename: string; previewUrl: string } | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     return () => {
       streamRef.current?.getTracks().forEach((track) => track.stop());
+      if (pendingClip) URL.revokeObjectURL(pendingClip.previewUrl);
     };
-  }, []);
+  }, [pendingClip]);
 
   async function startCamera() {
     setError("");
@@ -53,7 +56,13 @@ export function CameraAnalysis({ onResult }: CameraAnalysisProps) {
       if (event.data.size > 0) chunksRef.current.push(event.data);
     };
     recorder.onstop = () => {
-      void submitBlob(new Blob(chunksRef.current, { type: "video/webm" }), "smart-cricket-camera-shot.webm");
+      const blob = new Blob(chunksRef.current, { type: "video/webm" });
+      if (pendingClip) URL.revokeObjectURL(pendingClip.previewUrl);
+      setPendingClip({
+        blob,
+        filename: "smart-cricket-camera-shot.webm",
+        previewUrl: URL.createObjectURL(blob),
+      });
     };
     recorder.start();
     setIsRecording(true);
@@ -68,13 +77,26 @@ export function CameraAnalysis({ onResult }: CameraAnalysisProps) {
     setIsAnalyzing(true);
     setError("");
     try {
-      const result = await analyzeVideo(blob, filename);
+      const result = await analyzeVideo(blob, filename, accessToken);
       await onResult(result, filename);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Analysis failed.");
     } finally {
       setIsAnalyzing(false);
     }
+  }
+
+  async function submitPendingClip() {
+    if (!pendingClip) return;
+    await submitBlob(pendingClip.blob, pendingClip.filename);
+    URL.revokeObjectURL(pendingClip.previewUrl);
+    setPendingClip(null);
+  }
+
+  function retakeClip() {
+    if (pendingClip) URL.revokeObjectURL(pendingClip.previewUrl);
+    setPendingClip(null);
+    setError("");
   }
 
   async function uploadFile(event: React.ChangeEvent<HTMLInputElement>) {
@@ -89,7 +111,7 @@ export function CameraAnalysis({ onResult }: CameraAnalysisProps) {
       <div className="panel-heading">
         <div>
           <h2 id="camera-title">Live shot analysis</h2>
-          <p>Open the camera, record one batting motion, and let the model detect the shot segment.</p>
+          <p>Open the camera, record one batting motion, review the clip, and submit only the take you want analyzed.</p>
         </div>
         <span className={isRecording ? "status-pill recording" : "status-pill"}>{isRecording ? "Recording" : "Ready"}</span>
       </div>
@@ -105,18 +127,36 @@ export function CameraAnalysis({ onResult }: CameraAnalysisProps) {
         {isAnalyzing && <div className="analysis-overlay">Analyzing movement...</div>}
       </div>
 
+      {pendingClip && (
+        <div className="review-strip">
+          <video src={pendingClip.previewUrl} controls aria-label="Recorded shot preview" />
+          <div>
+            <strong>Review this take</strong>
+            <span>Submit it for model analysis or retake before sending.</span>
+          </div>
+        </div>
+      )}
+
       <div className="camera-actions">
         <button type="button" className="primary-action compact" onClick={startCamera} disabled={isCameraReady || isAnalyzing}>
           <Play size={17} aria-hidden="true" />
           Start analysis
         </button>
-        <button type="button" className="secondary-action compact" onClick={startRecording} disabled={!isCameraReady || isRecording || isAnalyzing}>
+        <button type="button" className="secondary-action compact" onClick={startRecording} disabled={!isCameraReady || isRecording || isAnalyzing || Boolean(pendingClip)}>
           <Camera size={17} aria-hidden="true" />
           Record shot
         </button>
         <button type="button" className="danger-action compact" onClick={stopRecording} disabled={!isRecording}>
           <CircleStop size={17} aria-hidden="true" />
           Stop
+        </button>
+        <button type="button" className="primary-action compact" onClick={submitPendingClip} disabled={!pendingClip || isAnalyzing}>
+          <Upload size={17} aria-hidden="true" />
+          Analyze clip
+        </button>
+        <button type="button" className="secondary-action compact" onClick={retakeClip} disabled={!pendingClip || isAnalyzing}>
+          <RotateCcw size={17} aria-hidden="true" />
+          Retake
         </button>
         <label className="file-action">
           <Upload size={17} aria-hidden="true" />

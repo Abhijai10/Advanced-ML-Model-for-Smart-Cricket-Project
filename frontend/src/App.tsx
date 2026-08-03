@@ -149,7 +149,7 @@ function App() {
       </section>
 
       <main className="analysis-grid">
-        <CameraAnalysis onResult={saveResult} />
+        <CameraAnalysis onResult={saveResult} accessToken={session?.access_token} />
         <FeedbackPanel result={latestResult} />
       </main>
 

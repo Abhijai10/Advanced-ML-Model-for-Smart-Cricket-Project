@@ -261,7 +261,7 @@ def load_dataset_sequence(*, sample_index: int | None = None, file_name: str | N
 
     X = np.load(DATASET_DIR / "X_sequence.npy")
     y = np.load(DATASET_DIR / "y_sequence.npy")
-    if X.shape != (80, EXPECTED_SEQUENCE_LENGTH, EXPECTED_FEATURE_DIM):
+    if X.ndim != 3 or X.shape[1:] != (EXPECTED_SEQUENCE_LENGTH, EXPECTED_FEATURE_DIM):
         raise ValueError(f"Unexpected X_sequence shape: {X.shape}")
     label_mapping = _load_json(DATASET_DIR / "temporal_label_mapping.json")
     class_names = _class_names(label_mapping)

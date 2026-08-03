@@ -141,6 +141,7 @@ def build_frontend_audio_ready_response(
     voice_output: VoiceOutput,
 ) -> dict[str, Any]:
     """Create a frontend-friendly response that pairs analysis text with audio metadata."""
+    audio_path = Path(voice_output.audio_path)
     return {
         "predicted_shot": analysis_response["predicted_shot"],
         "shot_confidence": analysis_response["shot_confidence"],
@@ -151,8 +152,10 @@ def build_frontend_audio_ready_response(
             "available": voice_output.playable,
             "provider": voice_output.provider,
             "audio_path": voice_output.audio_path,
+            "audio_filename": audio_path.name,
             "audio_format": voice_output.audio_format,
             "audio_bytes": voice_output.audio_bytes,
+            "is_spoken_tts": voice_output.provider != "local_audio_cue_wav",
         },
         "debug_metadata": {
             "source_phase": "Phase 14",

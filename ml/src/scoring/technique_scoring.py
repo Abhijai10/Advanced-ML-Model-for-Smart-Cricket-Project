@@ -200,9 +200,9 @@ def build_ideal_templates(
     class_names: list[str],
 ) -> dict[str, Any]:
     """Create shot-specific measurable-feature templates from the training split."""
-    if X_train.shape != (56, EXPECTED_SEQUENCE_LENGTH, EXPECTED_FEATURE_DIM):
+    if X_train.ndim != 3 or X_train.shape[1:] != (EXPECTED_SEQUENCE_LENGTH, EXPECTED_FEATURE_DIM):
         raise ValueError(f"Unexpected X_train shape: {X_train.shape}")
-    if y_train.shape != (56,):
+    if y_train.shape != (X_train.shape[0],):
         raise ValueError(f"Unexpected y_train shape: {y_train.shape}")
     if len(train_index) != len(y_train):
         raise ValueError("train_temporal_index.csv row count does not match y_train.")
@@ -478,9 +478,9 @@ def generate_phase10_artifacts() -> dict[str, Any]:
     y_train = np.load(DATASET_DIR / "y_train_sequence.npy")
     X_test = np.load(DATASET_DIR / "X_test_sequence.npy")
     y_test = np.load(DATASET_DIR / "y_test_sequence.npy")
-    if X_test.shape != (12, EXPECTED_SEQUENCE_LENGTH, EXPECTED_FEATURE_DIM):
+    if X_test.ndim != 3 or X_test.shape[1:] != (EXPECTED_SEQUENCE_LENGTH, EXPECTED_FEATURE_DIM):
         raise ValueError(f"Unexpected X_test shape: {X_test.shape}")
-    if y_test.shape != (12,):
+    if y_test.shape != (X_test.shape[0],):
         raise ValueError(f"Unexpected y_test shape: {y_test.shape}")
     train_index = pd.read_csv(DATASET_DIR / "train_temporal_index.csv")
     test_index = pd.read_csv(DATASET_DIR / "test_temporal_index.csv")
@@ -574,7 +574,7 @@ def generate_phase10_artifacts() -> dict[str, Any]:
             all(0.0 <= row[component.name] <= 100.0 for row in rows for component in COMPONENT_CONFIGS)
         ),
         "classifier_confidence_used_as_score": False,
-        "validation_passed": bool(len(rows) == 12 and np.all((scores >= 0.0) & (scores <= 100.0))),
+        "validation_passed": bool(len(rows) == len(y_test) and np.all((scores >= 0.0) & (scores <= 100.0))),
         "output_files": {
             "ideal_template_schema": str(TEMPLATE_PATH),
             "technique_scores_csv": str(SCORES_CSV_PATH),

@@ -9,6 +9,9 @@ export function shotName(label: string | null | undefined): string {
 }
 
 export function segmentDurationSeconds(result: AnalysisResponse, fps = 30): number {
+  if (typeof result.timing?.duration_seconds === "number") {
+    return result.timing.duration_seconds;
+  }
   const start = result.segmentation.start_frame;
   const end = result.segmentation.end_frame;
   if (typeof start === "number" && typeof end === "number" && end >= start) {

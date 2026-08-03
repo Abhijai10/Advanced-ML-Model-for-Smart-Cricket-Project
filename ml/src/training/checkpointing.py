@@ -27,7 +27,7 @@ def load_checkpoint(path: str | Path, map_location: str | torch.device = "cpu") 
     path = Path(path)
     if not path.is_file():
         raise FileNotFoundError(f"Checkpoint not found: {path}")
-    payload = torch.load(path, map_location=map_location, weights_only=False)
+    payload = torch.load(path, map_location=map_location, weights_only=True)
     if not isinstance(payload, dict):
         raise ValueError(f"Checkpoint payload must be a dict: {path}")
     for key in ("model_state_dict", "model_name", "epoch", "best_metric"):

@@ -19,6 +19,8 @@ ENV/
 # =========================
 .env
 .env.*
+!.env.example
+!frontend/.env.example
 
 # =========================
 # 🏗 Build & Packaging Files
@@ -111,3 +113,4 @@ CLAUDE.md
 .DS_Store
 .vscode/
 .idea/
+.pytest_cache/

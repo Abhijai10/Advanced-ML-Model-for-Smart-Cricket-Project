@@ -116,17 +116,20 @@ class TemporalTrainer:
         return history, best_payload
 
     def _make_optimizer(self) -> torch.optim.Optimizer:
-        if self.config.optimizer_name.lower() == "adamw":
+        optimizer_name = self.config.optimizer_name.lower()
+        if optimizer_name == "adamw":
             return torch.optim.AdamW(
                 self.model.parameters(),
                 lr=self.config.learning_rate,
                 weight_decay=self.config.weight_decay,
             )
-        return torch.optim.Adam(
-            self.model.parameters(),
-            lr=self.config.learning_rate,
-            weight_decay=self.config.weight_decay,
-        )
+        if optimizer_name == "adam":
+            return torch.optim.Adam(
+                self.model.parameters(),
+                lr=self.config.learning_rate,
+                weight_decay=self.config.weight_decay,
+            )
+        raise ValueError(f"Unsupported optimizer_name: {self.config.optimizer_name!r}")
 
     def train_epoch(
         self,

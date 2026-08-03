@@ -116,6 +116,14 @@ def build_sequence_from_raw_video(video_path: Path) -> tuple[np.ndarray, dict[st
     aligned, align_warnings = _align_frames(normalized)
     prepared = resample_frames(aligned, SEQUENCE_LENGTH)
     sequence = _frames_to_feature_sequence(prepared)
+    resampled_timing = [
+        {
+            "sequence_frame": i,
+            "source_frame": frame.get("frame_index"),
+            "timestamp_seconds": frame.get("timestamp"),
+        }
+        for i, frame in enumerate(prepared)
+    ]
 
     source_metadata = {
         "input_mode": "raw_uploaded_video",
@@ -125,6 +133,7 @@ def build_sequence_from_raw_video(video_path: Path) -> tuple[np.ndarray, dict[st
         "frames_extracted": len(frames),
         "frames_after_cleaning": len(cleaned),
         "frames_after_resampling": len(prepared),
+        "resampled_timing": resampled_timing,
         "normalization_warnings": normalize_warnings,
         "alignment_warnings": align_warnings,
     }

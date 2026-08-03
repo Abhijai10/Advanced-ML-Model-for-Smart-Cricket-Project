@@ -58,7 +58,7 @@ The project is being developed through structured ML engineering phases:
 Current development is now focused on:
 
 ```text
-Core roadmap completed through Phase 14
+Production hardening, deployment readiness, and honest field validation
 ```
 
 
@@ -102,6 +102,10 @@ Current completed outputs:
 - Phase 14 voice output layer that converts `spoken_feedback` into playable audio metadata/artifacts
 - Frontend audio-ready response with text + audio file metadata
 - React website/app shell with camera capture, Supabase auth integration, analysis history, and shot charts
+- Production `/analyze` path now uses uploaded bytes only, not trusted filenames
+- Dev-only stored dataset analysis endpoint is isolated behind an environment flag
+- API readiness checks, request IDs, configurable CORS, upload validation, rate limiting, and optional Supabase JWT verification
+- Browser-accessible per-request audio artifacts and frontend audio playback
 
 Current temporal dataset contract:
 
@@ -238,6 +242,28 @@ Important split interpretation:
 
 - The current deterministic 56/12/12 split is useful for development and in-distribution evaluation.
 - It is not a person-disjoint split and must not be presented as proof of unseen-player generalization.
+
+## Production Setup
+
+Install and verify everything from a clean checkout:
+
+```bash
+scripts/setup.sh
+scripts/test.sh
+```
+
+Copy `.env.example` to `.env` and configure the API/frontend variables before deployment.
+
+Key references:
+
+- `docs/PRODUCTION_READINESS.md`
+- `docs/MODEL_CARD.md`
+- `docs/DATASET_CARD.md`
+- `docs/DEPLOYMENT.md`
+
+## Honest Readiness Note
+
+Smart Cricket is not yet a fully validated commercial coaching product. The product architecture is now much closer to production, but final readiness still depends on a real Supabase deployment, server-side persistence, player-held-out evaluation on a larger dataset, coach validation, and production TTS/provider credentials where needed.
 - Future unseen-player evaluation should use a documented player-held-out protocol.
 
 ---

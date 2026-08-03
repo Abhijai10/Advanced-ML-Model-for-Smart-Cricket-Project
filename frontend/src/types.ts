@@ -20,12 +20,21 @@ export type AnalysisResponse = {
     completion_reason: string | null;
     trigger_count: number;
   };
+  timing?: {
+    start_seconds?: number | null;
+    end_seconds?: number | null;
+    duration_seconds?: number | null;
+    source?: string;
+  };
   voice_output: {
     available: boolean;
     provider: string;
     audio_path: string;
+    audio_url?: string;
+    audio_filename?: string;
     audio_format: string;
     audio_bytes: number;
+    is_spoken_tts?: boolean;
   };
   api_metadata: Record<string, unknown>;
 };

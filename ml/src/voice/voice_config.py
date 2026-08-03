@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
 
 ML_ROOT = Path(__file__).resolve().parents[2]
 PHASE14_DIR = ML_ROOT / "artifacts" / "phase14"
-AUDIO_OUTPUT_DIR = PHASE14_DIR / "audio_output"
+AUDIO_OUTPUT_DIR = Path(os.getenv("SMART_CRICKET_AUDIO_OUTPUT_DIR", str(PHASE14_DIR / "audio_output")))
 PHASE13_SAMPLE_RESPONSE_PATH = ML_ROOT / "artifacts" / "phase13" / "sample_api_response.json"
 
 VOICE_HEALTH_PATH = PHASE14_DIR / "voice_health.json"

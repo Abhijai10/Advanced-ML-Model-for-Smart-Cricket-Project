@@ -58,8 +58,8 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 def validate_inputs(X: np.ndarray, feature_columns: list[str], index_rows: list[dict[str, str]]) -> None:
     if X.ndim != 3:
         raise ValueError(f"X_sequence must be rank 3, got shape {X.shape}.")
-    if X.shape != (80, 60, 32):
-        raise ValueError(f"Expected X_sequence shape (80, 60, 32), got {X.shape}.")
+    if X.shape[1:] != (60, 32):
+        raise ValueError(f"Expected X_sequence shape (n, 60, 32), got {X.shape}.")
     if len(feature_columns) != 32:
         raise ValueError(f"Expected 32 feature columns, got {len(feature_columns)}.")
     if len(index_rows) != X.shape[0]:

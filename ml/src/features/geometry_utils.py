@@ -163,6 +163,28 @@ def safe_mean(values: list[float]) -> float:
     return float(sum(nums) / len(nums))
 
 
+def safe_circular_mean_degrees(values: list[float]) -> float:
+    """Circular mean for angles in degrees, ignoring invalid values."""
+    nums: list[float] = []
+    for v in values:
+        if v is None:
+            continue
+        try:
+            x = float(v)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(x):
+            nums.append(x)
+    if not nums:
+        return 0.0
+    radians = np.deg2rad(np.asarray(nums, dtype=float))
+    sin_mean = float(np.sin(radians).mean())
+    cos_mean = float(np.cos(radians).mean())
+    if sin_mean == 0.0 and cos_mean == 0.0:
+        return 0.0
+    return float(math.degrees(math.atan2(sin_mean, cos_mean)))
+
+
 def safe_min(values: list[float]) -> float:
     """Minimum of numeric values, ignoring None and NaN. Returns 0.0 if nothing valid."""
     nums: list[float] = []

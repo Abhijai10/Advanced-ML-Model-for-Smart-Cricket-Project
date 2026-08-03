@@ -17,6 +17,15 @@ class HealthResponse(BaseModel):
     version: str
 
 
+class ReadyResponse(BaseModel):
+    """Readiness response with dependency checks."""
+
+    status: str
+    service: str
+    version: str
+    checks: dict[str, dict[str, Any]]
+
+
 class AnalyzeResponse(BaseModel):
     """Frontend-consumable analysis response."""
 
@@ -31,6 +40,7 @@ class AnalyzeResponse(BaseModel):
     source_metadata: dict[str, Any]
     prediction: dict[str, Any]
     segmentation: dict[str, Any]
+    timing: dict[str, Any] = Field(default_factory=dict)
     voice_output: dict[str, Any]
     api_metadata: dict[str, Any]
 

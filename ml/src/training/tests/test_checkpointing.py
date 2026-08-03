@@ -38,6 +38,12 @@ class CheckpointingTests(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             load_checkpoint("/tmp/does-not-exist-phase8.pt")
 
+    def test_best_model_checkpoint_loads_with_safe_weights_only_mode(self) -> None:
+        path = Path("ml/artifacts/phase8/best_model/checkpoint.pt")
+        loaded = load_checkpoint(path)
+        self.assertEqual(loaded["model_name"], "bigru")
+        self.assertIn("model_state_dict", loaded)
+
 
 if __name__ == "__main__":
     unittest.main()
