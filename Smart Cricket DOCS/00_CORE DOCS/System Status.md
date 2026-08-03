@@ -7,7 +7,8 @@ Current Phase:
 - Phase 9 Completed — Shot Segmentation
 - Phase 10 Completed — Technique Scoring System
 - Phase 11 Completed — Feedback Engine
-- Preparing Phase 12 — Inference Pipeline
+- Phase 12 Completed — Offline Inference Pipeline
+- Preparing Phase 13 — API Integration
 
 Project Architecture Status:
 - Baseline tabular ML pipeline completed
@@ -52,6 +53,8 @@ Project Status:
 - Phase 11 rule-based feedback engine completed
 - coaching tips generated from measurable feature deviations
 - spoken feedback strings generated for future voice output
+- Phase 12 offline inference pipeline completed
+- prediction, segmentation, scoring, and feedback modules connected into one structured JSON result
 
 Current Outputs:
 
@@ -130,6 +133,12 @@ Phase 11 Feedback Artifacts:
 - ml/artifacts/phase11/feedback_outputs.csv
 - ml/artifacts/phase11/feedback_report.md
 - ml/artifacts/phase11/feedback_health.json
+
+Phase 12 Inference Artifacts:
+- ml/src/inference/
+- ml/artifacts/phase12/sample_output.json
+- ml/artifacts/phase12/inference_health.json
+- ml/artifacts/phase12/inference_report.md
 
 Current Dataset Status:
 - 80 validated ML samples
@@ -546,7 +555,59 @@ Interpretation:
 - feedback is generated from measurable Phase 10 deviations, not from generic shot labels alone
 - the engine explains what went wrong, why it matters, and how to improve
 - spoken feedback is short enough for future voice output
-- Phase 11 does not implement the full inference pipeline or TTS; those remain later phases
+- Phase 11 does not implement TTS; that remains Phase 14
+
+---
+
+## Phase 12 — Offline Inference Pipeline
+
+Completed:
+- created `ml/src/inference/`
+- implemented stable result schema
+- implemented inference configuration paths
+- implemented offline analysis pipeline
+- implemented model checkpoint loading and prediction
+- integrated Phase 9 shot segmentation
+- integrated Phase 10 technique scoring
+- integrated Phase 11 feedback generation
+- implemented CLI runner
+- implemented Phase 12 validation entry point
+- generated sample output, health JSON, and report artifacts
+
+Phase 12 takes:
+```text
+one finalized temporal feature sequence
+```
+
+and produces:
+```text
+predicted_shot
+shot_confidence
+technique_match_score
+detected_issues
+coaching_tips
+detailed_feedback
+spoken_feedback
+debug_metadata
+```
+
+Validation Results:
+```text
+Sample index: 1
+Predicted shot: cover_drive
+Shot confidence: 0.9918
+Technique match score: 96.4375
+Segmentation completed: True
+Output schema stable: True
+Validation passed: True
+```
+
+Interpretation:
+- Phase 12 v1 orchestrates finalized temporal sequences using the locked `[60, 32]` feature contract
+- the pipeline uses the real Phase 8 selected checkpoint and scaler
+- the pipeline calls existing business logic instead of duplicating model, scoring, or feedback code
+- raw video upload handling and HTTP transport remain Phase 13
+- voice output remains Phase 14
 
 ---
 # 📂 Current Dataset State
@@ -703,7 +764,8 @@ Raw Video
 → Shot Segmentation
 → Technique Scoring
 → Feedback Engine
-→ Future Inference Pipeline
+→ Offline Inference Pipeline
+→ Future API Integration
 
 ---
 
@@ -734,6 +796,8 @@ Current Technical Observations:
 - technique scoring returns 0-100 match scores with component-level explanations
 - Phase 11 feedback validation passed
 - feedback outputs include detected issues, tips, detailed feedback, spoken feedback, and debug metadata
+- Phase 12 inference validation passed
+- sample inference output returns prediction, segmentation, score, feedback, and debug metadata
 
 Observed Engineering Concerns:
 - limited dataset size for deep sequence models
@@ -742,6 +806,7 @@ Observed Engineering Concerns:
 - current split is not person-disjoint, so unseen-player claims are not supported
 - v1 technique templates are derived from available train-split examples and should later be coach-reviewed or replaced with professional references
 - feedback quality depends on v1 scoring templates and should be coach-reviewed before production claims
+- Phase 12 v1 analyzes finalized temporal sequences; raw video upload orchestration remains a future integration layer
 
 Current Engineering Decision:
 - prioritize roadmap-aligned temporal sequence learning
@@ -773,16 +838,16 @@ Likely Stable Components:
 # 🚀 Current Focus
 
 Current Work:
-- Preparing Phase 12 — Inference Pipeline
+- Preparing Phase 13 — API Integration
 
 Immediate Goals:
-- combine preprocessing, segmentation, prediction, scoring, and feedback into one offline analysis pipeline
-- preserve the validated module boundaries from Phases 8-11
-- keep inference output structured and debuggable
-- avoid adding API or voice layers before their roadmap phases
+- expose the offline inference pipeline through a backend-accessible API
+- keep API logic separate from ML business logic
+- return the stable Phase 12 JSON response shape
+- avoid implementing voice output before Phase 14
 
 Next Major Milestone:
-Roadmap-aligned inference pipeline that returns a complete structured analysis result for one cricket batting input.
+Roadmap-aligned API integration that calls the Phase 12 pipeline without duplicating ML logic.
 
 ---
 

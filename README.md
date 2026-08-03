@@ -51,11 +51,12 @@ The project is being developed through structured ML engineering phases:
 - ✅ Phase 9: Shot Segmentation
 - ✅ Phase 10: Technique Scoring System
 - ✅ Phase 11: Feedback Engine
+- ✅ Phase 12: Offline Inference Pipeline
 
 Current development is now focused on:
 
 ```text
-Phase 12 — Inference Pipeline planning
+Phase 13 — API Integration planning
 ```
 
 
@@ -92,6 +93,8 @@ Current completed outputs:
 - Component-level scoring prepared for the Phase 11 feedback engine
 - Rule-based Phase 11 coaching feedback generated from feature-linked technique issues
 - TTS-friendly spoken feedback strings prepared for future voice output
+- Offline Phase 12 inference pipeline returning stable structured JSON
+- Integrated prediction, segmentation, scoring, and feedback orchestration for finalized temporal sequences
 
 Current temporal dataset contract:
 
@@ -190,6 +193,18 @@ Phase 11 turns technique scores and deviations into readable coaching feedback:
 - Validation passed: `True`
 - Sample outputs: `ml/artifacts/phase11/sample_feedback_outputs.json`
 
+Phase 12 connects the core ML modules into one offline analysis result:
+
+- Pipeline mode: finalized temporal sequence inference
+- Input contract: `[60, 32]`
+- Sample index validated: `1`
+- Predicted shot: `cover_drive`
+- Shot confidence: `0.9918`
+- Technique match score: `96.4375`
+- Segmentation completed: `True`
+- Output schema stable: `True`
+- Sample output: `ml/artifacts/phase12/sample_output.json`
+
 Important split interpretation:
 
 - The current deterministic 56/12/12 split is useful for development and in-distribution evaluation.
@@ -265,6 +280,8 @@ Phase 9 Shot Segmentation & Prediction Gating
 Phase 10 Technique Scoring
 ↓
 Phase 11 Feedback Engine
+↓
+Phase 12 Offline Inference Pipeline
 
 ---
 
@@ -933,6 +950,56 @@ Important interpretation:
 - The feedback is coaching-style guidance, not a certified biomechanical diagnosis.
 
 ---
+
+## 🔄 Phase 12 — Offline Inference Pipeline (Completed)
+
+Phase 12 connects the completed ML subsystems into one stable offline analysis pipeline.
+
+Core idea:
+
+```text
+temporal sequence
+→ model prediction
+→ segmentation/gating
+→ technique scoring
+→ feedback generation
+→ final JSON
+```
+
+Implemented systems:
+
+- `ml/src/inference/inference_config.py`
+- `ml/src/inference/result_schema.py`
+- `ml/src/inference/analysis_pipeline.py`
+- `ml/src/inference/run_inference.py`
+- `ml/src/inference/validate_inference_pipeline.py`
+- `ml/src/inference/tests/test_analysis_pipeline.py`
+
+Primary Phase 12 artifacts:
+
+- `ml/artifacts/phase12/sample_output.json`
+- `ml/artifacts/phase12/inference_health.json`
+- `ml/artifacts/phase12/inference_report.md`
+
+Validation result:
+
+```text
+Sample index: 1
+Predicted shot: cover_drive
+Shot confidence: 0.9918
+Technique match score: 96.4375
+Segmentation completed: True
+Validation passed: True
+```
+
+Important interpretation:
+
+- Phase 12 v1 is an offline pipeline over finalized temporal feature sequences.
+- It uses the real Phase 8 checkpoint, Phase 9 segmenter, Phase 10 scorer, and Phase 11 feedback engine.
+- Raw video upload handling belongs to Phase 13 API integration.
+- Voice/TTS output remains Phase 14.
+
+---
 ### 🔹  Why Phase 7 Matters
 
 Cricket shots are motion sequences, not static poses.
@@ -1040,6 +1107,15 @@ ml/
 │       ├── feedback_templates.py
 │       ├── feedback_engine.py
 │       ├── validate_feedback_engine.py
+│       └── tests/
+│   │
+│   └── inference/
+│       ├── __init__.py
+│       ├── inference_config.py
+│       ├── result_schema.py
+│       ├── analysis_pipeline.py
+│       ├── run_inference.py
+│       ├── validate_inference_pipeline.py
 │       └── tests/
 │
 │

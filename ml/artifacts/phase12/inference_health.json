@@ -1,0 +1,15 @@
+{
+  "phase": "Phase 12",
+  "version": "phase_12_offline_inference_v1",
+  "created_at": "2026-08-03T18:57:14.122312Z",
+  "sample_index": 1,
+  "input_mode": "final_temporal_dataset_sequence",
+  "output_schema_stable": true,
+  "validation_errors": [],
+  "validation_passed": true,
+  "output_files": {
+    "sample_output": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase12/sample_output.json",
+    "inference_health": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase12/inference_health.json",
+    "inference_report": "/Users/abhijairaghuvanshi/Desktop/PROJECTS/Project 1 - Advanced ML Model for Smart Cricket Project/ml/artifacts/phase12/inference_report.md"
+  }
+}

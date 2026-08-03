@@ -82,6 +82,7 @@ class FeedbackEngineTests(unittest.TestCase):
         output = generate_feedback_for_sample(sample)
         self.assertFalse(output.detected_issues)
         self.assertIn("Maintain this movement pattern", output.coaching_tips[0])
+        self.assertIn("No priority technique issue", output.detailed_feedback)
 
     def test_prediction_correct_string_false_is_parsed(self) -> None:
         sample = _sample()

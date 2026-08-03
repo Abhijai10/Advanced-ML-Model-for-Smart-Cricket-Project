@@ -97,10 +97,18 @@ def _build_detailed_feedback(
     technique_score: float,
     component_scores: dict[str, Any],
     tips: tuple[str, ...],
+    issue_count: int,
 ) -> str:
     band = score_band_label(technique_score)
     strong = ", ".join(_top_component_names(component_scores))
     weak = ", ".join(_weak_component_names(component_scores))
+    if issue_count == 0 and technique_score >= 85.0:
+        return (
+            f"Your {predicted_shot.replace('_', ' ')} technique match score is {technique_score:.1f}/100, "
+            f"which is currently in the {band} band. Stronger measured areas include {strong}. "
+            f"No priority technique issue crossed the v1 feedback threshold. "
+            f"Primary coaching focus: {tips[0]}"
+        )
     return (
         f"Your {predicted_shot.replace('_', ' ')} technique match score is {technique_score:.1f}/100, "
         f"which is currently in the {band} band. Stronger measured areas include {strong}. "
@@ -155,6 +163,7 @@ def generate_feedback_for_sample(sample: dict[str, Any]) -> FeedbackOutput:
             technique_score=technique_score,
             component_scores=component_scores,
             tips=tips,
+            issue_count=len(issues),
         ),
         spoken_feedback=_build_spoken_feedback(predicted_shot, technique_score, tips),
         debug_metadata=debug_metadata,
