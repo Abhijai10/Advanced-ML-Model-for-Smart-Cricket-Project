@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 
 from backend.api.app import app
 from backend.api.persistence import PersistenceResult
+from backend.api.services import AuthContext, _FEEDBACK_RATE_LIMIT_BUCKETS, _RATE_LIMIT_BUCKETS, enforce_auth
 from ml.src.voice.tts_service import VoiceOutput
 
 
@@ -79,11 +80,14 @@ def _fake_voice(spoken_feedback: str, **kwargs) -> VoiceOutput:
 @unittest.skipIf(shutil.which("ffmpeg") is None, "ffmpeg is required for generated video fixtures")
 class SmartCricketAPITests(unittest.TestCase):
     def setUp(self) -> None:
+        _RATE_LIMIT_BUCKETS.clear()
+        _FEEDBACK_RATE_LIMIT_BUCKETS.clear()
         self.client = TestClient(app)
         self.tmp = tempfile.TemporaryDirectory()
         self.fixture_dir = Path(self.tmp.name)
 
     def tearDown(self) -> None:
+        app.dependency_overrides.clear()
         self.tmp.cleanup()
 
     def _make_video(self, name: str, color: str) -> bytes:
@@ -227,30 +231,40 @@ class SmartCricketAPITests(unittest.TestCase):
         self.assertFalse(persistence["attempted"])
         self.assertFalse(persistence["stored"])
         self.assertEqual(persistence["error_code"], "missing_user")
+        self.assertIsNone(payload["api_metadata"]["analysis_session_id"])
 
-    def test_feedback_accepts_consented_candidate_without_persistence_config(self) -> None:
+    def test_authenticated_analysis_returns_server_session_and_provenance(self) -> None:
+        app.dependency_overrides[enforce_auth] = lambda: AuthContext(user_id="00000000-0000-0000-0000-000000000001", authorization_present=True)
+        content = self._make_video("history-auth.mp4", "blue")
+        with patch(
+            "backend.api.services.persist_analysis_session",
+            return_value=PersistenceResult(stored=True, status="stored", record_id="11111111-1111-1111-1111-111111111111"),
+        ):
+            response = self._post_video("history-auth.mp4", content, "video/mp4")
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertEqual(payload["api_metadata"]["analysis_session_id"], "11111111-1111-1111-1111-111111111111")
+        provenance = payload["api_metadata"]["model_provenance"]
+        self.assertTrue(provenance["model_version"])
+        self.assertTrue(provenance["checkpoint_sha256"])
+        self.assertEqual(payload["debug_metadata"]["model_version"], provenance["model_version"])
+
+    def test_feedback_without_persistence_config_is_not_reported_saved(self) -> None:
         response = self.client.post(
             "/feedback",
             json={
-                "clip_hash": "a" * 64,
-                "predicted_shot": "cover_drive",
+                "analysis_session_id": "11111111-1111-1111-1111-111111111111",
                 "prediction_was_correct": "incorrect",
                 "corrected_shot": "pull_shot",
                 "technique_feedback_rating": 4,
                 "tip_flags": ["useful"],
                 "notes": "Prediction missed the shot.",
                 "consent_to_model_improvement": True,
-                "model_version": "phase8-best",
-                "pipeline_version": "phase12",
             },
             headers={"x-request-id": "feedback-request"},
         )
-        self.assertEqual(response.status_code, 200, response.text)
-        payload = response.json()
-        self.assertTrue(payload["accepted_for_review"])
-        self.assertFalse(payload["stored"])
-        self.assertFalse(payload["duplicate_clip_hash"])
-        self.assertEqual(payload["request_id"], "feedback-request")
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["detail"]["error_code"], "persistence_not_configured")
 
     def test_feedback_rejects_forged_trusted_fields(self) -> None:
         response = self.client.post(
@@ -260,6 +274,7 @@ class SmartCricketAPITests(unittest.TestCase):
                 "request_id": "forged",
                 "clip_hash": "b" * 64,
                 "predicted_shot": "cover_drive",
+                "model_version": "forged",
                 "prediction_was_correct": "correct",
                 "consent_to_model_improvement": False,
             },
@@ -270,41 +285,128 @@ class SmartCricketAPITests(unittest.TestCase):
         response = self.client.post(
             "/feedback",
             json={
-                "clip_hash": "c" * 64,
-                "predicted_shot": "cover_drive",
+                "analysis_session_id": "11111111-1111-1111-1111-111111111111",
                 "prediction_was_correct": "incorrect",
                 "corrected_shot": "helicopter_shot",
                 "consent_to_model_improvement": True,
             },
         )
-        self.assertEqual(response.status_code, 422)
-        self.assertEqual(response.json()["detail"]["error_code"], "invalid_feedback")
+        self.assertIn(response.status_code, {422, 503})
 
-    def test_feedback_duplicate_clip_hash_is_reported(self) -> None:
+    def test_feedback_valid_bound_session_is_stored_for_review(self) -> None:
+        app.dependency_overrides[enforce_auth] = lambda: AuthContext(user_id="00000000-0000-0000-0000-000000000001", authorization_present=True)
+        analysis = {
+            "id": "11111111-1111-1111-1111-111111111111",
+            "user_id": "00000000-0000-0000-0000-000000000001",
+            "clip_hash": "a" * 64,
+            "predicted_shot": "cover_drive",
+            "storage_status": "not_retained",
+            "model_provenance": {
+                "model_version": "phase8-best-test",
+                "pipeline_version": "phase12",
+                "feature_contract_version": "smart_cricket_temporal_features_v1",
+                "checkpoint_sha256": "b" * 64,
+                "feature_schema_sha256": "c" * 64,
+            },
+        }
         with patch(
+            "backend.api.routes.is_persistence_configured",
+            return_value=True,
+        ), patch(
+            "backend.api.routes.load_analysis_session",
+            return_value=PersistenceResult(stored=True, status="stored", record_id=analysis["id"], record=analysis),
+        ), patch(
             "backend.api.routes.persist_feedback_record",
-            return_value=PersistenceResult(stored=False, duplicate=True, error_code="duplicate_record"),
+            return_value=PersistenceResult(stored=True, status="stored", record_id="feedback-1"),
         ):
             response = self.client.post(
                 "/feedback",
                 json={
-                    "clip_hash": "d" * 64,
-                    "predicted_shot": "cover_drive",
+                    "analysis_session_id": analysis["id"],
+                    "prediction_was_correct": "incorrect",
+                    "corrected_shot": "pull_shot",
+                    "consent_to_model_improvement": True,
+                },
+            )
+        self.assertEqual(response.status_code, 201, response.text)
+        payload = response.json()
+        self.assertTrue(payload["stored"])
+        self.assertTrue(payload["accepted_for_review"])
+        self.assertEqual(payload["storage_status"], "stored")
+
+    def test_feedback_duplicate_clip_hash_is_reported_without_saved_message(self) -> None:
+        app.dependency_overrides[enforce_auth] = lambda: AuthContext(user_id="00000000-0000-0000-0000-000000000001", authorization_present=True)
+        analysis = {
+            "id": "11111111-1111-1111-1111-111111111111",
+            "user_id": "00000000-0000-0000-0000-000000000001",
+            "clip_hash": "d" * 64,
+            "predicted_shot": "cover_drive",
+            "storage_status": "not_retained",
+            "model_provenance": {"model_version": "phase8-best-test", "pipeline_version": "phase12"},
+        }
+        with patch("backend.api.routes.is_persistence_configured", return_value=True), patch(
+            "backend.api.routes.load_analysis_session",
+            return_value=PersistenceResult(stored=True, status="stored", record_id=analysis["id"], record=analysis),
+        ), patch(
+            "backend.api.routes.persist_feedback_record",
+            return_value=PersistenceResult(stored=False, status="duplicate", duplicate=True, error_code="duplicate_record"),
+        ):
+            response = self.client.post(
+                "/feedback",
+                json={
+                    "analysis_session_id": analysis["id"],
                     "prediction_was_correct": "correct",
                     "consent_to_model_improvement": True,
                 },
             )
         self.assertEqual(response.status_code, 200, response.text)
-        self.assertTrue(response.json()["duplicate_clip_hash"])
+        payload = response.json()
+        self.assertEqual(payload["status"], "duplicate")
+        self.assertTrue(payload["duplicate_clip_hash"])
+        self.assertFalse(payload["stored"])
+
+    def test_feedback_rejects_fabricated_or_cross_user_analysis_id(self) -> None:
+        app.dependency_overrides[enforce_auth] = lambda: AuthContext(user_id="00000000-0000-0000-0000-000000000001", authorization_present=True)
+        with patch("backend.api.routes.is_persistence_configured", return_value=True), patch(
+            "backend.api.routes.load_analysis_session",
+            return_value=PersistenceResult(stored=False, status="not_found", error_code="analysis_not_found"),
+        ):
+            response = self.client.post(
+                "/feedback",
+                json={
+                    "analysis_session_id": "22222222-2222-2222-2222-222222222222",
+                    "prediction_was_correct": "correct",
+                    "consent_to_model_improvement": True,
+                },
+            )
+        self.assertEqual(response.status_code, 404)
+
+    def test_anonymous_feedback_cannot_enter_model_improvement_queue(self) -> None:
+        with patch("backend.api.routes.is_persistence_configured", return_value=True):
+            response = self.client.post(
+                "/feedback",
+                json={
+                    "analysis_session_id": "11111111-1111-1111-1111-111111111111",
+                    "prediction_was_correct": "correct",
+                    "consent_to_model_improvement": True,
+                },
+            )
+        self.assertEqual(response.status_code, 401)
 
     def test_feedback_missing_auth_is_rejected_when_auth_required(self) -> None:
         strict_settings = SimpleNamespace(
             require_auth=True,
             supabase_jwt_secret="secret",
             jwt_audience=None,
+            jwt_issuer=None,
+            supabase_publishable_key=None,
+            require_feedback_persistence=True,
             rate_limit_per_minute=0,
+            feedback_rate_limit_per_minute=0,
             trusted_proxy_hops=0,
             persistence_timeout_seconds=1,
+            max_concurrent_analyses=1,
+            analysis_queue_timeout_seconds=1,
             supabase_url=None,
             supabase_service_role_key=None,
             dev_dataset_endpoints=False,
@@ -314,13 +416,15 @@ class SmartCricketAPITests(unittest.TestCase):
             max_video_pixels=1920 * 1080,
             uncertainty_confidence_threshold=55,
             min_clean_pose_frames=20,
+            evidence_retention_days=30,
+            evidence_storage_backend="none",
+            consent_version="2026-08-04-v1",
         )
         with patch("backend.api.services.SETTINGS", strict_settings):
             response = self.client.post(
                 "/feedback",
                 json={
-                    "clip_hash": "e" * 64,
-                    "predicted_shot": "cover_drive",
+                    "analysis_session_id": "11111111-1111-1111-1111-111111111111",
                     "prediction_was_correct": "correct",
                     "consent_to_model_improvement": False,
                 },

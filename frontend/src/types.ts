@@ -46,21 +46,18 @@ export type AnalysisResponse = {
 export type FeedbackPayload = {
   analysis_session_id?: string | null;
   client_analysis_id?: string | null;
-  clip_hash: string;
-  predicted_shot: string;
   prediction_was_correct: "correct" | "incorrect" | "unsure";
   corrected_shot?: string | null;
   technique_feedback_rating?: number | null;
   tip_flags: Array<"useful" | "incorrect" | "unsafe" | "unclear">;
   notes?: string | null;
   consent_to_model_improvement: boolean;
-  model_version?: string | null;
-  pipeline_version?: string | null;
 };
 
 export type FeedbackResponse = {
   status: string;
-  feedback_id: string;
+  storage_status: "stored" | "duplicate" | "persistence_not_configured" | "temporary_failure" | string;
+  feedback_id?: string | null;
   accepted_for_review: boolean;
   stored: boolean;
   duplicate_clip_hash: boolean;

@@ -31,7 +31,11 @@ const analysisResponse = {
     audio_bytes: 0,
     is_spoken_tts: false,
   },
-  api_metadata: { clip_hash: "a".repeat(64), pipeline_version: "phase12" },
+  api_metadata: {
+    analysis_session_id: "11111111-1111-1111-1111-111111111111",
+    clip_hash: "a".repeat(64),
+    pipeline_version: "phase12",
+  },
 };
 
 test("demo upload review, mocked analysis, and feedback flow", async ({ page }) => {
@@ -41,10 +45,11 @@ test("demo upload review, mocked analysis, and feedback flow", async ({ page }) 
   await page.route("**/feedback", async (route) => {
     await route.fulfill({
       json: {
-        status: "accepted",
+        status: "stored",
+        storage_status: "stored",
         feedback_id: "feedback-1",
         accepted_for_review: true,
-        stored: false,
+        stored: true,
         duplicate_clip_hash: false,
         request_id: "request-1",
         message: "Feedback queued.",
@@ -69,6 +74,6 @@ test("demo upload review, mocked analysis, and feedback flow", async ({ page }) 
   await page.getByRole("button", { name: "incorrect" }).click();
   await page.getByLabel(/correct shot/i).selectOption("pull_shot");
   await page.getByLabel(/share this clip result/i).check();
-  await page.getByRole("button", { name: /send feedback/i }).click();
-  await expect(page.getByRole("button", { name: /feedback sent/i })).toBeVisible();
+  await page.getByRole("button", { name: /save feedback/i }).click();
+  await expect(page.getByRole("button", { name: /feedback saved/i })).toBeVisible();
 });

@@ -80,7 +80,7 @@ python -m pytest backend/api/tests/test_api.py
 
 The migration in `supabase/migrations/202608040001_smart_cricket_app_schema.sql` enables RLS and grants authenticated Data API access explicitly. This is required for new Supabase projects because public tables may no longer be exposed automatically.
 
-The current frontend reads history from owner-scoped RLS tables but does not write analysis results directly. This prevents browser clients from storing forged model results as trusted history.
+The current frontend reads history from owner-scoped RLS tables but does not write analysis results directly. The follow-up migration `20260804080002_secure_trusted_analysis_and_feedback.sql` also revokes browser `INSERT` and `UPDATE` access to `analysis_sessions`, so trusted analysis history is server-created only.
 
 Authenticated history is durable only when the backend has Supabase server credentials. The frontend must never receive a service-role key. Production setup requires:
 
@@ -88,11 +88,11 @@ Authenticated history is durable only when the backend has Supabase server crede
 - `SUPABASE_URL` and a server-only service role or secret key;
 - backend-only inserts immediately after verified inference;
 - no service-role or secret key exposure to frontend bundles;
-- integration tests against a real or local Supabase instance.
+- integration tests against a real or local Supabase instance proving owner reads, browser insert/update denial, and service-role insert success.
 
 ## Feedback and Continual Learning
 
-The feedback endpoint is safe for a controlled beta, not automatic learning. User feedback may be useful for triage, but it is not ground truth. The production retraining process must:
+The feedback endpoint is safe for a controlled beta only when persistence is configured. It returns an explicit failure when feedback cannot be saved. Model-improvement candidates require an authenticated user, a verified server-created analysis session owned by that user, and explicit consent. User feedback may be useful for triage, but it is not ground truth. The production retraining process must:
 
 - retain consent and provenance for every clip/result;
 - deduplicate clip hashes before review;
@@ -106,4 +106,6 @@ The feedback endpoint is safe for a controlled beta, not automatic learning. Use
 
 ## Privacy, Retention, and Storage
 
-Production must define retention periods for uploaded clips, generated audio, feedback records, and derived pose/features. Audio is currently served from `/audio/<filename>` for local/demo use; protected object storage or signed URLs are required before production use. Users need deletion/export flows, consent withdrawal behavior, and a documented incident-response path.
+Production must define retention periods for uploaded clips, generated audio, feedback records, and derived pose/features. Audio is currently served through signed local `/audio/<filename>?expires=...&signature=...` links for local/demo use; protected object storage is still required before production use. Users need deletion/export flows, consent withdrawal behavior, and a documented incident-response path.
+
+The current implementation records evidence-retention metadata, but real protected object storage for retained clips/pose evidence remains an external deployment gate.

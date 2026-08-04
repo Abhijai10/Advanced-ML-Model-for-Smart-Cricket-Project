@@ -32,6 +32,8 @@ node_modules/
 *.d.ts.map
 frontend/vite.config.js
 frontend/vite.config.d.ts
+frontend/test-results/
+frontend/playwright-report/
 *.egg-info/
 
 # =========================

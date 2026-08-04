@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Send, Volume2 } from "lucide-react";
 import { shotName } from "../lib/history";
 import { resolveApiUrl, submitAnalysisFeedback } from "../lib/api";
@@ -20,7 +20,29 @@ export function FeedbackPanel({ result, accessToken }: FeedbackPanelProps) {
   const [consent, setConsent] = useState(false);
   const [notes, setNotes] = useState("");
   const [submitState, setSubmitState] = useState<"idle" | "submitting" | "done">("idle");
+  const [storageMessage, setStorageMessage] = useState("");
+  const [storageStatus, setStorageStatus] = useState("");
   const [submitError, setSubmitError] = useState("");
+  const activeSubmitKeyRef = useRef("");
+  const resultKey = result
+    ? (typeof result.api_metadata.analysis_session_id === "string" ? result.api_metadata.analysis_session_id : "") ||
+      (typeof result.api_metadata.request_id === "string" ? result.api_metadata.request_id : "") ||
+      (typeof result.api_metadata.clip_hash === "string" ? result.api_metadata.clip_hash : "")
+    : "";
+
+  useEffect(() => {
+    setCorrectness("unsure");
+    setCorrectedShot("cover_drive");
+    setRating(3);
+    setFlags([]);
+    setConsent(false);
+    setNotes("");
+    setSubmitState("idle");
+    setStorageMessage("");
+    setStorageStatus("");
+    setSubmitError("");
+    activeSubmitKeyRef.current = resultKey;
+  }, [resultKey]);
 
   if (!result) {
     return (
@@ -40,7 +62,8 @@ export function FeedbackPanel({ result, accessToken }: FeedbackPanelProps) {
   const qualityStatus = activeResult.analysis_quality?.status ?? "ok";
   const qualityLabel =
     qualityStatus === "insufficient_quality" ? "Needs clearer video" : qualityStatus === "uncertain" ? "Uncertain" : "Ready";
-  const clipHash = typeof activeResult.api_metadata.clip_hash === "string" ? activeResult.api_metadata.clip_hash : "";
+  const analysisSessionId =
+    typeof activeResult.api_metadata.analysis_session_id === "string" ? activeResult.api_metadata.analysis_session_id : "";
 
   function toggleFlag(flag: FeedbackPayload["tip_flags"][number]) {
     setFlags((current) => (current.includes(flag) ? current.filter((item) => item !== flag) : [...current, flag]));
@@ -48,32 +71,37 @@ export function FeedbackPanel({ result, accessToken }: FeedbackPanelProps) {
 
   async function submitFeedback(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!clipHash) {
-      setSubmitError("This result is missing a clip hash, so feedback cannot be linked safely.");
+    if (!analysisSessionId) {
+      setSubmitError("Sign in and save a verified analysis before sending feedback.");
       return;
     }
+    const submitKey = resultKey;
+    activeSubmitKeyRef.current = submitKey;
     setSubmitState("submitting");
     setSubmitError("");
+    setStorageMessage("");
     try {
-      await submitAnalysisFeedback(
+      const response = await submitAnalysisFeedback(
         {
-          clip_hash: clipHash,
-          predicted_shot: activeResult.predicted_shot,
+          analysis_session_id: analysisSessionId,
           prediction_was_correct: correctness,
           corrected_shot: correctness === "incorrect" ? correctedShot : null,
           technique_feedback_rating: rating,
           tip_flags: flags,
           notes: notes || null,
           consent_to_model_improvement: consent,
-          model_version:
-            typeof activeResult.debug_metadata.model_version === "string" ? activeResult.debug_metadata.model_version : null,
-          pipeline_version:
-            typeof activeResult.api_metadata.pipeline_version === "string" ? activeResult.api_metadata.pipeline_version : null,
         },
         accessToken,
       );
+      if (activeSubmitKeyRef.current !== submitKey) return;
+      if (!response.stored && response.storage_status !== "duplicate") {
+        throw new Error(response.message || "Feedback was not saved.");
+      }
+      setStorageStatus(response.storage_status);
+      setStorageMessage(response.message);
       setSubmitState("done");
     } catch (err) {
+      if (activeSubmitKeyRef.current !== submitKey) return;
       setSubmitError(err instanceof Error ? err.message : "Feedback could not be submitted.");
       setSubmitState("idle");
     }
@@ -221,8 +249,15 @@ export function FeedbackPanel({ result, accessToken }: FeedbackPanelProps) {
 
         <button type="submit" className="primary-action compact" disabled={submitState !== "idle"}>
           {submitState === "done" ? <CheckCircle2 size={17} aria-hidden="true" /> : <Send size={17} aria-hidden="true" />}
-          {submitState === "done" ? "Feedback sent" : submitState === "submitting" ? "Sending" : "Send feedback"}
+          {submitState === "done"
+            ? storageStatus === "duplicate"
+              ? "Already saved"
+              : "Feedback saved"
+            : submitState === "submitting"
+              ? "Saving"
+              : "Save feedback"}
         </button>
+        {storageMessage ? <p className="success-banner" role="status">{storageMessage}</p> : null}
         {submitError ? <p className="error-banner">{submitError}</p> : null}
       </form>
     </aside>

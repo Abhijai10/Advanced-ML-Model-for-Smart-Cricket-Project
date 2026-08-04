@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -21,9 +23,11 @@ class PersistenceResult:
     """Outcome from an optional persistence operation."""
 
     stored: bool
+    status: str
     record_id: str | None = None
     duplicate: bool = False
     error_code: str | None = None
+    record: dict[str, Any] | None = None
 
 
 def is_persistence_configured() -> bool:
@@ -33,7 +37,7 @@ def is_persistence_configured() -> bool:
 
 def _postgrest_insert(table: str, row: dict[str, Any]) -> PersistenceResult:
     if not is_persistence_configured():
-        return PersistenceResult(stored=False, error_code="persistence_not_configured")
+        return PersistenceResult(stored=False, status="persistence_not_configured", error_code="persistence_not_configured")
 
     url = f"{SETTINGS.supabase_url.rstrip('/')}/rest/v1/{table}"
     body = json.dumps(row).encode("utf-8")
@@ -54,15 +58,47 @@ def _postgrest_insert(table: str, row: dict[str, Any]) -> PersistenceResult:
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
         if exc.code == 409 or "duplicate key" in detail.lower():
-            return PersistenceResult(stored=False, duplicate=True, error_code="duplicate_record")
-        return PersistenceResult(stored=False, error_code=f"supabase_http_{exc.code}")
+            return PersistenceResult(stored=False, status="duplicate", duplicate=True, error_code="duplicate_record")
+        status = "temporary_failure" if exc.code in {408, 429, 500, 502, 503, 504} else "failed"
+        return PersistenceResult(stored=False, status=status, error_code=f"supabase_http_{exc.code}")
     except Exception:
-        return PersistenceResult(stored=False, error_code="persistence_failed")
+        return PersistenceResult(stored=False, status="temporary_failure", error_code="persistence_failed")
 
     record_id = None
     if isinstance(payload, list) and payload and isinstance(payload[0], dict):
         record_id = str(payload[0].get("id") or "")
-    return PersistenceResult(stored=True, record_id=record_id or row.get("id"))
+    record = payload[0] if isinstance(payload, list) and payload and isinstance(payload[0], dict) else None
+    return PersistenceResult(stored=True, status="stored", record_id=record_id or row.get("id"), record=record)
+
+
+def _postgrest_select_one(table: str, filters: dict[str, str]) -> PersistenceResult:
+    if not is_persistence_configured():
+        return PersistenceResult(stored=False, status="persistence_not_configured", error_code="persistence_not_configured")
+
+    query = urllib.parse.urlencode({key: f"eq.{value}" for key, value in filters.items()})
+    request = urllib.request.Request(
+        f"{SETTINGS.supabase_url.rstrip('/')}/rest/v1/{table}?select=*&{query}&limit=1",
+        method="GET",
+        headers={
+            "apikey": SETTINGS.supabase_service_role_key or "",
+            "authorization": f"Bearer {SETTINGS.supabase_service_role_key}",
+            "accept": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=SETTINGS.persistence_timeout_seconds) as response:
+            payload = json.loads(response.read().decode("utf-8") or "[]")
+    except urllib.error.HTTPError as exc:
+        status = "temporary_failure" if exc.code in {408, 429, 500, 502, 503, 504} else "failed"
+        return PersistenceResult(stored=False, status=status, error_code=f"supabase_http_{exc.code}")
+    except Exception:
+        return PersistenceResult(stored=False, status="temporary_failure", error_code="persistence_failed")
+
+    if not isinstance(payload, list) or not payload:
+        return PersistenceResult(stored=False, status="not_found", error_code="analysis_not_found")
+    if not isinstance(payload[0], dict):
+        return PersistenceResult(stored=False, status="failed", error_code="unexpected_response")
+    return PersistenceResult(stored=True, status="stored", record_id=str(payload[0].get("id") or ""), record=payload[0])
 
 
 def persist_analysis_session(
@@ -72,10 +108,11 @@ def persist_analysis_session(
     filename: str,
     request_id: str,
     clip_hash: str,
+    provenance: dict[str, Any],
 ) -> PersistenceResult:
     """Persist a verified analysis response as server-owned history when configured."""
     if not user_id:
-        return PersistenceResult(stored=False, error_code="missing_user")
+        return PersistenceResult(stored=False, status="missing_user", error_code="missing_user")
     segment = result.get("segmentation", {}) if isinstance(result.get("segmentation"), dict) else {}
     timing = result.get("timing", {}) if isinstance(result.get("timing"), dict) else {}
     row = {
@@ -95,9 +132,37 @@ def persist_analysis_session(
         "clip_hash": clip_hash,
         "model_version": (result.get("debug_metadata") or {}).get("model_version"),
         "pipeline_version": (result.get("api_metadata") or {}).get("pipeline_version"),
+        "model_provenance": provenance,
+        "checkpoint_sha256": provenance.get("checkpoint_sha256"),
+        "feature_contract_version": provenance.get("feature_contract_version"),
+        "feature_schema_sha256": provenance.get("feature_schema_sha256"),
+        "scaler_mean_sha256": provenance.get("scaler_mean_sha256"),
+        "scaler_std_sha256": provenance.get("scaler_std_sha256"),
+        "label_mapping_sha256": provenance.get("label_mapping_sha256"),
+        "scoring_template_sha256": provenance.get("scoring_template_sha256"),
+        "feedback_engine_version": provenance.get("feedback_engine_version"),
+        "storage_status": "not_retained",
+        "consent_scope": "none",
+        "consent_version": None,
+        "consented_at": None,
+        "retention_expires_at": None,
+        "evidence_object_path": None,
+        "evidence_metadata": {
+            "storage_backend": SETTINGS.evidence_storage_backend,
+            "raw_clip_retained": False,
+            "processed_evidence_retained": False,
+            "external_storage_verification": "not_configured",
+        },
+        "withdrawn_at": None,
+        "deleted_at": None,
         "persistence_source": "server_verified_inference",
     }
     return _postgrest_insert("analysis_sessions", row)
+
+
+def load_analysis_session(*, analysis_session_id: str, user_id: str) -> PersistenceResult:
+    """Load a trusted server-created analysis for feedback binding."""
+    return _postgrest_select_one("analysis_sessions", {"id": analysis_session_id, "user_id": user_id})
 
 
 def build_feedback_record(
@@ -106,12 +171,13 @@ def build_feedback_record(
     user_id: str | None,
     request_id: str,
     authorization_present: bool,
+    analysis: dict[str, Any] | None,
 ) -> dict[str, Any]:
     """Create a trusted feedback row from a validated client payload."""
     corrected_shot = payload.corrected_shot
-    predicted_shot = payload.predicted_shot
+    predicted_shot = (analysis or {}).get("predicted_shot")
     if predicted_shot not in SUPPORTED_SHOTS:
-        raise ValueError("predicted_shot is not a supported Smart Cricket label.")
+        raise ValueError("The bound analysis does not contain a supported Smart Cricket label.")
     if corrected_shot is not None and corrected_shot not in SUPPORTED_SHOTS:
         raise ValueError("corrected_shot is not a supported Smart Cricket label.")
     if payload.prediction_was_correct == "incorrect" and corrected_shot is None:
@@ -121,12 +187,21 @@ def build_feedback_record(
         raise ValueError(f"Unsupported tip flag(s): {', '.join(invalid_flags)}.")
 
     consent = bool(payload.consent_to_model_improvement)
+    if consent and not user_id:
+        raise ValueError("Authentication is required for model-improvement feedback.")
+    if consent and not analysis:
+        raise ValueError("A verified analysis session is required for model-improvement feedback.")
+    provenance = (analysis or {}).get("model_provenance") if isinstance((analysis or {}).get("model_provenance"), dict) else {}
+    clip_hash = (analysis or {}).get("clip_hash")
+    retention_deadline = (
+        datetime.now(timezone.utc) + timedelta(days=SETTINGS.evidence_retention_days)
+    ).isoformat().replace("+00:00", "Z") if consent else None
     return {
         "id": str(uuid4()),
         "user_id": user_id,
         "analysis_session_id": payload.analysis_session_id,
         "client_analysis_id": payload.client_analysis_id,
-        "clip_hash": payload.clip_hash.lower(),
+        "clip_hash": str(clip_hash).lower() if clip_hash else None,
         "predicted_shot": predicted_shot,
         "prediction_was_correct": payload.prediction_was_correct,
         "corrected_shot": corrected_shot,
@@ -134,18 +209,31 @@ def build_feedback_record(
         "tip_flags": payload.tip_flags,
         "notes": payload.notes,
         "consent_to_model_improvement": consent,
-        "accepted_for_review": consent,
-        "review_status": "candidate" if consent else "not_consented",
-        "model_version": payload.model_version,
-        "pipeline_version": payload.pipeline_version,
+        "accepted_for_review": bool(consent and user_id and analysis),
+        "review_status": "candidate" if consent and user_id and analysis else "product_feedback",
+        "model_version": provenance.get("model_version"),
+        "pipeline_version": provenance.get("pipeline_version"),
+        "feature_contract_version": provenance.get("feature_contract_version"),
+        "feature_schema_sha256": provenance.get("feature_schema_sha256"),
+        "checkpoint_sha256": provenance.get("checkpoint_sha256"),
         "request_id": request_id,
         "auth_present": authorization_present,
+        "consent_version": SETTINGS.consent_version if consent else None,
+        "consented_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z") if consent else None,
+        "retention_expires_at": retention_deadline,
+        "storage_status": (analysis or {}).get("storage_status") or "not_retained",
+        "evidence_object_path": (analysis or {}).get("evidence_object_path"),
+        "evidence_metadata": (analysis or {}).get("evidence_metadata") or {},
+        "dataset_eligibility_status": "pending_review" if consent else "not_eligible",
+        "provenance_completeness_score": 1.0 if provenance else 0.0,
+        "label_quality_score": None,
         "provenance": {
             "source": "user_reported_feedback",
             "ground_truth": False,
             "requires_expert_review": True,
             "ai_assisted_review_allowed": True,
             "ai_is_ground_truth": False,
+            "analysis_session_verified": bool(analysis),
         },
     }
 

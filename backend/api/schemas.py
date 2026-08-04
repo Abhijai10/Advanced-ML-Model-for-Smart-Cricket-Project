@@ -55,9 +55,7 @@ class FeedbackRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    analysis_session_id: str | None = None
-    clip_hash: str = Field(min_length=32, max_length=128, pattern=r"^[a-fA-F0-9]+$")
-    predicted_shot: str
+    analysis_session_id: str | None = Field(default=None, max_length=128)
     prediction_was_correct: str = Field(pattern=r"^(correct|incorrect|unsure)$")
     corrected_shot: str | None = None
     technique_feedback_rating: int | None = Field(default=None, ge=1, le=5)
@@ -65,15 +63,14 @@ class FeedbackRequest(BaseModel):
     notes: str | None = Field(default=None, max_length=2000)
     consent_to_model_improvement: bool
     client_analysis_id: str | None = Field(default=None, max_length=128)
-    model_version: str | None = Field(default=None, max_length=128)
-    pipeline_version: str | None = Field(default=None, max_length=128)
 
 
 class FeedbackResponse(BaseModel):
     """Response for a feedback submission."""
 
     status: str
-    feedback_id: str
+    storage_status: str
+    feedback_id: str | None = None
     accepted_for_review: bool
     stored: bool
     duplicate_clip_hash: bool

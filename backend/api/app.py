@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import logging
 import time
 from uuid import uuid4
@@ -10,10 +9,10 @@ from uuid import uuid4
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 
 from ml.src.voice.voice_config import AUDIO_OUTPUT_DIR
 
+from .audio import router as audio_router
 from .config import SETTINGS
 from .routes import router
 from .services import PHASE13_VERSION
@@ -74,5 +73,5 @@ async def add_request_id(request: Request, call_next):
 
 
 AUDIO_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/audio", StaticFiles(directory=Path(AUDIO_OUTPUT_DIR)), name="audio")
+app.include_router(audio_router)
 app.include_router(router)

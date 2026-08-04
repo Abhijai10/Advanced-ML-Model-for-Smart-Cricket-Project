@@ -164,15 +164,15 @@ Release verdict: controlled technical beta only after P0 code-hardening items be
 | NOW-03 | Add upload preview/review before submission. | P1 | Browser video preview | Upload does not submit until user confirms. | Done |
 | NOW-04 | Add staged analysis progress and framing guide. | P1 | None | Accessible status updates and quality guidance are present. | Done |
 | NOW-05 | Improve result/history details using trustworthy fields. | P2 | Existing API response | History includes quality state; result panel includes timing, quality, probabilities, audio fallback. | Done |
-| NOW-06 | Add safe feedback API/UI/schema/migration/docs. | P0 | None for local/mock | Backend endpoint, schema, frontend form, migration, and docs exist; no auto retraining. | Done |
-| NOW-07 | Add feedback tests: auth/forgery/consent/duplicates/labels. | P0 | TestClient | Backend tests pass for consent, forged fields, duplicate outcome, label validation, and auth-required behavior. | Done |
-| NOW-08 | Add server-side analysis persistence scaffolding with safe fallback. | P0 | Optional Supabase env | Backend-only persistence path added; no-credential fallback tested. | Done |
+| NOW-06 | Add safe feedback API/UI/schema/migration/docs. | P0 | None for local/mock | Feedback now requires durable persistence for saved states, binds model-improvement feedback to verified analyses, and rejects client-forged provenance. Protected evidence storage remains external. | Partial |
+| NOW-07 | Add feedback tests: auth/forgery/consent/duplicates/labels. | P0 | TestClient | Backend and frontend tests cover no fake saved state, duplicates, auth-required consent, forged trusted fields, missing/cross-user analysis IDs, and reset behavior. Live Supabase RLS tests remain external. | Partial |
+| NOW-08 | Add server-side analysis persistence scaffolding with safe fallback. | P0 | Optional Supabase env | Backend-owned persistence returns `analysis_session_id` when stored and marks failures explicitly. Service-role insert behavior still needs Supabase-local/project verification. | Partial |
 | NOW-09 | Make `/health` inference readiness honest. | P1 | None | Health derives readiness instead of hard-coded true. | Done |
 | NOW-10 | Add TTS graceful degradation and tests. | P1 | None | Analysis succeeds with unavailable audio metadata when TTS fails. | Done |
 | NOW-11 | Version/document `lead_wrist_acceleration` contract. | P0 | No retraining | Feature schema metadata and docs explain v1 semantics and v2 migration. | Done |
 | NOW-12 | Add state-machine reset/rearm tests. | P1 | None | Existing one-shot behavior preserved; reset/rearm tests pass. | Done |
 | NOW-13 | Add real-video E2E harness with explicit skip if fixture missing. | P0 | Fixture absent | Harness added and skipped honestly because fixture is absent. | Blocked External |
-| NOW-14 | Improve Docker image hygiene. | P1 | None | Dockerfile uses production deps and non-root user; local build verification blocked because Docker is unavailable. | Partial |
+| NOW-14 | Improve Docker image hygiene. | P1 | None | Dockerfile uses production deps, non-root user, signed local audio path, and CI container smoke starts the image and checks `/health` plus `/ready`. Local Docker remains unavailable in this environment. | Partial |
 | NOW-15 | Add frontend test/E2E scaffolding and CI jobs where practical. | P1 | npm packages | Vitest and Playwright scaffolding added; local lint/build/component/browser checks pass. | Done |
 | NOW-16 | Add structured logging, timing, safer proxy config, timeout/limits docs. | P1 | None | Request timing/log metadata, process-time header, trusted proxy setting, persistence timeout added. | Done |
 | NOW-17 | Add security/privacy/retention/environment docs. | P0 | None | Environment and privacy/retention docs updated. | Done |
@@ -207,28 +207,31 @@ This section must be updated after implementation.
 
 | Command | Result | Duration | Notes |
 | --- | --- | --- | --- |
-| `python3 -m pytest` | Pass | 23.00s | 85 passed, 1 skipped. The skip is `ml/src/inference/tests/test_true_raw_video_e2e.py` because `ml/data/e2e/raw_batting_fixture.mp4` is absent. |
+| `python3 -m pytest` | Pass | 27.00s | 91 passed, 1 skipped. The skip is `ml/src/inference/tests/test_true_raw_video_e2e.py` because `ml/data/e2e/raw_batting_fixture.mp4` is absent. |
 | `npm run lint` in `frontend` | Pass | about 4s | ESLint passed. |
 | `npm run build` in `frontend` | Pass | about 5s | TypeScript and Vite production build passed; `ShotCharts` emitted as separate lazy chunk. |
-| `npm run test` in `frontend` | Pass | 2.82s | 2 component tests passed. |
-| `npm run test:e2e` in `frontend` | Pass | 3.4s | 1 Playwright Chromium test passed with mocked `/analyze` and `/feedback`; not real ML evidence. |
-| `docker build -f Dockerfile.api -t smart-cricket-api:test .` | Blocked | immediate | Docker CLI is not installed in this environment. |
+| `npm run test` in `frontend` | Pass | 2.85s | 8 component tests passed, covering upload preview, camera lifecycle, feedback reset, duplicate, and persistence failure states. |
+| `npm run test:e2e` in `frontend` | Pass | 6.4s | 1 Playwright Chromium test passed with mocked `/analyze` and `/feedback`; not real ML evidence. |
+| `npm audit --audit-level=high` in `frontend` | Pass | about 1s | 0 vulnerabilities reported. |
+| secret scan for service-role patterns | Pass | immediate | No obvious `SUPABASE_SERVICE_ROLE_KEY`, `sb_secret_`, or service-role JWT value found in repo text. |
+| `supabase migration list --local` | Blocked | about 11s | Supabase CLI exists, but no local Postgres/Supabase DB is running; live RLS verification remains external. |
+| GitHub Actions container smoke | Pending remote verification | TBD | CI now builds image, starts container, calls `/health`, calls `/ready`, prints logs on failure, and removes the container. Local Docker CLI is not installed. |
 | `python3 -m json.tool ml/data/final_temporal/temporal_feature_schema.json` | Pass | immediate | Feature schema JSON remains parseable. |
 
 ## Final Checklist Status
 
 Phase D status: code-feasible P0/P1 items were implemented where possible. Production readiness remains blocked by real-video fixture validation, Supabase/local project verification, production deployment/TLS, natural TTS credentials, larger player-disjoint dataset, coach validation, and privacy/legal review.
 
-Done: `NOW-01`, `NOW-03`, `NOW-04`, `NOW-05`, `NOW-06`, `NOW-07`, `NOW-08`, `NOW-09`, `NOW-10`, `NOW-11`, `NOW-12`, `NOW-15`, `NOW-16`, `NOW-17`.
+Done: `NOW-01`, `NOW-03`, `NOW-04`, `NOW-05`, `NOW-09`, `NOW-10`, `NOW-11`, `NOW-12`, `NOW-15`, `NOW-16`, `NOW-17`.
 
-Partial: `NOW-02` because countdown/auto-stop are implemented but camera auto-stop needs real-device browser testing; `NOW-14` because Dockerfile hygiene improved but Docker build could not run locally.
+Partial: `NOW-02` because countdown/auto-stop are implemented and unit-tested but real-device mobile recording remains unverified; `NOW-06`, `NOW-07`, `NOW-08` because code/mock tests now enforce safe feedback and server-owned history but live Supabase/RLS/storage verification remains external; `NOW-14` because CI container smoke is added but local Docker remains unavailable.
 
 Blocked External: `NOW-13`, `E2E-01` through `E2E-05`, `EXT-01` through `EXT-08`.
 
 Phase 12 final status: not complete. A skipped unmocked harness exists, but no actual raw batting-video fixture is available.
 
-Phase 13 final status: partial. Backend-owned persistence and feedback scaffolding exist, but Supabase credentials/RLS/deployment/TLS/concurrency/load/monitoring remain unverified or external.
+Phase 13 final status: partial. Backend-owned persistence now returns trusted `analysis_session_id`, browser write grants are revoked in a follow-up migration, feedback binds to verified analyses, and analysis concurrency is bounded. Supabase-local/project RLS verification, deployment/TLS, distributed rate limiting, load testing, and monitoring remain unverified or external.
 
-Phase 14 final status: partial. TTS failure now degrades safely to text-only, but natural production TTS, protected audio, and provider/browser coverage remain incomplete.
+Phase 14 final status: partial. TTS failure now degrades safely to text-only and local audio URLs are signed, but natural production TTS, protected object storage, cleanup jobs, and provider/browser coverage remain incomplete.
 
 Website status: materially improved and closer to a premium controlled-beta product, with better camera/review/progress/feedback/history states. It still needs real-device mobile Safari/Android testing and more advanced annotated pose/phase visualization only after backend data supports it.

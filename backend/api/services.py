@@ -9,6 +9,8 @@ import json
 import shutil
 import tempfile
 import time
+import threading
+import urllib.request
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -18,6 +20,8 @@ from uuid import uuid4
 
 import cv2
 from fastapi import Header, HTTPException, Request, UploadFile
+from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa, utils
+from cryptography.hazmat.primitives import hashes
 
 from ml.src.inference.analysis_pipeline import analyze_sequence, load_dataset_sequence
 from ml.src.inference.inference_config import (
@@ -31,13 +35,18 @@ from ml.src.preprocessing.extract_pose import POSE_LANDMARKER_MODEL_ASSET_PATH
 from ml.src.voice.tts_service import build_frontend_audio_ready_response, synthesize_spoken_feedback
 from ml.src.voice.voice_config import AUDIO_OUTPUT_DIR
 
+from .audio import sign_audio_url
 from .config import SETTINGS
 from .persistence import persist_analysis_session
+from .provenance import build_provenance
+from .services_version import PHASE13_VERSION
 
 
-PHASE13_VERSION = "phase_13_api_integration_v1"
 ALLOWED_VIDEO_EXTENSIONS = {".avi", ".mkv", ".mov", ".mp4", ".webm"}
 _RATE_LIMIT_BUCKETS: dict[str, deque[float]] = defaultdict(deque)
+_FEEDBACK_RATE_LIMIT_BUCKETS: dict[str, deque[float]] = defaultdict(deque)
+_ANALYSIS_SEMAPHORE = threading.BoundedSemaphore(max(1, SETTINGS.max_concurrent_analyses))
+_JWKS_CACHE: dict[str, Any] = {"loaded_at": 0.0, "keys": []}
 
 
 class APIValidationError(ValueError):
@@ -179,6 +188,10 @@ def _attach_voice_and_metadata(
     clip_hash: str | None = None,
 ) -> dict[str, Any]:
     result["analysis_quality"] = _analysis_quality(result)
+    provenance = build_provenance()
+    result.setdefault("debug_metadata", {})["model_version"] = provenance["model_version"]
+    result.setdefault("debug_metadata", {})["feature_contract_version"] = provenance["feature_contract_version"]
+    result["model_provenance"] = provenance
     audio_name = f"{request_id}-{uuid4().hex}.wav"
     try:
         voice_output = synthesize_spoken_feedback(
@@ -206,7 +219,9 @@ def _attach_voice_and_metadata(
         }
     result["voice_output"] = voice_ready["audio"]
     if result["voice_output"].get("audio_path"):
-        result["voice_output"]["audio_url"] = f"/audio/{Path(result['voice_output']['audio_path']).name}"
+        audio_filename = Path(result["voice_output"]["audio_path"]).name
+        result["voice_output"]["audio_url"] = sign_audio_url(audio_filename)
+        result["voice_output"]["audio_path"] = ""
     else:
         result["voice_output"]["audio_url"] = None
     result["timing"] = _segment_timing(result)
@@ -222,6 +237,8 @@ def _attach_voice_and_metadata(
         "temporary_file_cleaned": True,
         "analysis_mode": analysis_mode,
         "pipeline_version": PHASE12_VERSION,
+        "model_version": provenance["model_version"],
+        "model_provenance": provenance,
         "voice_output_ready": bool(voice_ready["audio"]["available"]),
         "voice_error": voice_error,
         "api_note": (
@@ -267,30 +284,35 @@ def _analysis_quality(result: dict[str, Any]) -> dict[str, Any]:
 
 def analyze_uploaded_video(file: UploadFile, *, request_id: str) -> dict[str, Any]:
     """Analyze one uploaded cricket video from its actual bytes."""
-    filename = _validate_video_upload(file)
-    temp_path, upload_bytes, clip_hash, video_probe = _save_upload_to_temp(file, filename)
+    if not _ANALYSIS_SEMAPHORE.acquire(timeout=SETTINGS.analysis_queue_timeout_seconds):
+        raise APIValidationError("The analysis queue is busy. Wait a moment and try again.", "analysis_overloaded")
     try:
+        filename = _validate_video_upload(file)
+        temp_path, upload_bytes, clip_hash, video_probe = _save_upload_to_temp(file, filename)
         try:
-            raw_result = analyze_raw_video(temp_path)
-            raw_result.setdefault("debug_metadata", {})["upload_video_probe"] = video_probe
-        except Exception as exc:
-            raise APIValidationError(
-                (
-                    "The uploaded video could not be converted into a valid Smart Cricket "
-                    "temporal sequence. Record a clear batting motion with the full body visible."
-                ),
-                "raw_video_analysis_failed",
-            ) from exc
-        return _attach_voice_and_metadata(
-            raw_result,
-            filename=filename,
-            upload_bytes=upload_bytes,
-            analysis_mode="raw_video_upload",
-            request_id=request_id,
-            clip_hash=clip_hash,
-        )
+            try:
+                raw_result = analyze_raw_video(temp_path)
+                raw_result.setdefault("debug_metadata", {})["upload_video_probe"] = video_probe
+            except Exception as exc:
+                raise APIValidationError(
+                    (
+                        "The uploaded video could not be converted into a valid Smart Cricket "
+                        "temporal sequence. Record a clear batting motion with the full body visible."
+                    ),
+                    "raw_video_analysis_failed",
+                ) from exc
+            return _attach_voice_and_metadata(
+                raw_result,
+                filename=filename,
+                upload_bytes=upload_bytes,
+                analysis_mode="raw_video_upload",
+                request_id=request_id,
+                clip_hash=clip_hash,
+            )
+        finally:
+            _cleanup_temp_path(temp_path)
     finally:
-        _cleanup_temp_path(temp_path)
+        _ANALYSIS_SEMAPHORE.release()
 
 
 def analyze_dataset_sample(
@@ -372,17 +394,42 @@ def _client_key(request: Request) -> str:
 
 def enforce_rate_limit(request: Request) -> None:
     """Small in-memory rate limiter for single-process deployments/tests."""
-    if SETTINGS.rate_limit_per_minute <= 0:
+    _enforce_bucket_limit(
+        request=request,
+        buckets=_RATE_LIMIT_BUCKETS,
+        limit=SETTINGS.rate_limit_per_minute,
+        message="Too many analysis requests. Wait a moment and try again.",
+    )
+
+
+def enforce_feedback_rate_limit(request: Request) -> None:
+    """Small in-memory feedback limiter for single-process deployments/tests."""
+    _enforce_bucket_limit(
+        request=request,
+        buckets=_FEEDBACK_RATE_LIMIT_BUCKETS,
+        limit=SETTINGS.feedback_rate_limit_per_minute,
+        message="Too many feedback requests. Wait a moment and try again.",
+    )
+
+
+def _enforce_bucket_limit(
+    *,
+    request: Request,
+    buckets: dict[str, deque[float]],
+    limit: int,
+    message: str,
+) -> None:
+    if limit <= 0:
         return
     now = time.monotonic()
-    bucket = _RATE_LIMIT_BUCKETS[_client_key(request)]
+    bucket = buckets[_client_key(request)]
     while bucket and now - bucket[0] > 60.0:
         bucket.popleft()
-    if len(bucket) >= SETTINGS.rate_limit_per_minute:
+    if len(bucket) >= limit:
         raise HTTPException(
             status_code=429,
             detail={
-                "detail": "Too many analysis requests. Wait a moment and try again.",
+                "detail": message,
                 "error_code": "rate_limited",
                 "request_id": request.state.request_id,
             },
@@ -409,11 +456,77 @@ def _verify_hs256_jwt(token: str, secret: str) -> dict[str, Any]:
     actual = _base64url_decode(signature_b64)
     if not hmac.compare_digest(expected, actual):
         raise APIValidationError("Invalid authorization token signature.", "invalid_token")
+    _validate_jwt_claims(payload)
+    return payload
+
+
+def _validate_jwt_claims(payload: dict[str, Any]) -> None:
+    now = time.time()
     exp = payload.get("exp")
-    if isinstance(exp, (int, float)) and exp < time.time():
+    if not isinstance(exp, (int, float)) or exp < now:
         raise APIValidationError("Authorization token has expired.", "expired_token")
+    nbf = payload.get("nbf")
+    if isinstance(nbf, (int, float)) and nbf > now:
+        raise APIValidationError("Authorization token is not valid yet.", "invalid_token")
+    if not payload.get("sub"):
+        raise APIValidationError("Authorization token is missing a subject.", "invalid_token")
     if SETTINGS.jwt_audience and payload.get("aud") != SETTINGS.jwt_audience:
         raise APIValidationError("Authorization token audience is not allowed.", "invalid_token")
+    if SETTINGS.jwt_issuer and payload.get("iss") != SETTINGS.jwt_issuer:
+        raise APIValidationError("Authorization token issuer is not allowed.", "invalid_token")
+
+
+def _jwk_int(value: str) -> int:
+    return int.from_bytes(_base64url_decode(value), "big")
+
+
+def _load_jwks() -> list[dict[str, Any]]:
+    if not SETTINGS.supabase_url:
+        return []
+    if time.time() - float(_JWKS_CACHE["loaded_at"]) < 600:
+        return list(_JWKS_CACHE["keys"])
+    url = f"{SETTINGS.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+    with urllib.request.urlopen(url, timeout=5) as response:
+        payload = json.loads(response.read().decode("utf-8") or "{}")
+    keys = payload.get("keys") if isinstance(payload, dict) else None
+    _JWKS_CACHE["loaded_at"] = time.time()
+    _JWKS_CACHE["keys"] = keys if isinstance(keys, list) else []
+    return list(_JWKS_CACHE["keys"])
+
+
+def _verify_asymmetric_jwt(token: str) -> dict[str, Any]:
+    try:
+        header_b64, payload_b64, signature_b64 = token.split(".")
+        header = json.loads(_base64url_decode(header_b64))
+        payload = json.loads(_base64url_decode(payload_b64))
+    except Exception as exc:
+        raise APIValidationError("Invalid authorization token.", "invalid_token") from exc
+    alg = header.get("alg")
+    kid = header.get("kid")
+    if alg not in {"RS256", "ES256"}:
+        raise APIValidationError("Unsupported authorization token algorithm.", "invalid_token")
+    key = next((item for item in _load_jwks() if item.get("kid") == kid and item.get("alg") in {None, alg}), None)
+    if not key:
+        raise APIValidationError("Authorization signing key was not found.", "invalid_token")
+    signing_input = f"{header_b64}.{payload_b64}".encode("ascii")
+    signature = _base64url_decode(signature_b64)
+    try:
+        if alg == "RS256":
+            public_key = rsa.RSAPublicNumbers(e=_jwk_int(key["e"]), n=_jwk_int(key["n"])).public_key()
+            public_key.verify(signature, signing_input, padding.PKCS1v15(), hashes.SHA256())
+        else:
+            x = _jwk_int(key["x"])
+            y = _jwk_int(key["y"])
+            public_key = ec.EllipticCurvePublicNumbers(x, y, ec.SECP256R1()).public_key()
+            half = len(signature) // 2
+            der_signature = utils.encode_dss_signature(
+                int.from_bytes(signature[:half], "big"),
+                int.from_bytes(signature[half:], "big"),
+            )
+            public_key.verify(der_signature, signing_input, ec.ECDSA(hashes.SHA256()))
+    except Exception as exc:
+        raise APIValidationError("Invalid authorization token signature.", "invalid_token") from exc
+    _validate_jwt_claims(payload)
     return payload
 
 
@@ -422,7 +535,7 @@ def enforce_auth(request: Request, authorization: str | None = Header(default=No
     request.state.auth = AuthContext(authorization_present=bool(authorization))
     if not SETTINGS.require_auth:
         return request.state.auth
-    if not SETTINGS.supabase_jwt_secret:
+    if not SETTINGS.supabase_jwt_secret and not SETTINGS.supabase_url:
         raise HTTPException(
             status_code=503,
             detail={
@@ -441,7 +554,17 @@ def enforce_auth(request: Request, authorization: str | None = Header(default=No
             },
         )
     try:
-        claims = _verify_hs256_jwt(authorization.split(" ", 1)[1].strip(), SETTINGS.supabase_jwt_secret)
+        token = authorization.split(" ", 1)[1].strip()
+        try:
+            header = json.loads(_base64url_decode(token.split(".", 1)[0]))
+        except Exception as exc:
+            raise APIValidationError("Invalid authorization token.", "invalid_token") from exc
+        if header.get("alg") == "HS256":
+            if not SETTINGS.supabase_jwt_secret:
+                raise APIValidationError("HS256 token verification is not configured.", "invalid_token")
+            claims = _verify_hs256_jwt(token, SETTINGS.supabase_jwt_secret)
+        else:
+            claims = _verify_asymmetric_jwt(token)
     except APIValidationError as exc:
         raise HTTPException(
             status_code=401,
@@ -470,16 +593,20 @@ def persist_verified_analysis_for_auth_user(
     """Attach non-fatal backend persistence metadata to an analysis response."""
     api_metadata = result.setdefault("api_metadata", {})
     clip_hash = api_metadata.get("clip_hash")
+    provenance = api_metadata.get("model_provenance") if isinstance(api_metadata.get("model_provenance"), dict) else build_provenance()
     outcome = persist_analysis_session(
         user_id=auth.user_id,
         result=result,
         filename=filename,
         request_id=request_id,
         clip_hash=str(clip_hash or ""),
+        provenance=provenance,
     )
     api_metadata["analysis_persistence"] = {
         "attempted": bool(auth.user_id),
         "stored": outcome.stored,
         "record_id": outcome.record_id,
         "error_code": outcome.error_code,
+        "storage_status": outcome.status,
     }
+    api_metadata["analysis_session_id"] = outcome.record_id if outcome.stored else None

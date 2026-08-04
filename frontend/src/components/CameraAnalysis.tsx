@@ -20,16 +20,15 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const [analysisStage, setAnalysisStage] = useState<"idle" | "uploading" | "pose" | "model" | "feedback">("idle");
+  const [analysisStage, setAnalysisStage] = useState<"idle" | "uploading" | "analyzing" | "result">("idle");
   const [pendingClip, setPendingClip] = useState<{ blob: Blob; filename: string; previewUrl: string } | null>(null);
   const [error, setError] = useState("");
   const maxRecordingSeconds = Number(import.meta.env.VITE_MAX_RECORDING_SECONDS ?? 8);
 
   const stageLabel = useMemo(() => {
     if (analysisStage === "uploading") return "Uploading clip";
-    if (analysisStage === "pose") return "Extracting pose";
-    if (analysisStage === "model") return "Scoring movement";
-    if (analysisStage === "feedback") return "Preparing feedback";
+    if (analysisStage === "analyzing") return "Analysis in progress";
+    if (analysisStage === "result") return "Preparing result";
     return "";
   }, [analysisStage]);
 
@@ -99,11 +98,18 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
 
   function startRecording() {
     if (!streamRef.current) return;
+    if (typeof MediaRecorder === "undefined") {
+      setError("This browser cannot record from the camera. Upload a saved clip instead.");
+      return;
+    }
     chunksRef.current = [];
-    const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-      ? "video/webm;codecs=vp9"
-      : "video/webm";
-    const recorder = new MediaRecorder(streamRef.current, { mimeType });
+    const mimeType =
+      ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm", "video/mp4"].find((candidate) =>
+        MediaRecorder.isTypeSupported(candidate),
+      ) ?? "";
+    const recorder = mimeType
+      ? new MediaRecorder(streamRef.current, { mimeType })
+      : new MediaRecorder(streamRef.current);
     recorderRef.current = recorder;
     recorder.ondataavailable = (event) => {
       if (event.data.size > 0) chunksRef.current.push(event.data);
@@ -134,12 +140,11 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
     setAnalysisStage("uploading");
     analysisTimersRef.current.forEach((timer) => window.clearTimeout(timer));
     analysisTimersRef.current = [
-      window.setTimeout(() => setAnalysisStage("pose"), 350),
-      window.setTimeout(() => setAnalysisStage("model"), 900),
+      window.setTimeout(() => setAnalysisStage("analyzing"), 350),
     ];
     try {
       const result = await analyzeVideo(blob, filename, accessToken);
-      setAnalysisStage("feedback");
+      setAnalysisStage("result");
       await onResult(result, filename);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Analysis failed.");
