@@ -81,7 +81,10 @@ jobs:
           docker logs smart-cricket-api-smoke
           exit 1
       - name: Readiness smoke
-        run: curl -fsS http://127.0.0.1:8000/ready
+        run: |
+          code=$(curl -sS -o /tmp/smart-cricket-ready.json -w "%{http_code}" http://127.0.0.1:8000/ready)
+          cat /tmp/smart-cricket-ready.json
+          test "$code" = "200"
       - name: Container logs on failure
         if: failure()
         run: docker logs smart-cricket-api-smoke || true

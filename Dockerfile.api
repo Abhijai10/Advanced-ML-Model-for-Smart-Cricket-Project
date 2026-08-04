@@ -6,6 +6,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+ARG POSE_LANDMARKER_MODEL_URL=https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task
+ARG POSE_LANDMARKER_MODEL_SHA256=5134a3aad27a58b93da0088d431f366da362b44e3ccfbe3462b3827a839011b1
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg libgl1 libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
@@ -19,6 +22,9 @@ COPY ml/src ./ml/src
 COPY ml/artifacts/phase8/best_model ./ml/artifacts/phase8/best_model
 COPY ml/artifacts/phase10 ./ml/artifacts/phase10
 COPY ml/data/final_temporal ./ml/data/final_temporal
+
+RUN mkdir -p /app/ml/models \
+    && python -c "import hashlib, os, pathlib, urllib.request; url=os.environ.get('POSE_LANDMARKER_MODEL_URL', '${POSE_LANDMARKER_MODEL_URL}'); expected=os.environ.get('POSE_LANDMARKER_MODEL_SHA256', '${POSE_LANDMARKER_MODEL_SHA256}'); target=pathlib.Path('/app/ml/models/pose_landmarker_full.task'); data=urllib.request.urlopen(url, timeout=60).read(); actual=hashlib.sha256(data).hexdigest(); assert actual == expected, f'pose model checksum mismatch: {actual}'; target.write_bytes(data)"
 
 RUN useradd --create-home --shell /usr/sbin/nologin smartcricket \
     && mkdir -p /tmp/smart-cricket-audio \
