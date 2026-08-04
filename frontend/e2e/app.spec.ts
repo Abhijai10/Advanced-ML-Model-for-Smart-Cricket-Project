@@ -35,6 +35,8 @@ const analysisResponse = {
     analysis_session_id: "11111111-1111-1111-1111-111111111111",
     clip_hash: "a".repeat(64),
     pipeline_version: "phase12",
+    analysis_persistence: { attempted: true, stored: true, storage_status: "stored" },
+    evidence_retention: { requested: false, retained: false, status: "not_requested" },
   },
 };
 
@@ -71,9 +73,9 @@ test("demo upload review, mocked analysis, and feedback flow", async ({ page }) 
   await expect(page.getByText(/cover drive/i).first()).toBeVisible();
   await expect(page.getByText(/audio unavailable/i)).toBeVisible();
 
-  await page.getByRole("button", { name: "incorrect" }).click();
+  await page.getByRole("radio", { name: "incorrect" }).check();
   await page.getByLabel(/correct shot/i).selectOption("pull_shot");
-  await page.getByLabel(/share this clip result/i).check();
+  await page.getByRole("checkbox", { name: /^This sends judgement and notes/i }).check();
   await page.getByRole("button", { name: /save feedback/i }).click();
   await expect(page.getByRole("button", { name: /feedback saved/i })).toBeVisible();
 });

@@ -43,6 +43,15 @@ export type AnalysisResponse = {
   api_metadata: Record<string, unknown>;
 };
 
+export type EvidenceRetentionState = {
+  requested?: boolean;
+  status?: "stored" | "not_requested" | "not_retained" | "failed" | "temporary_failure" | "withdrawn" | "deleted" | string;
+  retained?: boolean;
+  provider?: string;
+  error_code?: string | null;
+  retention_expires_at?: string | null;
+};
+
 export type FeedbackPayload = {
   analysis_session_id?: string | null;
   client_analysis_id?: string | null;

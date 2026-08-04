@@ -6,10 +6,10 @@ Anonymous or unbound reports must not become training data. They may be treated 
 
 ## Review Pipeline
 
-1. Export candidate rows from `analysis_feedback` where `accepted_for_review = true`, `consent_to_model_improvement = true`, and `review_status = 'candidate'`.
+1. Export only adjudicated rows from `analysis_feedback` where `accepted_for_review = true`, `consent_to_model_improvement = true`, `review_status = 'approved'`, `dataset_eligibility_status = 'eligible'`, `storage_status = 'stored'`, and neither `withdrawn_at` nor `deleted_at` is set.
 2. Deduplicate by `clip_hash`, `model_version`, `pipeline_version`, and user where applicable.
 3. Exclude any row or clip without consent, unclear provenance, privacy risk, unsafe content, or missing source metadata.
-4. Have a qualified reviewer inspect the retained protected evidence, model result, corrected label, and user notes. In the current local scaffold, evidence storage is recorded as `not_retained` unless protected storage is configured and verified.
+4. Have a qualified reviewer inspect the retained protected evidence, model result, corrected label, and user notes. Evidence is reviewable only when the protected object path, checksum, user ID, analysis session ID, consent version, and retention deadline are complete.
 5. Assign label-quality status: `approved`, `needs_second_review`, `rejected`, or `unsafe`.
 6. Resolve disagreements through a second human review. AI tools may summarize or flag inconsistencies, but they are never the deciding label authority.
 7. Keep train, validation, and test users/clips isolated. A clip reported by a validation/test user must not leak into training.
@@ -49,4 +49,4 @@ Use the review helper only from a trusted server or local maintainer machine wit
 python scripts/export_feedback_candidates.py --output exports/feedback_candidates.csv
 ```
 
-The exported CSV is a reviewer queue, not a training dataset.
+The exported CSV is an adjudicated manifest input, not a raw training dataset. Metadata-only, expired, withdrawn, deleted, unreviewed, or rejected feedback is excluded.

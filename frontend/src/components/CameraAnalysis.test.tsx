@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CameraAnalysis } from "./CameraAnalysis";
+import { analyzeVideo } from "../lib/api";
 
 vi.mock("../lib/api", () => ({
   analyzeVideo: vi.fn(async () => ({
@@ -41,10 +42,12 @@ vi.mock("../lib/api", () => ({
 
 describe("CameraAnalysis", () => {
   let stopTrack: ReturnType<typeof vi.fn>;
-  let lastRecorder: { state: string; ondataavailable?: (event: { data: Blob }) => void; onstop?: () => void; stop: ReturnType<typeof vi.fn>; start: ReturnType<typeof vi.fn> } | null;
+  let supportedTypes: string[];
+  let lastRecorder: { state: string; mimeType?: string; ondataavailable?: (event: { data: Blob }) => void; onstop?: () => void; stop: ReturnType<typeof vi.fn>; start: ReturnType<typeof vi.fn> } | null;
 
   beforeEach(() => {
     stopTrack = vi.fn();
+    supportedTypes = ["video/webm"];
     lastRecorder = null;
     Object.defineProperty(navigator, "mediaDevices", {
       configurable: true,
@@ -55,8 +58,9 @@ describe("CameraAnalysis", () => {
       },
     });
     class MockMediaRecorder {
-      static isTypeSupported = vi.fn((type: string) => type === "video/webm");
+      static isTypeSupported = vi.fn((type: string) => supportedTypes.includes(type));
       state = "inactive";
+      mimeType: string;
       ondataavailable?: (event: { data: Blob }) => void;
       onstop?: () => void;
       start = vi.fn(() => {
@@ -65,10 +69,11 @@ describe("CameraAnalysis", () => {
       stop = vi.fn(() => {
         if (this.state !== "recording") return;
         this.state = "inactive";
-        this.ondataavailable?.({ data: new Blob(["recorded"], { type: "video/webm" }) });
+        this.ondataavailable?.({ data: new Blob(["recorded"], { type: this.mimeType }) });
         this.onstop?.();
       });
-      constructor() {
+      constructor(_stream: MediaStream, options?: MediaRecorderOptions) {
+        this.mimeType = options?.mimeType ?? "";
         // eslint-disable-next-line @typescript-eslint/no-this-alias
         lastRecorder = this;
       }
@@ -81,7 +86,26 @@ describe("CameraAnalysis", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.mocked(analyzeVideo).mockClear();
   });
+
+  async function recordAndAnalyze() {
+    vi.useFakeTimers();
+    render(<CameraAnalysis onResult={vi.fn()} accessToken="token" />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /start analysis/i }));
+      await Promise.resolve();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /record shot/i }));
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^stop$/i }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /analyze clip/i }));
+      await Promise.resolve();
+    });
+  }
 
   it("previews uploaded clips before submitting them", async () => {
     const user = userEvent.setup();
@@ -173,5 +197,39 @@ describe("CameraAnalysis", () => {
     fireEvent.click(screen.getByRole("button", { name: /start analysis/i }));
 
     expect(await screen.findByText(/permission denied/i)).toBeInTheDocument();
+  });
+
+  it.each([
+    ["video/webm;codecs=vp9", "webm"],
+    ["video/webm;codecs=vp8", "webm"],
+    ["video/webm", "webm"],
+    ["video/mp4", "mp4"],
+  ])("uses the selected recorder MIME type and %s extension", async (mimeType, extension) => {
+    supportedTypes = [mimeType];
+    await recordAndAnalyze();
+
+    expect(lastRecorder?.mimeType).toBe(mimeType);
+    expect(vi.mocked(analyzeVideo)).toHaveBeenCalledWith(
+      expect.objectContaining({ type: mimeType }),
+      expect.stringMatching(new RegExp(`\\.${extension}$`)),
+      "token",
+      false,
+    );
+  });
+
+  it("shows upload fallback when no MediaRecorder MIME type is supported", async () => {
+    vi.useFakeTimers();
+    supportedTypes = [];
+    render(<CameraAnalysis onResult={vi.fn()} />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /start analysis/i }));
+      await Promise.resolve();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /record shot/i }));
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+
+    expect(screen.getByText(/upload an mp4, mov, or webm/i)).toBeInTheDocument();
   });
 });

@@ -43,13 +43,13 @@ Release verdict: controlled technical beta only after P0 code-hardening items be
 | ID | Finding | Status | Severity | Evidence | Required Action |
 | --- | --- | --- | --- | --- | --- |
 | DS-01 | Filename-based `/analyze` inference could return stored results for uploaded dataset-like filename. | Fixed | P0 | `analyze_uploaded_video` saves and analyzes uploaded bytes; tests verify known filename invalid bytes are rejected. | Keep regression tests. |
-| DS-02 | Upload validation too weak. | Partial | P0 | Extension, byte signature, OpenCV probe, size, duration, and resolution checks exist. | Add request timeout/concurrency strategy and better MIME/container coverage. |
-| DS-03 | `/health` reports `inference_ready: true` without readiness checks. | Unresolved initially | P1 | `api_health()` hard-codes `inference_ready: True`. | Make liveness honest or remove inference-ready claim. |
-| DS-04 | Client-forged trusted history. | Partial | P0 | Frontend no longer writes analysis results directly, but backend persistence is not implemented. | Add backend-owned persistence with service-role-only server config and safe fallback. |
-| DS-05 | Auth validation is incomplete. | Partial | P0 | Manual HS256 JWT validation using `SUPABASE_JWT_SECRET`; no JWKS/project URL support. | Prefer JWKS-compatible architecture while retaining testability. |
+| DS-02 | Upload validation too weak. | Partial | P0 | Extension, byte signature, OpenCV probe, size, duration, resolution, bounded queue, execution timeout, and MIME/extension tests exist. | Real production load and device matrix still required. |
+| DS-03 | `/health` reports `inference_ready: true` without readiness checks. | Fixed | P1 | `/health` is lightweight liveness; `/ready` owns dependency checks. | Keep readiness smoke in CI. |
+| DS-04 | Client-forged trusted history. | Partial | P0 | Frontend no longer writes analysis results directly; backend-owned persistence exists with service-role-only configuration. | Live Supabase RLS/project verification remains external. |
+| DS-05 | Auth validation is incomplete. | Partial | P0 | HS256/JWKS logic exists; direct HS256 and JWKS-failure tests pass. | Full RS256/ES256 live Supabase key-rotation tests remain external/partial. |
 | DS-06 | Rate limiting is in-memory and proxy trust is unsafe. | Partial | P1 | `_client_key` trusts `x-forwarded-for`; in-memory buckets are single-process only. | Add trusted proxy config and pluggable rate-limit backend contract. |
 | DS-07 | TTS can fail analysis and is not production-natural TTS. | Partial | P1 | `synthesize_spoken_feedback` can raise; local cue fallback is not speech. | Graceful degradation and provider docs/tests. |
-| DS-08 | Audio files are public static artifacts without lifecycle protection. | Partial | P1 | `/audio` static mount is public; unique filenames exist. | Cleanup policy, retention docs, protected access design. |
+| DS-08 | Audio files are public static artifacts without lifecycle protection. | Partial | P1 | Public static mount removed; signed links, TTL caps, secret validation, and cleanup command/tests exist. | Protected object storage and production audio hosting remain external. |
 | DS-09 | CameraAnalysis cleanup stops tracks when `pendingClip` changes while `isCameraReady` remains true. | Unresolved initially | P0 | Effect cleanup depends on `pendingClip` and stops `streamRef` on each pending clip change. | Split stream lifecycle cleanup from preview URL cleanup. |
 | DS-10 | No true raw-video E2E test. | Unresolved | P0 | No raw video fixture found under `ml/data`; current API tests patch `analyze_raw_video`. | Add real fixture if legally available; otherwise add skipped harness with blocker. |
 | DS-11 | `lead_wrist_acceleration` semantic bug. | Partial | P0 | Feature name implies acceleration; code computes abs difference between lead/trail wrist velocities. | Add feature-contract metadata and migration plan; retrain before changing tensor. |
@@ -90,7 +90,7 @@ Release verdict: controlled technical beta only after P0 code-hardening items be
 | API-03 | RLS validation. | Partial | P0 | Migration includes RLS; tests against Supabase local/project prove owner isolation. |
 | API-04 | Production storage. | Not Started | P1 | Audio/clips are stored in protected storage with retention and signed access. |
 | API-05 | Error handling and observability. | Partial | P1 | Structured logs, timings, stable error codes, request IDs, metrics hooks. |
-| API-06 | Async/concurrency strategy. | Not Started | P1 | Blocking ML work is isolated via worker/thread/job queue strategy and timeout controls. |
+| API-06 | Async/concurrency strategy. | Partial | P1 | Queue overload returns 429 with retry guidance; inference caller wait is bounded with timeout response. True process isolation/load testing remains external/future. |
 | API-07 | Rate limiting. | Partial | P1 | Pluggable distributed rate limiter and trusted proxy config. |
 | API-08 | Reverse proxy/TLS/deployment. | Blocked External | P0 | Production deployment smoke under TLS with configured origins. |
 | API-09 | Privacy and retention. | Partial | P0 | Consent, retention, deletion, export, and incident response docs. |
@@ -101,8 +101,8 @@ Release verdict: controlled technical beta only after P0 code-hardening items be
 | --- | --- | --- | --- | --- |
 | VO-01 | Actual natural TTS provider. | Blocked External | P1 | Provider credentials configured and provider-specific integration tests pass. |
 | VO-02 | Text-only graceful degradation. | Unresolved initially | P1 | Analysis succeeds when TTS fails and marks audio unavailable. |
-| VO-03 | Protected audio access. | Not Started | P1 | Audio requires authenticated/signed access in production. |
-| VO-04 | Cleanup lifecycle. | Partial | P1 | Configurable retention and cleanup command/job exist. |
+| VO-03 | Protected audio access. | Partial | P1 | Signed local links require a dedicated signing secret outside development/test. Production object storage remains external. |
+| VO-04 | Cleanup lifecycle. | Done | P1 | Configurable retention and cleanup command/tests exist. |
 | VO-05 | Browser playback tests. | Not Started | P2 | Browser E2E verifies audio UI for available and unavailable audio. |
 
 ## Continual-Learning and Feedback Architecture
@@ -113,8 +113,8 @@ Release verdict: controlled technical beta only after P0 code-hardening items be
 | FB-02 | Optional corrected shot label. | Not Started initially | P1 | Corrected label must be one of supported classes. |
 | FB-03 | Rate technique feedback. | Not Started initially | P1 | 1-5 rating with optional note. |
 | FB-04 | Mark tips useful, incorrect, or unsafe. | Not Started initially | P0 | Safety flags are captured and never used for automatic retraining. |
-| FB-05 | Consent to contribute clip/result. | Not Started initially | P0 | Explicit consent field, privacy copy, and server audit metadata. |
-| FB-06 | Safe human-in-the-loop pipeline. | Documentation Needed | P0 | Provenance, consent, moderation, deduplication, confidence weighting, expert review, label-quality scoring, disagreement resolution, model versioning, rollback, drift monitoring, and retraining gates documented. |
+| FB-05 | Consent to contribute clip/result. | Partial | P0 | Pre-analysis retention consent, feedback consent, version/timestamp metadata, and deletion/withdraw endpoints exist. Live storage/privacy approval remains external. |
+| FB-06 | Safe human-in-the-loop pipeline. | Partial | P0 | Candidate gating now requires retained evidence; export excludes metadata-only/unreviewed/expired/withdrawn/deleted rows. Reviewer operations still need real ops workflow. |
 | FB-07 | AI-assisted review boundaries. | Documentation Needed | P1 | AI may triage/flag inconsistencies but is never ground truth. |
 | FB-08 | No blind retraining on user reports. | Required | P0 | Export/review flow produces candidates; no training job consumes raw reports automatically. |
 
@@ -130,7 +130,7 @@ Release verdict: controlled technical beta only after P0 code-hardening items be
 | WEB-06 | Staged progress UX and quality guidance. | Partial | P1 | Progress stages describe upload/analyze/feedback/audio and quality tips. |
 | WEB-07 | Session details/history UX. | Partial | P2 | Shows confidence, quality, timing, source, and meaningful empty/loading/error states. |
 | WEB-08 | Premium restrained polish. | Partial | P2 | Better hierarchy, responsive layout, accessible controls, polished states. |
-| WEB-09 | Mobile Safari/Android/device coverage. | Unverified | P1 | Browser/device test matrix passes. |
+| WEB-09 | Mobile Safari/Android/device coverage. | Partial | P1 | MIME negotiation supports VP9/VP8/WebM/MP4 and upload fallback with tests. Real iOS/Android device verification remains external. |
 | WEB-10 | Accessibility. | Partial | P1 | Keyboard, labels, contrast, announcements, reduced-motion, screen-reader checks. |
 | WEB-11 | Component tests and browser E2E. | Not Started initially | P1 | Component tests and Playwright scaffolding cover primary flows. |
 | WEB-12 | Bundle splitting. | Not Started initially | P2 | Lazy-load chart/results-heavy surfaces where appropriate. |
@@ -140,15 +140,15 @@ Release verdict: controlled technical beta only after P0 code-hardening items be
 | ID | Area | Initial Status | Severity | Evidence/Acceptance Criteria |
 | --- | --- | --- | --- | --- |
 | TEST-01 | Python unit tests | Partial | P1 | `python -m pytest` must pass. |
-| TEST-02 | Backend API tests | Partial | P0 | Upload validation, auth, rate limit, feedback, persistence fallback, TTS failure tests. |
+| TEST-02 | Backend API tests | Partial | P0 | Upload validation, auth, rate limit, overload, timeout, feedback evidence gating, persistence fallback, audio signing/cleanup, product feedback, and TTS failure tests. |
 | TEST-03 | True ML E2E | Blocked External | P0 | Real fixture through unmocked raw pipeline. |
-| TEST-04 | API security | Partial | P0 | Invalid tokens, forged feedback/history payloads, size/type/rate limits. |
+| TEST-04 | API security | Partial | P0 | Invalid tokens, JWKS outage, forged feedback/history payloads, size/type/rate limits, signed audio expiry, and evidence ownership checks. |
 | TEST-05 | Supabase integration | Partial | P0 | Migration/RLS checks plus mocked/local service-role tests. |
 | TEST-06 | Frontend component tests | Not Started initially | P1 | Camera/upload/results/history/auth fallback tests. |
 | TEST-07 | Browser E2E | Not Started initially | P1 | Happy-path mocked API, auth fallback, feedback, upload review, result display. |
 | TEST-08 | Device/browser | Unverified | P1 | Chrome/Safari/Firefox/mobile Safari/Android manual or automated coverage. |
 | TEST-09 | Accessibility | Partial | P1 | Automated and manual checks. |
-| TEST-10 | Performance/load/concurrency | Not Started | P1 | Upload and inference concurrency strategy/load test. |
+| TEST-10 | Performance/load/concurrency | Partial | P1 | Queue overload and timeout behavior are tested; full production load/memory testing remains external. |
 | TEST-11 | Privacy/security | Partial | P0 | Retention, consent, protected storage, secrets audit. |
 | TEST-12 | Container/deployment smoke | Done | P1 | GitHub Actions builds the API image, starts it, and checks `/health` plus `/ready`. |
 | TEST-13 | Migration/rollback | Partial | P1 | SQL migration syntax, RLS, rollback/disaster recovery docs. |
@@ -160,12 +160,12 @@ Release verdict: controlled technical beta only after P0 code-hardening items be
 | ID | Item | Priority | Dependencies | Acceptance Criteria | Final Status |
 | --- | --- | --- | --- | --- | --- |
 | NOW-01 | Fix CameraAnalysis stream cleanup and object URL cleanup. | P0 | None | Retake/review does not stop live camera; URLs revoked. | Done |
-| NOW-02 | Add countdown, max recording length, timer, auto-stop, review flow. | P1 | Browser MediaRecorder | UI has countdown/timer/auto-stop/review; component test covers upload review. | Partial |
+| NOW-02 | Add countdown, max recording length, timer, auto-stop, review flow. | P1 | Browser MediaRecorder | UI has countdown/timer/auto-stop/review; component tests cover camera flow and MIME variants. Real devices remain external. | Partial |
 | NOW-03 | Add upload preview/review before submission. | P1 | Browser video preview | Upload does not submit until user confirms. | Done |
 | NOW-04 | Add staged analysis progress and framing guide. | P1 | None | Accessible status updates and quality guidance are present. | Done |
 | NOW-05 | Improve result/history details using trustworthy fields. | P2 | Existing API response | History includes quality state; result panel includes timing, quality, probabilities, audio fallback. | Done |
-| NOW-06 | Add safe feedback API/UI/schema/migration/docs. | P0 | None for local/mock | Feedback now requires durable persistence for saved states, binds model-improvement feedback to verified analyses, and rejects client-forged provenance. Protected evidence storage remains external. | Partial |
-| NOW-07 | Add feedback tests: auth/forgery/consent/duplicates/labels. | P0 | TestClient | Backend and frontend tests cover no fake saved state, duplicates, auth-required consent, forged trusted fields, missing/cross-user analysis IDs, and reset behavior. Live Supabase RLS tests remain external. | Partial |
+| NOW-06 | Add safe feedback API/UI/schema/migration/docs. | P0 | None for local/mock | Feedback now requires durable persistence, verified analyses, explicit consent, and retained evidence before review candidacy. Product feedback is separate and non-training. Live Supabase Storage remains external. | Partial |
+| NOW-07 | Add feedback tests: auth/forgery/consent/duplicates/labels. | P0 | TestClient | Backend and frontend tests cover no fake saved state, duplicates, auth-required consent, evidence gating, forged trusted fields, missing/cross-user analysis IDs, and reset behavior. Live Supabase RLS tests remain external. | Partial |
 | NOW-08 | Add server-side analysis persistence scaffolding with safe fallback. | P0 | Optional Supabase env | Backend-owned persistence returns `analysis_session_id` when stored and marks failures explicitly. Service-role insert behavior still needs Supabase-local/project verification. | Partial |
 | NOW-09 | Make `/health` inference readiness honest. | P1 | None | Health derives readiness instead of hard-coded true. | Done |
 | NOW-10 | Add TTS graceful degradation and tests. | P1 | None | Analysis succeeds with unavailable audio metadata when TTS fails. | Done |
@@ -174,7 +174,12 @@ Release verdict: controlled technical beta only after P0 code-hardening items be
 | NOW-13 | Add real-video E2E harness with explicit skip if fixture missing. | P0 | Fixture absent | Harness added and skipped honestly because fixture is absent. | Blocked External |
 | NOW-14 | Improve Docker image hygiene. | P1 | None | Dockerfile uses production deps, non-root user, signed local audio path, pinned MediaPipe pose model download, and CI container smoke starts the image and checks `/health` plus `/ready`. | Done |
 | NOW-15 | Add frontend test/E2E scaffolding and CI jobs where practical. | P1 | npm packages | Vitest and Playwright scaffolding added; local lint/build/component/browser checks pass. | Done |
-| NOW-16 | Add structured logging, timing, safer proxy config, timeout/limits docs. | P1 | None | Request timing/log metadata, process-time header, trusted proxy setting, persistence timeout added. | Done |
+| NOW-16 | Add structured logging, timing, safer proxy config, timeout/limits docs. | P1 | None | Request timing/log metadata, process-time header, trusted proxy setting, persistence timeout, queue overload response, and inference timeout added. | Done |
+| NOW-18 | Gate model-improvement candidates on retained reviewable evidence. | P0 | Optional storage env | Consented feedback without retained/unexpired evidence is saved as non-eligible metadata; only retained evidence can enter candidate review. | Done |
+| NOW-19 | Add pre-analysis evidence-retention provider abstraction. | P0 | Optional storage env | Local protected provider and Supabase Storage adapter interface exist; live Supabase Storage verification remains external. | Partial |
+| NOW-20 | Add consent withdrawal and evidence deletion operations. | P0 | Persistence env | Authenticated endpoints verify ownership, mark data withdrawn/deleted, disable training eligibility, and call provider deletion. Live DB/storage execution remains external. | Partial |
+| NOW-21 | Fix recorder MIME/extension correctness. | P0 | Browser MediaRecorder | VP9, VP8, WebM, MP4-only, and unsupported format tests pass; filenames and blob MIME match selected recorder type. | Done |
+| NOW-22 | Add signed audio secret validation and cleanup lifecycle. | P1 | None | Dedicated signing secret, TTL cap, invalid/expired checks, and cleanup tests exist. Production object storage remains external. | Done |
 | NOW-17 | Add security/privacy/retention/environment docs. | P0 | None | Environment and privacy/retention docs updated. | Done |
 
 ## Requires External Data, Credentials, Coach, Users, or Deployment
@@ -207,14 +212,17 @@ This section must be updated after implementation.
 
 | Command | Result | Duration | Notes |
 | --- | --- | --- | --- |
-| `python3 -m pytest` | Pass | 27.00s | 91 passed, 1 skipped. The skip is `ml/src/inference/tests/test_true_raw_video_e2e.py` because `ml/data/e2e/raw_batting_fixture.mp4` is absent. |
-| `npm run lint` in `frontend` | Pass | about 4s | ESLint passed. |
-| `npm run build` in `frontend` | Pass | about 5s | TypeScript and Vite production build passed; `ShotCharts` emitted as separate lazy chunk. |
-| `npm run test` in `frontend` | Pass | 2.85s | 8 component tests passed, covering upload preview, camera lifecycle, feedback reset, duplicate, and persistence failure states. |
-| `npm run test:e2e` in `frontend` | Pass | 6.4s | 1 Playwright Chromium test passed with mocked `/analyze` and `/feedback`; not real ML evidence. |
-| `npm audit --audit-level=high` in `frontend` | Pass | about 1s | 0 vulnerabilities reported. |
-| secret scan for service-role patterns | Pass | immediate | No obvious `SUPABASE_SERVICE_ROLE_KEY`, `sb_secret_`, or service-role JWT value found in repo text. |
-| `supabase migration list --local` | Blocked | about 11s | Supabase CLI exists, but no local Postgres/Supabase DB is running; live RLS verification remains external. |
+| `python3 -m pytest` | Pass | 21.48s | 111 passed, 1 skipped. The skip is `ml/src/inference/tests/test_true_raw_video_e2e.py` because `ml/data/e2e/raw_batting_fixture.mp4` is absent. |
+| `python3 -m pytest backend/api/tests/test_api.py backend/api/tests/test_auth.py backend/api/tests/test_audio.py backend/api/tests/test_supabase_migrations.py` | Pass | 17.10s | 43 focused backend/API/auth/audio/migration tests passed. |
+| `npm run lint` in `frontend` | Pass | about 9s | ESLint passed. |
+| `npm run build` in `frontend` | Pass | about 11s | TypeScript and Vite production build passed; `ShotCharts` emitted as separate lazy chunk. |
+| `npm run test` in `frontend` | Pass | 7.71s | 14 component/accessibility tests passed. jsdom logged the expected missing `HTMLCanvasElement.getContext()` implementation for chart-adjacent dependencies; no test failed. |
+| `npm run test:e2e` in `frontend` | Pass | 6.8s | 1 Playwright Chromium test passed with mocked `/analyze` and `/feedback`; not real ML evidence. |
+| `npm audit --audit-level=high` in `frontend` | Pass | about 1s | 0 vulnerabilities reported after adding `axe-core`. |
+| secret scan for service-role/JWT patterns | Pass | immediate | No obvious service-role key, `sb_secret_`, or JWT-like value found outside docs/examples. |
+| real raw video fixture search | Blocked External | immediate | No `.mp4`, `.mov`, `.webm`, `.avi`, or `.mkv` fixture was found in the repository. |
+| `supabase migration list --local` | Blocked External | about 11s | Supabase CLI exists, but no local Postgres/Supabase DB is running; live RLS verification remains external. |
+| `docker --version` | Blocked External | immediate | Docker CLI is not installed locally, so local container smoke cannot run here. |
 | GitHub Actions container smoke | Pass | 3m09s | Remote CI builds the image, starts the container, calls `/health`, calls `/ready`, prints readiness details, and removes the container. Local Docker CLI is not installed. |
 | `python3 -m json.tool ml/data/final_temporal/temporal_feature_schema.json` | Pass | immediate | Feature schema JSON remains parseable. |
 
@@ -222,9 +230,9 @@ This section must be updated after implementation.
 
 Phase D status: code-feasible P0/P1 items were implemented where possible. Production readiness remains blocked by real-video fixture validation, Supabase/local project verification, production deployment/TLS, natural TTS credentials, larger player-disjoint dataset, coach validation, and privacy/legal review.
 
-Done: `NOW-01`, `NOW-03`, `NOW-04`, `NOW-05`, `NOW-09`, `NOW-10`, `NOW-11`, `NOW-12`, `NOW-14`, `NOW-15`, `NOW-16`, `NOW-17`.
+Done: `NOW-01`, `NOW-03`, `NOW-04`, `NOW-05`, `NOW-09`, `NOW-10`, `NOW-11`, `NOW-12`, `NOW-14`, `NOW-15`, `NOW-16`, `NOW-17`, `NOW-18`, `NOW-21`, `NOW-22`.
 
-Partial: `NOW-02` because countdown/auto-stop are implemented and unit-tested but real-device mobile recording remains unverified; `NOW-06`, `NOW-07`, `NOW-08` because code/mock tests now enforce safe feedback and server-owned history but live Supabase/RLS/storage verification remains external.
+Partial: `NOW-02` because countdown/auto-stop/MIME handling are implemented and unit-tested but real-device mobile recording remains unverified; `NOW-06`, `NOW-07`, `NOW-08`, `NOW-19`, `NOW-20` because code/mock tests now enforce safe feedback, server-owned history, evidence gating, retention/deletion paths, and non-training product feedback, but live Supabase/RLS/storage verification remains external.
 
 Blocked External: `NOW-13`, `E2E-01` through `E2E-05`, `EXT-01` through `EXT-08`.
 

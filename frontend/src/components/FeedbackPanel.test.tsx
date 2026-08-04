@@ -75,9 +75,9 @@ describe("FeedbackPanel", () => {
     expect(screen.getAllByText(/cover drive/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/audio unavailable/i)).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "incorrect" }));
+    await user.click(screen.getByRole("radio", { name: "incorrect" }));
     await user.selectOptions(screen.getByLabelText(/correct shot/i), "pull_shot");
-    await user.click(screen.getByLabelText(/share this clip result/i));
+    await user.click(screen.getByLabelText(/human-reviewed model improvement/i));
     await user.click(screen.getByRole("button", { name: /save feedback/i }));
 
     await waitFor(() => expect(mocks.submitAnalysisFeedback).toHaveBeenCalled());
@@ -137,14 +137,14 @@ describe("FeedbackPanel", () => {
     };
     const { rerender } = render(<FeedbackPanel result={result} accessToken="token" />);
 
-    await user.click(screen.getByRole("button", { name: "incorrect" }));
+    await user.click(screen.getByRole("radio", { name: "incorrect" }));
     await user.click(screen.getByRole("button", { name: /save feedback/i }));
     expect(await screen.findByRole("button", { name: /feedback saved/i })).toBeDisabled();
 
     rerender(<FeedbackPanel result={nextResult} accessToken="token" />);
 
     expect(screen.getByRole("button", { name: /save feedback/i })).not.toBeDisabled();
-    expect(screen.getByRole("button", { name: "unsure" })).toHaveClass("active");
+    expect(screen.getByRole("radio", { name: "unsure" })).toBeChecked();
     await user.click(screen.getByRole("button", { name: /save feedback/i }));
     await waitFor(() => expect(mocks.submitAnalysisFeedback).toHaveBeenCalledTimes(2));
     expect(mocks.submitAnalysisFeedback).toHaveBeenLastCalledWith(

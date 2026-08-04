@@ -6,9 +6,15 @@ export function resolveApiUrl(path: string): string {
   return `${apiBaseUrl.replace(/\/$/, "")}${path}`;
 }
 
-export async function analyzeVideo(blob: Blob, filename: string, accessToken?: string): Promise<AnalysisResponse> {
+export async function analyzeVideo(
+  blob: Blob,
+  filename: string,
+  accessToken?: string,
+  retainEvidence = false,
+): Promise<AnalysisResponse> {
   const formData = new FormData();
   formData.append("file", blob, filename);
+  formData.append("retain_evidence", retainEvidence ? "true" : "false");
 
   const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}/analyze`, {
     method: "POST",

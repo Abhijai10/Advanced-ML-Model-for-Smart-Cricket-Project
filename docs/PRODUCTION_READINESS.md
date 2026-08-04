@@ -19,18 +19,19 @@ It should not be described as fully production-ready yet. The remaining blockers
 - Uploads are size-limited, extension-checked, byte-signature checked, and probed as real video containers.
 - Video duration and resolution limits are environment configurable.
 - Readiness is separate from liveness via `GET /ready`.
-- `GET /health` no longer hard-codes inference readiness; it reports an honest boolean derived from readiness checks.
-- Readiness checks checkpoint, scaler, schemas, technique templates, pose model, temp storage, and auth configuration.
+- `GET /health` is lightweight process liveness only; `GET /ready` performs dependency checks.
+- Readiness checks checkpoint, scaler, schemas, technique templates, pose model, temp storage, auth configuration, production persistence, signing secret, evidence storage, and rate-limit backend when those are required.
 - Request IDs are attached to responses and error payloads.
 - Analysis requests can require Supabase JWTs by setting `SMART_CRICKET_REQUIRE_AUTH=true` and `SUPABASE_JWT_SECRET`.
 - Basic in-memory rate limiting protects single-process deployments and local demos.
-- Voice artifacts are unique per request and exposed through `/audio/<filename>`.
+- Voice artifacts are unique per request and exposed through signed `/audio/<filename>` links. Production/staging require `SMART_CRICKET_AUDIO_SIGNING_SECRET`; the local fallback is test/development only.
 - UI duration uses backend timing from source video timestamps when available.
 - Frontend sends Supabase access tokens when a user is signed in.
 - Frontend no longer writes model results into Supabase directly; authenticated history writes are local-only until server-side persistence is connected.
 - Backend-owned history persistence is available when `SUPABASE_URL` and server-only `SUPABASE_SERVICE_ROLE_KEY` are configured. Missing credentials are treated as a safe no-op, not a frontend write fallback.
-- Controlled-beta feedback can be submitted through `POST /feedback` with prediction correctness, corrected label, technique rating, tip flags, notes, and explicit model-improvement consent.
-- Feedback is marked as user-reported provenance and candidate material only. It must go through human/expert review before any retraining dataset changes.
+- Controlled-beta analysis feedback can be submitted through `POST /feedback` with prediction correctness, corrected label, technique rating, tip flags, notes, and explicit model-improvement consent.
+- General usability/bug/feature feedback is separate at `POST /product-feedback` and never enters model-training review.
+- Feedback is marked as user-reported provenance. It becomes a review candidate only when the user opted in before analysis and protected evidence was retained successfully. It must go through human/expert review before any retraining dataset changes.
 - Voice output degrades to text-only metadata if TTS generation fails, so analysis does not fail just because audio generation is unavailable.
 - Analysis responses include `analysis_quality.status` with `ok`, `uncertain`, or `insufficient_quality` based on configurable confidence and clean-pose-frame thresholds.
 
@@ -49,11 +50,16 @@ Important variables:
 - `SMART_CRICKET_ENABLE_DEV_DATASET_ENDPOINTS`
 - `SMART_CRICKET_RATE_LIMIT_PER_MINUTE`
 - `SMART_CRICKET_TRUSTED_PROXY_HOPS`
+- `SMART_CRICKET_ANALYSIS_EXECUTION_TIMEOUT_SECONDS`
 - `SMART_CRICKET_PERSISTENCE_TIMEOUT_SECONDS`
 - `SMART_CRICKET_MAX_UPLOAD_BYTES`
 - `SMART_CRICKET_MAX_VIDEO_DURATION_SECONDS`
 - `SMART_CRICKET_MAX_VIDEO_PIXELS`
 - `SMART_CRICKET_AUDIO_OUTPUT_DIR`
+- `SMART_CRICKET_AUDIO_SIGNING_SECRET`
+- `SMART_CRICKET_EVIDENCE_STORAGE_BACKEND`
+- `SMART_CRICKET_EVIDENCE_SUPABASE_BUCKET`
+- `SMART_CRICKET_ALLOW_MODEL_IMPROVEMENT_PARTICIPATION`
 - `VITE_MAX_RECORDING_SECONDS`
 
 ## Verification
@@ -92,7 +98,7 @@ Authenticated history is durable only when the backend has Supabase server crede
 
 ## Feedback and Continual Learning
 
-The feedback endpoint is safe for a controlled beta only when persistence is configured. It returns an explicit failure when feedback cannot be saved. Model-improvement candidates require an authenticated user, a verified server-created analysis session owned by that user, and explicit consent. User feedback may be useful for triage, but it is not ground truth. The production retraining process must:
+The feedback endpoint is safe for a controlled beta only when persistence is configured. It returns an explicit failure when feedback cannot be saved. Model-improvement candidates require an authenticated user, a verified server-created analysis session owned by that user, pre-analysis evidence-retention consent, successfully retained protected evidence, unexpired evidence, and explicit feedback consent. User feedback may be useful for triage, but it is not ground truth. The production retraining process must:
 
 - retain consent and provenance for every clip/result;
 - deduplicate clip hashes before review;
@@ -106,6 +112,6 @@ The feedback endpoint is safe for a controlled beta only when persistence is con
 
 ## Privacy, Retention, and Storage
 
-Production must define retention periods for uploaded clips, generated audio, feedback records, and derived pose/features. Audio is currently served through signed local `/audio/<filename>?expires=...&signature=...` links for local/demo use; protected object storage is still required before production use. Users need deletion/export flows, consent withdrawal behavior, and a documented incident-response path.
+Production must define retention periods for uploaded clips, generated audio, feedback records, and derived pose/features. Audio is currently served through signed local `/audio/<filename>?expires=...&signature=...` links with cleanup support; protected object storage is still required before production use. Users need deletion/export flows, consent withdrawal behavior, and a documented incident-response path.
 
-The current implementation records evidence-retention metadata, but real protected object storage for retained clips/pose evidence remains an external deployment gate.
+The current implementation supports a protected local development evidence provider and a Supabase Storage adapter interface with mocked/code tests. Live Supabase Storage verification remains an external deployment gate.

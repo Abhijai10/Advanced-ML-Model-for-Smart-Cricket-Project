@@ -8,6 +8,29 @@ type CameraAnalysisProps = {
   accessToken?: string;
 };
 
+type RecordingFormat = {
+  mimeType: string;
+  extension: "webm" | "mp4";
+};
+
+const recordingFormats: RecordingFormat[] = [
+  { mimeType: "video/webm;codecs=vp9", extension: "webm" },
+  { mimeType: "video/webm;codecs=vp8", extension: "webm" },
+  { mimeType: "video/webm", extension: "webm" },
+  { mimeType: "video/mp4", extension: "mp4" },
+];
+
+function clampRecordingSeconds(raw: unknown): number {
+  const parsed = Number(raw ?? 8);
+  if (!Number.isFinite(parsed)) return 8;
+  return Math.min(20, Math.max(3, Math.round(parsed)));
+}
+
+function selectRecordingFormat(): RecordingFormat | null {
+  if (typeof MediaRecorder === "undefined") return null;
+  return recordingFormats.find((format) => MediaRecorder.isTypeSupported(format.mimeType)) ?? null;
+}
+
 export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -21,9 +44,10 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
   const [countdown, setCountdown] = useState(0);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [analysisStage, setAnalysisStage] = useState<"idle" | "uploading" | "analyzing" | "result">("idle");
-  const [pendingClip, setPendingClip] = useState<{ blob: Blob; filename: string; previewUrl: string } | null>(null);
+  const [pendingClip, setPendingClip] = useState<{ blob: Blob; filename: string; previewUrl: string; mediaType: string } | null>(null);
+  const [retainEvidence, setRetainEvidence] = useState(false);
   const [error, setError] = useState("");
-  const maxRecordingSeconds = Number(import.meta.env.VITE_MAX_RECORDING_SECONDS ?? 8);
+  const maxRecordingSeconds = clampRecordingSeconds(import.meta.env.VITE_MAX_RECORDING_SECONDS);
 
   const stageLabel = useMemo(() => {
     if (analysisStage === "uploading") return "Uploading clip";
@@ -103,23 +127,23 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
       return;
     }
     chunksRef.current = [];
-    const mimeType =
-      ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm", "video/mp4"].find((candidate) =>
-        MediaRecorder.isTypeSupported(candidate),
-      ) ?? "";
-    const recorder = mimeType
-      ? new MediaRecorder(streamRef.current, { mimeType })
-      : new MediaRecorder(streamRef.current);
+    const selectedFormat = selectRecordingFormat();
+    if (!selectedFormat) {
+      setError("Camera recording is not supported in this browser format. Upload an MP4, MOV, or WebM clip instead.");
+      return;
+    }
+    const recorder = new MediaRecorder(streamRef.current, { mimeType: selectedFormat.mimeType });
     recorderRef.current = recorder;
     recorder.ondataavailable = (event) => {
       if (event.data.size > 0) chunksRef.current.push(event.data);
     };
     recorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: "video/webm" });
+      const blob = new Blob(chunksRef.current, { type: selectedFormat.mimeType });
       setPendingClip({
         blob,
-        filename: `smart-cricket-camera-shot-${Date.now()}.webm`,
+        filename: `smart-cricket-camera-shot-${Date.now()}.${selectedFormat.extension}`,
         previewUrl: URL.createObjectURL(blob),
+        mediaType: selectedFormat.mimeType,
       });
     };
     recorder.start();
@@ -143,7 +167,7 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
       window.setTimeout(() => setAnalysisStage("analyzing"), 350),
     ];
     try {
-      const result = await analyzeVideo(blob, filename, accessToken);
+      const result = await analyzeVideo(blob, filename, accessToken, retainEvidence);
       setAnalysisStage("result");
       await onResult(result, filename);
     } catch (err) {
@@ -167,6 +191,7 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
     if (pendingClip) URL.revokeObjectURL(pendingClip.previewUrl);
     setPendingClip(null);
     setError("");
+    setRetainEvidence(false);
   }
 
   async function uploadFile(event: React.ChangeEvent<HTMLInputElement>) {
@@ -177,6 +202,7 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
       blob: file,
       filename: file.name,
       previewUrl: URL.createObjectURL(file),
+      mediaType: file.type || "application/octet-stream",
     });
     event.target.value = "";
   }
@@ -186,7 +212,7 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
       <div className="panel-heading">
         <div>
           <h2 id="camera-title">Live shot analysis</h2>
-          <p>Open the camera, record one batting motion, review the clip, and submit only the take you want analyzed.</p>
+          <p>Record one short batting motion in landscape if possible, or upload MP4, MOV, or WebM. Keep clips under 20 seconds and 250 MB.</p>
         </div>
         <span className={isRecording ? "status-pill recording" : "status-pill"}>{isRecording ? "Recording" : "Ready"}</span>
       </div>
@@ -230,10 +256,22 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
           <video src={pendingClip.previewUrl} controls aria-label="Recorded shot preview" />
           <div>
             <strong>Review this take</strong>
-            <span>{pendingClip.filename} is ready. Submit it for model analysis or retake before sending.</span>
+            <span>{pendingClip.filename} ({pendingClip.mediaType || "video"}) is ready. Submit it for model analysis or retake before sending.</span>
           </div>
         </div>
       )}
+
+      <label className="consent-card" id="retention-consent">
+        <input
+          type="checkbox"
+          checked={retainEvidence}
+          disabled={isAnalyzing || !accessToken}
+          onChange={(event) => setRetainEvidence(event.target.checked)}
+        />
+        <span>
+          Keep this clip securely for human-reviewed model improvement. This must be selected before analysis; no automatic retraining occurs.
+        </span>
+      </label>
 
       <div className="camera-actions">
         <button type="button" className="primary-action compact" onClick={startCamera} disabled={isCameraReady || isAnalyzing}>

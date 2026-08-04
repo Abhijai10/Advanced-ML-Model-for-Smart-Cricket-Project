@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Send, Volume2 } from "lucide-react";
 import { shotName } from "../lib/history";
 import { resolveApiUrl, submitAnalysisFeedback } from "../lib/api";
-import type { AnalysisResponse, FeedbackPayload } from "../types";
+import type { AnalysisResponse, EvidenceRetentionState, FeedbackPayload } from "../types";
 
 type FeedbackPanelProps = {
   result: AnalysisResponse | null;
@@ -64,6 +64,20 @@ export function FeedbackPanel({ result, accessToken }: FeedbackPanelProps) {
     qualityStatus === "insufficient_quality" ? "Needs clearer video" : qualityStatus === "uncertain" ? "Uncertain" : "Ready";
   const analysisSessionId =
     typeof activeResult.api_metadata.analysis_session_id === "string" ? activeResult.api_metadata.analysis_session_id : "";
+  const persistence = activeResult.api_metadata.analysis_persistence as
+    | { attempted?: boolean; stored?: boolean; storage_status?: string; error_code?: string | null }
+    | undefined;
+  const evidence = (activeResult.api_metadata.evidence_retention ?? {}) as EvidenceRetentionState;
+  const evidenceLabel = evidence.retained
+    ? `Evidence retained securely${evidence.retention_expires_at ? ` until ${new Date(evidence.retention_expires_at).toLocaleDateString()}` : ""}.`
+    : evidence.requested
+      ? "Evidence retention failed or was unavailable; feedback can be saved, but it will not enter model training review."
+      : "Clip evidence was not retained. Feedback is product-quality feedback only.";
+  const persistenceLabel = persistence?.stored
+    ? "Analysis saved to secure history."
+    : persistence?.attempted
+      ? "Analysis completed, but secure history could not be saved."
+      : "Analysis completed in local/demo mode; feedback requires a verified saved analysis.";
 
   function toggleFlag(flag: FeedbackPayload["tip_flags"][number]) {
     setFlags((current) => (current.includes(flag) ? current.filter((item) => item !== flag) : [...current, flag]));
@@ -171,6 +185,12 @@ export function FeedbackPanel({ result, accessToken }: FeedbackPanelProps) {
         )}
       </section>
 
+      <section className="mini-section" aria-live="polite">
+        <h3>Storage state</h3>
+        <p className={persistence?.stored ? "quality-note" : "warning-note"}>{persistenceLabel}</p>
+        <p className={evidence.retained ? "quality-note" : "warning-note"}>{evidenceLabel}</p>
+      </section>
+
       {probabilityEntries.length > 0 && (
         <section className="mini-section">
           <h3>Class probabilities</h3>
@@ -189,18 +209,21 @@ export function FeedbackPanel({ result, accessToken }: FeedbackPanelProps) {
       <form className="feedback-form" onSubmit={submitFeedback}>
         <div className="mini-section">
           <h3>Prediction check</h3>
-          <div className="segmented-control" role="radiogroup" aria-label="Was the prediction correct?">
+          <fieldset className="radio-card-group">
+            <legend>Was the prediction correct?</legend>
             {(["correct", "incorrect", "unsure"] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                className={correctness === value ? "active" : ""}
-                onClick={() => setCorrectness(value)}
-              >
+              <label key={value} className={correctness === value ? "active" : ""}>
+                <input
+                  type="radio"
+                  name="prediction-correctness"
+                  value={value}
+                  checked={correctness === value}
+                  onChange={() => setCorrectness(value)}
+                />
                 {value}
-              </button>
+              </label>
             ))}
-          </div>
+          </fieldset>
         </div>
 
         {correctness === "incorrect" && (
@@ -243,8 +266,11 @@ export function FeedbackPanel({ result, accessToken }: FeedbackPanelProps) {
         </label>
 
         <label className="consent-row">
+          <span id="feedback-consent-details">
+            This sends judgement and notes for human review only when retained evidence exists. No automatic retraining occurs.
+          </span>
           <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
-          Share this clip result for human-reviewed model improvement.
+          Use this feedback for human-reviewed model improvement if eligible evidence was retained.
         </label>
 
         <button type="submit" className="primary-action compact" disabled={submitState !== "idle"}>
@@ -257,8 +283,8 @@ export function FeedbackPanel({ result, accessToken }: FeedbackPanelProps) {
               ? "Saving"
               : "Save feedback"}
         </button>
-        {storageMessage ? <p className="success-banner" role="status">{storageMessage}</p> : null}
-        {submitError ? <p className="error-banner">{submitError}</p> : null}
+        {storageMessage ? <p className="success-banner" role="status" aria-live="polite">{storageMessage}</p> : null}
+        {submitError ? <p className="error-banner" role="alert">{submitError}</p> : null}
       </form>
     </aside>
   );
