@@ -81,7 +81,12 @@ export function AuthPanel({ onDemoMode }: AuthPanelProps) {
               <span>Name</span>
               <div className="input-wrap">
                 <UserRound size={18} aria-hidden="true" />
-                <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Abhijai Raghuvanshi" />
+                <input
+                  autoComplete="name"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Abhijai Raghuvanshi"
+                />
               </div>
             </label>
           )}
@@ -91,6 +96,7 @@ export function AuthPanel({ onDemoMode }: AuthPanelProps) {
               <Mail size={18} aria-hidden="true" />
               <input
                 required
+                autoComplete="email"
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
@@ -105,6 +111,7 @@ export function AuthPanel({ onDemoMode }: AuthPanelProps) {
               <input
                 required
                 minLength={6}
+                autoComplete={mode === "signin" ? "current-password" : "new-password"}
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
