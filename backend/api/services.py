@@ -10,6 +10,7 @@ import shutil
 import tempfile
 import time
 from collections import defaultdict, deque
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -31,6 +32,7 @@ from ml.src.voice.tts_service import build_frontend_audio_ready_response, synthe
 from ml.src.voice.voice_config import AUDIO_OUTPUT_DIR
 
 from .config import SETTINGS
+from .persistence import persist_analysis_session
 
 
 PHASE13_VERSION = "phase_13_api_integration_v1"
@@ -44,6 +46,15 @@ class APIValidationError(ValueError):
     def __init__(self, message: str, error_code: str = "invalid_request") -> None:
         super().__init__(message)
         self.error_code = error_code
+
+
+@dataclass(frozen=True)
+class AuthContext:
+    """Trusted identity extracted by the API layer."""
+
+    user_id: str | None = None
+    claims: dict[str, Any] | None = None
+    authorization_present: bool = False
 
 
 def _utc_now() -> str:
@@ -104,11 +115,12 @@ def _inspect_video_container(path: Path) -> dict[str, Any]:
         cap.release()
 
 
-def _save_upload_to_temp(file: UploadFile, filename: str) -> tuple[Path, int, dict[str, Any]]:
+def _save_upload_to_temp(file: UploadFile, filename: str) -> tuple[Path, int, str, dict[str, Any]]:
     temp_dir = Path(tempfile.mkdtemp(prefix="smart_cricket_api_"))
     temp_path = temp_dir / filename
     total_bytes = 0
     try:
+        digest = hashlib.sha256()
         with temp_path.open("wb") as out:
             while True:
                 chunk = file.file.read(1024 * 1024)
@@ -117,6 +129,7 @@ def _save_upload_to_temp(file: UploadFile, filename: str) -> tuple[Path, int, di
                 total_bytes += len(chunk)
                 if total_bytes > SETTINGS.max_upload_bytes:
                     raise APIValidationError("Uploaded video exceeds maximum size.", "file_too_large")
+                digest.update(chunk)
                 out.write(chunk)
         if total_bytes == 0:
             raise APIValidationError("Uploaded video is empty.", "empty_upload")
@@ -124,7 +137,7 @@ def _save_upload_to_temp(file: UploadFile, filename: str) -> tuple[Path, int, di
         if not _looks_like_video(temp_path, suffix):
             raise APIValidationError("Uploaded bytes do not match a supported video container.", "invalid_video_bytes")
         video_probe = _inspect_video_container(temp_path)
-        return temp_path, total_bytes, video_probe
+        return temp_path, total_bytes, digest.hexdigest(), video_probe
     except Exception:
         shutil.rmtree(temp_dir, ignore_errors=True)
         raise
@@ -163,18 +176,39 @@ def _attach_voice_and_metadata(
     upload_bytes: int,
     analysis_mode: str,
     request_id: str,
+    clip_hash: str | None = None,
 ) -> dict[str, Any]:
     result["analysis_quality"] = _analysis_quality(result)
     audio_name = f"{request_id}-{uuid4().hex}.wav"
-    voice_ready = build_frontend_audio_ready_response(
-        analysis_response=result,
-        voice_output=synthesize_spoken_feedback(
+    try:
+        voice_output = synthesize_spoken_feedback(
             result["spoken_feedback"],
             output_path=AUDIO_OUTPUT_DIR / audio_name,
-        ),
-    )
+        )
+        voice_ready = build_frontend_audio_ready_response(
+            analysis_response=result,
+            voice_output=voice_output,
+        )
+        voice_error = None
+    except Exception as exc:
+        voice_error = type(exc).__name__
+        voice_ready = {
+            "audio": {
+                "available": False,
+                "provider": "unavailable",
+                "audio_path": "",
+                "audio_filename": None,
+                "audio_format": "none",
+                "audio_bytes": 0,
+                "is_spoken_tts": False,
+                "degraded_to_text_only": True,
+            }
+        }
     result["voice_output"] = voice_ready["audio"]
-    result["voice_output"]["audio_url"] = f"/audio/{Path(result['voice_output']['audio_path']).name}"
+    if result["voice_output"].get("audio_path"):
+        result["voice_output"]["audio_url"] = f"/audio/{Path(result['voice_output']['audio_path']).name}"
+    else:
+        result["voice_output"]["audio_url"] = None
     result["timing"] = _segment_timing(result)
     result["api_metadata"] = {
         "phase": "Phase 13",
@@ -183,11 +217,13 @@ def _attach_voice_and_metadata(
         "request_id": request_id,
         "upload_filename": filename,
         "upload_bytes": upload_bytes,
+        "clip_hash": clip_hash,
         "temporary_file_saved": True,
         "temporary_file_cleaned": True,
         "analysis_mode": analysis_mode,
         "pipeline_version": PHASE12_VERSION,
         "voice_output_ready": bool(voice_ready["audio"]["available"]),
+        "voice_error": voice_error,
         "api_note": (
             "Production analysis uses the uploaded video bytes. Stored dataset samples "
             "are available only through the disabled-by-default dev endpoint."
@@ -232,7 +268,7 @@ def _analysis_quality(result: dict[str, Any]) -> dict[str, Any]:
 def analyze_uploaded_video(file: UploadFile, *, request_id: str) -> dict[str, Any]:
     """Analyze one uploaded cricket video from its actual bytes."""
     filename = _validate_video_upload(file)
-    temp_path, upload_bytes, video_probe = _save_upload_to_temp(file, filename)
+    temp_path, upload_bytes, clip_hash, video_probe = _save_upload_to_temp(file, filename)
     try:
         try:
             raw_result = analyze_raw_video(temp_path)
@@ -251,6 +287,7 @@ def analyze_uploaded_video(file: UploadFile, *, request_id: str) -> dict[str, An
             upload_bytes=upload_bytes,
             analysis_mode="raw_video_upload",
             request_id=request_id,
+            clip_hash=clip_hash,
         )
     finally:
         _cleanup_temp_path(temp_path)
@@ -278,11 +315,12 @@ def analyze_dataset_sample(
 
 def api_health() -> dict[str, Any]:
     """Return lightweight liveness information without checking dependencies."""
+    readiness = api_readiness()
     return {
         "status": "ok",
         "service": "smart_cricket_api",
         "phase": "Phase 13",
-        "inference_ready": True,
+        "inference_ready": readiness["status"] == "ready",
         "version": PHASE13_VERSION,
     }
 
@@ -327,7 +365,7 @@ def api_readiness() -> dict[str, Any]:
 
 def _client_key(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
+    if forwarded and SETTINGS.trusted_proxy_hops > 0:
         return forwarded.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
 
@@ -374,13 +412,16 @@ def _verify_hs256_jwt(token: str, secret: str) -> dict[str, Any]:
     exp = payload.get("exp")
     if isinstance(exp, (int, float)) and exp < time.time():
         raise APIValidationError("Authorization token has expired.", "expired_token")
+    if SETTINGS.jwt_audience and payload.get("aud") != SETTINGS.jwt_audience:
+        raise APIValidationError("Authorization token audience is not allowed.", "invalid_token")
     return payload
 
 
-def enforce_auth(request: Request, authorization: str | None = Header(default=None)) -> None:
+def enforce_auth(request: Request, authorization: str | None = Header(default=None)) -> AuthContext:
     """Verify Supabase JWTs when auth is enabled by configuration."""
+    request.state.auth = AuthContext(authorization_present=bool(authorization))
     if not SETTINGS.require_auth:
-        return
+        return request.state.auth
     if not SETTINGS.supabase_jwt_secret:
         raise HTTPException(
             status_code=503,
@@ -400,7 +441,7 @@ def enforce_auth(request: Request, authorization: str | None = Header(default=No
             },
         )
     try:
-        _verify_hs256_jwt(authorization.split(" ", 1)[1].strip(), SETTINGS.supabase_jwt_secret)
+        claims = _verify_hs256_jwt(authorization.split(" ", 1)[1].strip(), SETTINGS.supabase_jwt_secret)
     except APIValidationError as exc:
         raise HTTPException(
             status_code=401,
@@ -410,3 +451,35 @@ def enforce_auth(request: Request, authorization: str | None = Header(default=No
                 "request_id": request.state.request_id,
             },
         ) from exc
+    context = AuthContext(
+        user_id=str(claims.get("sub")) if claims.get("sub") else None,
+        claims=claims,
+        authorization_present=True,
+    )
+    request.state.auth = context
+    return context
+
+
+def persist_verified_analysis_for_auth_user(
+    *,
+    auth: AuthContext,
+    result: dict[str, Any],
+    filename: str,
+    request_id: str,
+) -> None:
+    """Attach non-fatal backend persistence metadata to an analysis response."""
+    api_metadata = result.setdefault("api_metadata", {})
+    clip_hash = api_metadata.get("clip_hash")
+    outcome = persist_analysis_session(
+        user_id=auth.user_id,
+        result=result,
+        filename=filename,
+        request_id=request_id,
+        clip_hash=str(clip_hash or ""),
+    )
+    api_metadata["analysis_persistence"] = {
+        "attempted": bool(auth.user_id),
+        "stored": outcome.stored,
+        "record_id": outcome.record_id,
+        "error_code": outcome.error_code,
+    }

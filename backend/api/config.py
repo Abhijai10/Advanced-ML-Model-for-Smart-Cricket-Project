@@ -47,7 +47,12 @@ class APISettings:
     dev_dataset_endpoints: bool = _bool_env("SMART_CRICKET_ENABLE_DEV_DATASET_ENDPOINTS", False)
     require_auth: bool = _bool_env("SMART_CRICKET_REQUIRE_AUTH", False)
     supabase_jwt_secret: str | None = os.getenv("SUPABASE_JWT_SECRET") or None
+    supabase_url: str | None = os.getenv("SUPABASE_URL") or None
+    supabase_service_role_key: str | None = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or None
+    jwt_audience: str | None = os.getenv("SUPABASE_JWT_AUDIENCE") or None
     rate_limit_per_minute: int = _int_env("SMART_CRICKET_RATE_LIMIT_PER_MINUTE", 20)
+    trusted_proxy_hops: int = _int_env("SMART_CRICKET_TRUSTED_PROXY_HOPS", 0)
+    persistence_timeout_seconds: int = _int_env("SMART_CRICKET_PERSISTENCE_TIMEOUT_SECONDS", 8)
     max_upload_bytes: int = _int_env("SMART_CRICKET_MAX_UPLOAD_BYTES", 250 * 1024 * 1024)
     max_video_duration_seconds: int = _int_env("SMART_CRICKET_MAX_VIDEO_DURATION_SECONDS", 20)
     max_video_pixels: int = _int_env("SMART_CRICKET_MAX_VIDEO_PIXELS", 1920 * 1080)

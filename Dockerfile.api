@@ -12,14 +12,20 @@ RUN apt-get update \
 
 COPY pyproject.toml ./
 RUN python -m pip install --upgrade pip \
-    && python -m pip install ".[dev]"
+    && python -m pip install .
 
 COPY backend ./backend
 COPY ml/src ./ml/src
 COPY ml/artifacts/phase8/best_model ./ml/artifacts/phase8/best_model
 COPY ml/artifacts/phase10 ./ml/artifacts/phase10
 COPY ml/data/final_temporal ./ml/data/final_temporal
-COPY ml/models ./ml/models
+
+RUN useradd --create-home --shell /usr/sbin/nologin smartcricket \
+    && mkdir -p /tmp/smart-cricket-audio \
+    && chown -R smartcricket:smartcricket /tmp/smart-cricket-audio /app
+
+USER smartcricket
 
 EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"
 CMD ["uvicorn", "backend.api.app:app", "--host", "0.0.0.0", "--port", "8000"]

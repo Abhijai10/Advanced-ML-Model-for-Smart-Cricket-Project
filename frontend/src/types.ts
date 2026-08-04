@@ -34,13 +34,38 @@ export type AnalysisResponse = {
     available: boolean;
     provider: string;
     audio_path: string;
-    audio_url?: string;
-    audio_filename?: string;
+    audio_url?: string | null;
+    audio_filename?: string | null;
     audio_format: string;
     audio_bytes: number;
     is_spoken_tts?: boolean;
   };
   api_metadata: Record<string, unknown>;
+};
+
+export type FeedbackPayload = {
+  analysis_session_id?: string | null;
+  client_analysis_id?: string | null;
+  clip_hash: string;
+  predicted_shot: string;
+  prediction_was_correct: "correct" | "incorrect" | "unsure";
+  corrected_shot?: string | null;
+  technique_feedback_rating?: number | null;
+  tip_flags: Array<"useful" | "incorrect" | "unsafe" | "unclear">;
+  notes?: string | null;
+  consent_to_model_improvement: boolean;
+  model_version?: string | null;
+  pipeline_version?: string | null;
+};
+
+export type FeedbackResponse = {
+  status: string;
+  feedback_id: string;
+  accepted_for_review: boolean;
+  stored: boolean;
+  duplicate_clip_hash: boolean;
+  request_id: string;
+  message: string;
 };
 
 export type AnalysisSession = {

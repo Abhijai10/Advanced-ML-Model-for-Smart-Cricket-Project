@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Camera, CircleStop, Play, RotateCcw, Upload } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Camera, CircleStop, Clock3, Play, RotateCcw, Upload, UserRoundCheck } from "lucide-react";
 import { analyzeVideo } from "../lib/api";
 import type { AnalysisResponse } from "../types";
 
@@ -13,18 +13,53 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
+  const countdownTimerRef = useRef<number | null>(null);
+  const analysisTimersRef = useRef<number[]>([]);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [analysisStage, setAnalysisStage] = useState<"idle" | "uploading" | "pose" | "model" | "feedback">("idle");
   const [pendingClip, setPendingClip] = useState<{ blob: Blob; filename: string; previewUrl: string } | null>(null);
   const [error, setError] = useState("");
+  const maxRecordingSeconds = Number(import.meta.env.VITE_MAX_RECORDING_SECONDS ?? 8);
+
+  const stageLabel = useMemo(() => {
+    if (analysisStage === "uploading") return "Uploading clip";
+    if (analysisStage === "pose") return "Extracting pose";
+    if (analysisStage === "model") return "Scoring movement";
+    if (analysisStage === "feedback") return "Preparing feedback";
+    return "";
+  }, [analysisStage]);
 
   useEffect(() => {
     return () => {
       streamRef.current?.getTracks().forEach((track) => track.stop());
+      if (countdownTimerRef.current) window.clearInterval(countdownTimerRef.current);
+      analysisTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
       if (pendingClip) URL.revokeObjectURL(pendingClip.previewUrl);
     };
   }, [pendingClip]);
+
+  useEffect(() => {
+    if (!isRecording) return;
+    const interval = window.setInterval(() => {
+      setRecordingSeconds((seconds) => {
+        const next = seconds + 1;
+        if (next >= maxRecordingSeconds) {
+          window.setTimeout(stopRecording, 0);
+        }
+        return next;
+      });
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [isRecording, maxRecordingSeconds]);
 
   async function startCamera() {
     setError("");
@@ -33,6 +68,7 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
         video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "environment" },
         audio: false,
       });
+      streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -43,9 +79,26 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
     }
   }
 
-  function startRecording() {
+  function beginCountdown() {
     if (!streamRef.current) return;
     setError("");
+    setCountdown(3);
+    if (countdownTimerRef.current) window.clearInterval(countdownTimerRef.current);
+    countdownTimerRef.current = window.setInterval(() => {
+      setCountdown((current) => {
+        if (current <= 1) {
+          if (countdownTimerRef.current) window.clearInterval(countdownTimerRef.current);
+          countdownTimerRef.current = null;
+          startRecording();
+          return 0;
+        }
+        return current - 1;
+      });
+    }, 1000);
+  }
+
+  function startRecording() {
+    if (!streamRef.current) return;
     chunksRef.current = [];
     const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
       ? "video/webm;codecs=vp9"
@@ -57,32 +110,44 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
     };
     recorder.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: "video/webm" });
-      if (pendingClip) URL.revokeObjectURL(pendingClip.previewUrl);
       setPendingClip({
         blob,
-        filename: "smart-cricket-camera-shot.webm",
+        filename: `smart-cricket-camera-shot-${Date.now()}.webm`,
         previewUrl: URL.createObjectURL(blob),
       });
     };
     recorder.start();
+    setRecordingSeconds(0);
     setIsRecording(true);
   }
 
   function stopRecording() {
-    recorderRef.current?.stop();
+    if (recorderRef.current?.state === "recording") {
+      recorderRef.current.stop();
+    }
     setIsRecording(false);
   }
 
   async function submitBlob(blob: Blob, filename: string) {
     setIsAnalyzing(true);
     setError("");
+    setAnalysisStage("uploading");
+    analysisTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    analysisTimersRef.current = [
+      window.setTimeout(() => setAnalysisStage("pose"), 350),
+      window.setTimeout(() => setAnalysisStage("model"), 900),
+    ];
     try {
       const result = await analyzeVideo(blob, filename, accessToken);
+      setAnalysisStage("feedback");
       await onResult(result, filename);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Analysis failed.");
     } finally {
+      analysisTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      analysisTimersRef.current = [];
       setIsAnalyzing(false);
+      setAnalysisStage("idle");
     }
   }
 
@@ -102,7 +167,12 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
   async function uploadFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-    await submitBlob(file, file.name);
+    if (pendingClip) URL.revokeObjectURL(pendingClip.previewUrl);
+    setPendingClip({
+      blob: file,
+      filename: file.name,
+      previewUrl: URL.createObjectURL(file),
+    });
     event.target.value = "";
   }
 
@@ -118,13 +188,36 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
 
       <div className="camera-window">
         <video ref={videoRef} autoPlay muted playsInline aria-label="Camera preview" />
+        <div className="framing-guide" aria-hidden="true">
+          <span />
+          <span />
+        </div>
         {!isCameraReady && (
           <div className="camera-empty">
-            <Camera size={34} aria-hidden="true" />
-            <p>Camera preview appears here.</p>
+            <UserRoundCheck size={34} aria-hidden="true" />
+            <p>Fit the full body, bat path, and front foot inside the guide.</p>
           </div>
         )}
-        {isAnalyzing && <div className="analysis-overlay">Analyzing movement...</div>}
+        {countdown > 0 && <div className="countdown-overlay" aria-live="assertive">{countdown}</div>}
+        {isRecording && (
+          <div className="recording-clock" aria-live="polite">
+            <Clock3 size={16} aria-hidden="true" />
+            {recordingSeconds}s / {maxRecordingSeconds}s
+          </div>
+        )}
+        {isAnalyzing && (
+          <div className="analysis-overlay" aria-live="polite">
+            <strong>{stageLabel}</strong>
+            <span>Keep this tab open while the server checks pose quality and model confidence.</span>
+          </div>
+        )}
+      </div>
+
+      <div className="quality-guidance" aria-label="Recording guidance">
+        <span>Full body visible</span>
+        <span>Side-on batting angle</span>
+        <span>One shot per clip</span>
+        <span>Bright, steady camera</span>
       </div>
 
       {pendingClip && (
@@ -132,7 +225,7 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
           <video src={pendingClip.previewUrl} controls aria-label="Recorded shot preview" />
           <div>
             <strong>Review this take</strong>
-            <span>Submit it for model analysis or retake before sending.</span>
+            <span>{pendingClip.filename} is ready. Submit it for model analysis or retake before sending.</span>
           </div>
         </div>
       )}
@@ -142,7 +235,7 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
           <Play size={17} aria-hidden="true" />
           Start analysis
         </button>
-        <button type="button" className="secondary-action compact" onClick={startRecording} disabled={!isCameraReady || isRecording || isAnalyzing || Boolean(pendingClip)}>
+        <button type="button" className="secondary-action compact" onClick={beginCountdown} disabled={!isCameraReady || isRecording || isAnalyzing || Boolean(pendingClip) || countdown > 0}>
           <Camera size={17} aria-hidden="true" />
           Record shot
         </button>

@@ -5,15 +5,18 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
 from .config import SETTINGS
-from .schemas import AnalyzeResponse, HealthResponse, ReadyResponse
+from .persistence import build_feedback_record, persist_feedback_record
+from .schemas import AnalyzeResponse, FeedbackRequest, FeedbackResponse, HealthResponse, ReadyResponse
 from .services import (
     APIValidationError,
+    AuthContext,
     analyze_dataset_sample,
     analyze_uploaded_video,
     api_health,
     api_readiness,
     enforce_auth,
     enforce_rate_limit,
+    persist_verified_analysis_for_auth_user,
 )
 
 
@@ -40,11 +43,18 @@ def analyze(
     request: Request,
     file: UploadFile = File(...),
     _rate_limit: None = Depends(enforce_rate_limit),
-    _auth: None = Depends(enforce_auth),
+    auth: AuthContext = Depends(enforce_auth),
 ) -> dict:
     """Analyze one uploaded cricket batting video from its actual bytes."""
     try:
-        return analyze_uploaded_video(file, request_id=request.state.request_id)
+        result = analyze_uploaded_video(file, request_id=request.state.request_id)
+        persist_verified_analysis_for_auth_user(
+            auth=auth,
+            result=result,
+            filename=result["api_metadata"]["upload_filename"],
+            request_id=request.state.request_id,
+        )
+        return result
     except APIValidationError as exc:
         raise HTTPException(
             status_code=422,
@@ -65,6 +75,47 @@ def analyze(
                 "debug_metadata": {"error_type": type(exc).__name__},
             },
         ) from exc
+
+
+@router.post("/feedback", response_model=FeedbackResponse)
+def submit_feedback(
+    payload: FeedbackRequest,
+    request: Request,
+    _rate_limit: None = Depends(enforce_rate_limit),
+    auth: AuthContext = Depends(enforce_auth),
+) -> dict:
+    """Accept controlled-beta feedback without treating it as ground truth."""
+    try:
+        row = build_feedback_record(
+            payload=payload,
+            user_id=auth.user_id,
+            request_id=request.state.request_id,
+            authorization_present=auth.authorization_present,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "detail": str(exc),
+                "error_code": "invalid_feedback",
+                "request_id": request.state.request_id,
+            },
+        ) from exc
+
+    outcome = persist_feedback_record(row)
+    return {
+        "status": "accepted",
+        "feedback_id": row["id"],
+        "accepted_for_review": bool(row["accepted_for_review"]),
+        "stored": outcome.stored,
+        "duplicate_clip_hash": outcome.duplicate,
+        "request_id": request.state.request_id,
+        "message": (
+            "Feedback was queued for human review."
+            if row["accepted_for_review"]
+            else "Feedback was recorded as product feedback only because model-improvement consent was not granted."
+        ),
+    }
 
 
 @router.post("/dev/analyze-dataset", response_model=AnalyzeResponse)

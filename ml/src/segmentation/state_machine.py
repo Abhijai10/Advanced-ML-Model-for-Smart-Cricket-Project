@@ -68,6 +68,37 @@ class ShotStateMachine:
         self._triggered = False
         self.trace: list[StateTraceRow] = []
 
+    def reset(self) -> None:
+        """Return the machine to its initial state and clear accumulated trace."""
+        self.state = ShotState.IDLE
+        self.motion_start_frame = None
+        self.motion_end_frame = None
+        self.peak_frame = None
+        self.peak_energy = 0.0
+        self._preparation_frames = 0
+        self._swing_frames = 0
+        self._stable_frames = 0
+        self._cooldown_remaining = 0
+        self._triggered = False
+        self.trace.clear()
+
+    def rearm(self) -> None:
+        """Allow a new shot trigger after a completed/cooldown sequence.
+
+        This preserves the default one-shot behavior unless callers explicitly
+        rearm the machine between separate clips or drill repetitions.
+        """
+        self.state = ShotState.IDLE
+        self.motion_start_frame = None
+        self.motion_end_frame = None
+        self.peak_frame = None
+        self.peak_energy = 0.0
+        self._preparation_frames = 0
+        self._swing_frames = 0
+        self._stable_frames = 0
+        self._cooldown_remaining = 0
+        self._triggered = False
+
     def update(self, frame_index: int, energy: float) -> StateTraceRow:
         """Advance the state machine by one frame."""
         energy = float(energy)

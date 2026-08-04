@@ -49,12 +49,22 @@ export function ShotCharts({ rows }: ShotChartsProps) {
           <span role="columnheader">Shot</span>
           <span role="columnheader">Score</span>
           <span role="columnheader">Duration</span>
+          <span role="columnheader">Quality</span>
         </div>
         {rows.slice(0, 6).map((row) => (
           <div className="history-row" role="row" key={row.id}>
             <span role="cell">{shotName(row.predicted_shot)}</span>
             <span role="cell">{row.technique_match_score ? Math.round(row.technique_match_score) : "—"}</span>
             <span role="cell">{row.shot_duration_seconds?.toFixed(2) ?? "0.00"}s</span>
+            <span role="cell">
+              {typeof row.full_result === "object" &&
+              "analysis_quality" in row.full_result &&
+              typeof row.full_result.analysis_quality === "object" &&
+              row.full_result.analysis_quality !== null &&
+              "status" in row.full_result.analysis_quality
+                ? String(row.full_result.analysis_quality.status)
+                : "unverified"}
+            </span>
           </div>
         ))}
       </div>

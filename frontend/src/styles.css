@@ -43,7 +43,9 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -58,6 +60,8 @@ button:disabled {
 
 button:focus-visible,
 input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
 .file-action:focus-within {
   outline: 3px solid oklch(0.72 0.12 110 / 0.45);
   outline-offset: 2px;
@@ -387,7 +391,8 @@ input:focus-visible,
 }
 
 .camera-empty,
-.analysis-overlay {
+.analysis-overlay,
+.countdown-overlay {
   position: absolute;
   inset: 0;
   display: grid;
@@ -404,6 +409,81 @@ input:focus-visible,
 .analysis-overlay {
   background: oklch(0.12 0.006 112 / 0.78);
   font-weight: 850;
+}
+
+.analysis-overlay span {
+  max-width: 42ch;
+  color: oklch(0.86 0.01 112);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.countdown-overlay {
+  font-size: 5rem;
+  font-weight: 900;
+  background: oklch(0.12 0.006 112 / 0.64);
+}
+
+.recording-clock {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 999px;
+  color: var(--white);
+  background: oklch(0.26 0.14 25 / 0.9);
+  font-weight: 850;
+}
+
+.framing-guide {
+  position: absolute;
+  inset: 8%;
+  pointer-events: none;
+  border: 1px dashed oklch(0.95 0.02 110 / 0.72);
+  border-radius: 999px;
+}
+
+.framing-guide span:first-child {
+  position: absolute;
+  left: 50%;
+  top: 4%;
+  bottom: 4%;
+  width: 1px;
+  background: oklch(0.95 0.02 110 / 0.42);
+}
+
+.framing-guide span:last-child {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 62%;
+  height: 1px;
+  background: oklch(0.95 0.02 110 / 0.42);
+}
+
+.quality-guidance {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.quality-guidance span {
+  min-height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--surface);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: center;
 }
 
 .camera-actions {
@@ -583,6 +663,89 @@ input:focus-visible,
   width: 100%;
 }
 
+.audio-fallback {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.feedback-form {
+  display: grid;
+  gap: 12px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.segmented-control {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.segmented-control button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--muted);
+  background: transparent;
+  font-weight: 850;
+  text-transform: capitalize;
+}
+
+.segmented-control button.active {
+  color: var(--ink);
+  background: var(--white);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.compact-field {
+  display: grid;
+  gap: 7px;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.compact-field select,
+.compact-field textarea {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  color: var(--ink);
+  background: var(--white);
+}
+
+.compact-field textarea {
+  min-height: 84px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.flag-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.flag-grid label,
+.consent-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+.consent-row {
+  align-items: flex-start;
+}
+
 .probability-list {
   display: grid;
   gap: 8px;
@@ -628,7 +791,7 @@ meter {
 
 .history-row {
   display: grid;
-  grid-template-columns: 1.4fr 0.7fr 0.7fr;
+  grid-template-columns: 1.2fr 0.6fr 0.7fr 0.8fr;
   gap: 12px;
   padding: 12px 14px;
   border-top: 1px solid var(--line);
@@ -689,6 +852,7 @@ meter {
 
   .segment-list,
   .score-grid,
+  .quality-guidance,
   .history-row {
     grid-template-columns: 1fr;
   }

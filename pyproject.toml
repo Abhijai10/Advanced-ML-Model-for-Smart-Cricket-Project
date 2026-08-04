@@ -41,6 +41,9 @@ testpaths = [
   "ml/src",
 ]
 addopts = "-p no:cacheprovider"
+markers = [
+  "real_e2e: unmocked raw-video inference tests that require a legally usable batting video fixture",
+]
 
 [tool.setuptools]
 py-modules = []

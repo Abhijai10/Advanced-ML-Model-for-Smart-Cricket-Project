@@ -82,5 +82,9 @@
     ]
   },
   "created_at": "2026-05-31T17:12:42.353889Z",
+  "feature_contract_version": "smart_cricket_temporal_features_v1",
+  "compatibility_notes": {
+    "lead_wrist_acceleration": "Backwards-compatible v1 name. The current value is abs(lead_wrist_velocity - trail_wrist_velocity), an acceleration-like wrist-motion asymmetry proxy rather than true second-order acceleration. Do not change this column for the existing checkpoint without rebuilding tensors, refitting the scaler, retraining, and publishing a v2 feature schema."
+  },
   "notes": "Version 1 temporal contract: one scalar per feature per frame, T=60, F=32. Rank-3 tensors align with Phase 7 GRU/BiLSTM inputs [batch, time_steps, feature_dim]. Implementation of per-frame extractors is a separate step."
 }

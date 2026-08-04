@@ -1,4 +1,4 @@
-import type { AnalysisResponse } from "../types";
+import type { AnalysisResponse, FeedbackPayload, FeedbackResponse } from "../types";
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://127.0.0.1:8000";
 
@@ -28,4 +28,31 @@ export async function analyzeVideo(blob: Blob, filename: string, accessToken?: s
   }
 
   return (await response.json()) as AnalysisResponse;
+}
+
+export async function submitAnalysisFeedback(
+  payload: FeedbackPayload,
+  accessToken?: string,
+): Promise<FeedbackResponse> {
+  const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}/feedback`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: {
+      "content-type": "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    let message = "Feedback could not be submitted.";
+    try {
+      const body = await response.json();
+      message = body?.detail?.detail ?? body?.detail ?? message;
+    } catch {
+      // Keep the friendly fallback.
+    }
+    throw new Error(String(message));
+  }
+
+  return (await response.json()) as FeedbackResponse;
 }

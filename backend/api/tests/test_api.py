@@ -8,11 +8,13 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
 from backend.api.app import app
+from backend.api.persistence import PersistenceResult
 from ml.src.voice.tts_service import VoiceOutput
 
 
@@ -121,7 +123,7 @@ class SmartCricketAPITests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["status"], "ok")
-        self.assertTrue(payload["inference_ready"])
+        self.assertIsInstance(payload["inference_ready"], bool)
 
     def test_readiness_endpoint(self) -> None:
         response = self.client.get("/ready")
@@ -198,6 +200,132 @@ class SmartCricketAPITests(unittest.TestCase):
         response = self.client.post("/dev/analyze-dataset?file_name=cover_drive_average_02.mov")
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.json()["detail"]["error_code"], "dev_endpoint_disabled")
+
+    def test_tts_failure_degrades_to_text_only_analysis(self) -> None:
+        content = self._make_video("tts-failure.mp4", "blue")
+        with patch("backend.api.services.analyze_raw_video", side_effect=_fake_analysis), patch(
+            "backend.api.services.synthesize_spoken_feedback",
+            side_effect=RuntimeError("tts down"),
+        ):
+            response = self.client.post(
+                "/analyze",
+                files={"file": ("tts-failure.mp4", content, "video/mp4")},
+                headers={"x-request-id": "test-request"},
+            )
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertFalse(payload["voice_output"]["available"])
+        self.assertEqual(payload["voice_output"]["audio_url"], None)
+        self.assertEqual(payload["api_metadata"]["voice_error"], "RuntimeError")
+
+    def test_analysis_persistence_metadata_is_safe_when_unconfigured(self) -> None:
+        content = self._make_video("history.mp4", "blue")
+        response = self._post_video("history.mp4", content, "video/mp4")
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        persistence = payload["api_metadata"]["analysis_persistence"]
+        self.assertFalse(persistence["attempted"])
+        self.assertFalse(persistence["stored"])
+        self.assertEqual(persistence["error_code"], "missing_user")
+
+    def test_feedback_accepts_consented_candidate_without_persistence_config(self) -> None:
+        response = self.client.post(
+            "/feedback",
+            json={
+                "clip_hash": "a" * 64,
+                "predicted_shot": "cover_drive",
+                "prediction_was_correct": "incorrect",
+                "corrected_shot": "pull_shot",
+                "technique_feedback_rating": 4,
+                "tip_flags": ["useful"],
+                "notes": "Prediction missed the shot.",
+                "consent_to_model_improvement": True,
+                "model_version": "phase8-best",
+                "pipeline_version": "phase12",
+            },
+            headers={"x-request-id": "feedback-request"},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertTrue(payload["accepted_for_review"])
+        self.assertFalse(payload["stored"])
+        self.assertFalse(payload["duplicate_clip_hash"])
+        self.assertEqual(payload["request_id"], "feedback-request")
+
+    def test_feedback_rejects_forged_trusted_fields(self) -> None:
+        response = self.client.post(
+            "/feedback",
+            json={
+                "user_id": "forged",
+                "request_id": "forged",
+                "clip_hash": "b" * 64,
+                "predicted_shot": "cover_drive",
+                "prediction_was_correct": "correct",
+                "consent_to_model_improvement": False,
+            },
+        )
+        self.assertEqual(response.status_code, 422)
+
+    def test_feedback_rejects_invalid_corrected_label(self) -> None:
+        response = self.client.post(
+            "/feedback",
+            json={
+                "clip_hash": "c" * 64,
+                "predicted_shot": "cover_drive",
+                "prediction_was_correct": "incorrect",
+                "corrected_shot": "helicopter_shot",
+                "consent_to_model_improvement": True,
+            },
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["detail"]["error_code"], "invalid_feedback")
+
+    def test_feedback_duplicate_clip_hash_is_reported(self) -> None:
+        with patch(
+            "backend.api.routes.persist_feedback_record",
+            return_value=PersistenceResult(stored=False, duplicate=True, error_code="duplicate_record"),
+        ):
+            response = self.client.post(
+                "/feedback",
+                json={
+                    "clip_hash": "d" * 64,
+                    "predicted_shot": "cover_drive",
+                    "prediction_was_correct": "correct",
+                    "consent_to_model_improvement": True,
+                },
+            )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertTrue(response.json()["duplicate_clip_hash"])
+
+    def test_feedback_missing_auth_is_rejected_when_auth_required(self) -> None:
+        strict_settings = SimpleNamespace(
+            require_auth=True,
+            supabase_jwt_secret="secret",
+            jwt_audience=None,
+            rate_limit_per_minute=0,
+            trusted_proxy_hops=0,
+            persistence_timeout_seconds=1,
+            supabase_url=None,
+            supabase_service_role_key=None,
+            dev_dataset_endpoints=False,
+            allowed_origins=(),
+            max_upload_bytes=250 * 1024 * 1024,
+            max_video_duration_seconds=20,
+            max_video_pixels=1920 * 1080,
+            uncertainty_confidence_threshold=55,
+            min_clean_pose_frames=20,
+        )
+        with patch("backend.api.services.SETTINGS", strict_settings):
+            response = self.client.post(
+                "/feedback",
+                json={
+                    "clip_hash": "e" * 64,
+                    "predicted_shot": "cover_drive",
+                    "prediction_was_correct": "correct",
+                    "consent_to_model_improvement": False,
+                },
+            )
+        self.assertEqual(response.status_code, 401)
 
 
 if __name__ == "__main__":

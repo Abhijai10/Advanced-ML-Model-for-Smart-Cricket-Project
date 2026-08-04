@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import logging
+import time
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
@@ -23,6 +25,8 @@ app = FastAPI(
     description="Production-facing API wrapper around the Smart Cricket inference pipeline.",
 )
 
+logger = logging.getLogger("smart_cricket.api")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(SETTINGS.allowed_origins),
@@ -36,9 +40,15 @@ app.add_middleware(
 async def add_request_id(request: Request, call_next):
     request_id = request.headers.get("x-request-id") or uuid4().hex
     request.state.request_id = request_id
+    started = time.perf_counter()
     try:
         response = await call_next(request)
     except Exception:
+        duration_ms = round((time.perf_counter() - started) * 1000, 2)
+        logger.exception(
+            "request_failed",
+            extra={"request_id": request_id, "path": request.url.path, "duration_ms": duration_ms},
+        )
         return JSONResponse(
             status_code=500,
             content={
@@ -47,7 +57,19 @@ async def add_request_id(request: Request, call_next):
                 "request_id": request_id,
             },
         )
+    duration_ms = round((time.perf_counter() - started) * 1000, 2)
     response.headers["x-request-id"] = request_id
+    response.headers["x-process-time-ms"] = str(duration_ms)
+    logger.info(
+        "request_completed",
+        extra={
+            "request_id": request_id,
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "duration_ms": duration_ms,
+        },
+    )
     return response
 
 

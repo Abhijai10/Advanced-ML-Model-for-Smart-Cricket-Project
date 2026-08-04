@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Activity, LogOut, ShieldCheck } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { AuthPanel } from "./components/AuthPanel";
 import { CameraAnalysis } from "./components/CameraAnalysis";
 import { FeedbackPanel } from "./components/FeedbackPanel";
-import { ShotCharts } from "./components/ShotCharts";
 import { segmentDurationSeconds, fallbackHistory } from "./lib/history";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 import type { AnalysisResponse, AnalysisSession } from "./types";
+
+const ShotCharts = lazy(() => import("./components/ShotCharts").then((module) => ({ default: module.ShotCharts })));
 
 function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -124,10 +125,16 @@ function App() {
 
       <main className="analysis-grid">
         <CameraAnalysis onResult={saveResult} accessToken={session?.access_token} />
-        <FeedbackPanel result={latestResult} />
+        <FeedbackPanel result={latestResult} accessToken={session?.access_token} />
       </main>
 
-      {isLoadingHistory ? <div className="history-empty">Loading history...</div> : <ShotCharts rows={history} />}
+      {isLoadingHistory ? (
+        <div className="history-empty">Loading history...</div>
+      ) : (
+        <Suspense fallback={<div className="history-empty">Loading trends...</div>}>
+          <ShotCharts rows={history} />
+        </Suspense>
+      )}
     </div>
   );
 }
