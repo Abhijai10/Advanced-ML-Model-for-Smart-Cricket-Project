@@ -150,7 +150,7 @@ Release verdict: controlled technical beta only after P0 code-hardening items be
 | TEST-09 | Accessibility | Partial | P1 | Automated and manual checks. |
 | TEST-10 | Performance/load/concurrency | Not Started | P1 | Upload and inference concurrency strategy/load test. |
 | TEST-11 | Privacy/security | Partial | P0 | Retention, consent, protected storage, secrets audit. |
-| TEST-12 | Container/deployment smoke | Partial | P1 | Docker build plus `/health` and `/ready` smoke. |
+| TEST-12 | Container/deployment smoke | Done | P1 | GitHub Actions builds the API image, starts it, and checks `/health` plus `/ready`. |
 | TEST-13 | Migration/rollback | Partial | P1 | SQL migration syntax, RLS, rollback/disaster recovery docs. |
 | TEST-14 | Model evaluation | Blocked External | P0 | Player-held-out metrics, calibration, drift monitoring. |
 | TEST-15 | Coach/user acceptance | Blocked External | P0 | Coach and beta-user acceptance reports. |
@@ -172,7 +172,7 @@ Release verdict: controlled technical beta only after P0 code-hardening items be
 | NOW-11 | Version/document `lead_wrist_acceleration` contract. | P0 | No retraining | Feature schema metadata and docs explain v1 semantics and v2 migration. | Done |
 | NOW-12 | Add state-machine reset/rearm tests. | P1 | None | Existing one-shot behavior preserved; reset/rearm tests pass. | Done |
 | NOW-13 | Add real-video E2E harness with explicit skip if fixture missing. | P0 | Fixture absent | Harness added and skipped honestly because fixture is absent. | Blocked External |
-| NOW-14 | Improve Docker image hygiene. | P1 | None | Dockerfile uses production deps, non-root user, signed local audio path, and CI container smoke starts the image and checks `/health` plus `/ready`. Local Docker remains unavailable in this environment. | Partial |
+| NOW-14 | Improve Docker image hygiene. | P1 | None | Dockerfile uses production deps, non-root user, signed local audio path, pinned MediaPipe pose model download, and CI container smoke starts the image and checks `/health` plus `/ready`. | Done |
 | NOW-15 | Add frontend test/E2E scaffolding and CI jobs where practical. | P1 | npm packages | Vitest and Playwright scaffolding added; local lint/build/component/browser checks pass. | Done |
 | NOW-16 | Add structured logging, timing, safer proxy config, timeout/limits docs. | P1 | None | Request timing/log metadata, process-time header, trusted proxy setting, persistence timeout added. | Done |
 | NOW-17 | Add security/privacy/retention/environment docs. | P0 | None | Environment and privacy/retention docs updated. | Done |
@@ -215,16 +215,16 @@ This section must be updated after implementation.
 | `npm audit --audit-level=high` in `frontend` | Pass | about 1s | 0 vulnerabilities reported. |
 | secret scan for service-role patterns | Pass | immediate | No obvious `SUPABASE_SERVICE_ROLE_KEY`, `sb_secret_`, or service-role JWT value found in repo text. |
 | `supabase migration list --local` | Blocked | about 11s | Supabase CLI exists, but no local Postgres/Supabase DB is running; live RLS verification remains external. |
-| GitHub Actions container smoke | Pending remote verification | TBD | CI now builds image, starts container, calls `/health`, calls `/ready`, prints logs on failure, and removes the container. Local Docker CLI is not installed. |
+| GitHub Actions container smoke | Pass | 3m09s | Remote CI builds the image, starts the container, calls `/health`, calls `/ready`, prints readiness details, and removes the container. Local Docker CLI is not installed. |
 | `python3 -m json.tool ml/data/final_temporal/temporal_feature_schema.json` | Pass | immediate | Feature schema JSON remains parseable. |
 
 ## Final Checklist Status
 
 Phase D status: code-feasible P0/P1 items were implemented where possible. Production readiness remains blocked by real-video fixture validation, Supabase/local project verification, production deployment/TLS, natural TTS credentials, larger player-disjoint dataset, coach validation, and privacy/legal review.
 
-Done: `NOW-01`, `NOW-03`, `NOW-04`, `NOW-05`, `NOW-09`, `NOW-10`, `NOW-11`, `NOW-12`, `NOW-15`, `NOW-16`, `NOW-17`.
+Done: `NOW-01`, `NOW-03`, `NOW-04`, `NOW-05`, `NOW-09`, `NOW-10`, `NOW-11`, `NOW-12`, `NOW-14`, `NOW-15`, `NOW-16`, `NOW-17`.
 
-Partial: `NOW-02` because countdown/auto-stop are implemented and unit-tested but real-device mobile recording remains unverified; `NOW-06`, `NOW-07`, `NOW-08` because code/mock tests now enforce safe feedback and server-owned history but live Supabase/RLS/storage verification remains external; `NOW-14` because CI container smoke is added but local Docker remains unavailable.
+Partial: `NOW-02` because countdown/auto-stop are implemented and unit-tested but real-device mobile recording remains unverified; `NOW-06`, `NOW-07`, `NOW-08` because code/mock tests now enforce safe feedback and server-owned history but live Supabase/RLS/storage verification remains external.
 
 Blocked External: `NOW-13`, `E2E-01` through `E2E-05`, `EXT-01` through `EXT-08`.
 
