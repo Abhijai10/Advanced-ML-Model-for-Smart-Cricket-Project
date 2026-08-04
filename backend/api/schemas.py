@@ -46,6 +46,16 @@ class AnalyzeResponse(BaseModel):
     api_metadata: dict[str, Any]
 
 
+class EvidenceDeletionResponse(BaseModel):
+    """Response for consent-withdrawal and evidence deletion operations."""
+
+    status: str
+    analysis_session_id: str
+    evidence_deleted: bool
+    training_eligibility_disabled: bool
+    request_id: str
+
+
 class FeedbackRequest(BaseModel):
     """Controlled-beta user feedback on one analysis result.
 
@@ -76,6 +86,18 @@ class FeedbackResponse(BaseModel):
     duplicate_clip_hash: bool
     request_id: str
     message: str
+
+
+class ProductFeedbackRequest(BaseModel):
+    """General app/product feedback, never model-training data."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    usability_rating: int | None = Field(default=None, ge=1, le=5)
+    bug_category: str | None = Field(default=None, max_length=120)
+    feature_request: str | None = Field(default=None, max_length=500)
+    notes: str = Field(min_length=1, max_length=2000)
+    page_context: str | None = Field(default=None, max_length=120)
 
 
 class ErrorResponse(BaseModel):

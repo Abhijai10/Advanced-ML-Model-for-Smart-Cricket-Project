@@ -31,10 +31,15 @@ def _int_env(name: str, default: int) -> int:
         raise ValueError(f"{name} must be an integer.") from exc
 
 
+def _str_env(name: str, default: str) -> str:
+    return (os.getenv(name) or default).strip().lower()
+
+
 @dataclass(frozen=True)
 class APISettings:
     """Environment-backed API settings."""
 
+    environment: str = _str_env("SMART_CRICKET_ENV", "development")
     allowed_origins: tuple[str, ...] = _csv_env(
         "SMART_CRICKET_CORS_ORIGINS",
         (
@@ -59,6 +64,7 @@ class APISettings:
     persistence_timeout_seconds: int = _int_env("SMART_CRICKET_PERSISTENCE_TIMEOUT_SECONDS", 8)
     max_concurrent_analyses: int = _int_env("SMART_CRICKET_MAX_CONCURRENT_ANALYSES", 1)
     analysis_queue_timeout_seconds: int = _int_env("SMART_CRICKET_ANALYSIS_QUEUE_TIMEOUT_SECONDS", 3)
+    analysis_execution_timeout_seconds: int = _int_env("SMART_CRICKET_ANALYSIS_EXECUTION_TIMEOUT_SECONDS", 45)
     max_upload_bytes: int = _int_env("SMART_CRICKET_MAX_UPLOAD_BYTES", 250 * 1024 * 1024)
     max_video_duration_seconds: int = _int_env("SMART_CRICKET_MAX_VIDEO_DURATION_SECONDS", 20)
     max_video_pixels: int = _int_env("SMART_CRICKET_MAX_VIDEO_PIXELS", 1920 * 1080)
@@ -66,7 +72,17 @@ class APISettings:
     min_clean_pose_frames: int = _int_env("SMART_CRICKET_MIN_CLEAN_POSE_FRAMES", 20)
     evidence_retention_days: int = _int_env("SMART_CRICKET_EVIDENCE_RETENTION_DAYS", 30)
     evidence_storage_backend: str = os.getenv("SMART_CRICKET_EVIDENCE_STORAGE_BACKEND", "none")
+    evidence_local_storage_dir: str = os.getenv("SMART_CRICKET_EVIDENCE_LOCAL_STORAGE_DIR", "/tmp/smart-cricket-evidence")
+    evidence_supabase_bucket: str | None = os.getenv("SMART_CRICKET_EVIDENCE_SUPABASE_BUCKET") or None
+    allow_model_improvement_participation: bool = _bool_env("SMART_CRICKET_ALLOW_MODEL_IMPROVEMENT_PARTICIPATION", False)
     consent_version: str = os.getenv("SMART_CRICKET_MODEL_IMPROVEMENT_CONSENT_VERSION", "2026-08-04-v1")
+    audio_signing_secret: str | None = os.getenv("SMART_CRICKET_AUDIO_SIGNING_SECRET") or None
+    audio_url_ttl_seconds: int = _int_env("SMART_CRICKET_AUDIO_URL_TTL_SECONDS", 900)
+    audio_max_url_ttl_seconds: int = _int_env("SMART_CRICKET_AUDIO_MAX_URL_TTL_SECONDS", 3600)
+    audio_retention_seconds: int = _int_env("SMART_CRICKET_AUDIO_RETENTION_SECONDS", 3600)
+    jwks_timeout_seconds: int = _int_env("SMART_CRICKET_JWKS_TIMEOUT_SECONDS", 5)
+    jwks_cache_ttl_seconds: int = _int_env("SMART_CRICKET_JWKS_CACHE_TTL_SECONDS", 600)
+    rate_limit_backend: str = os.getenv("SMART_CRICKET_RATE_LIMIT_BACKEND", "memory")
 
 
 SETTINGS = APISettings()

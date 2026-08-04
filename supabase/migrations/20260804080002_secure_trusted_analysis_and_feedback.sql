@@ -63,7 +63,7 @@ alter table public.analysis_feedback
 
 alter table public.analysis_feedback
   add constraint analysis_feedback_review_status_check
-  check (review_status in ('product_feedback', 'not_consented', 'candidate', 'needs_second_review', 'approved', 'rejected', 'withdrawn', 'deleted')) not valid;
+  check (review_status in ('product_feedback', 'not_consented', 'metadata_only', 'awaiting_evidence', 'evidence_not_retained', 'candidate', 'needs_second_review', 'approved', 'rejected', 'withdrawn', 'deleted')) not valid;
 
 alter table public.analysis_feedback
   validate constraint analysis_feedback_review_status_check;
@@ -74,3 +74,16 @@ alter table public.analysis_feedback
 
 alter table public.analysis_feedback
   validate constraint analysis_feedback_dataset_eligibility_check;
+
+create index if not exists analysis_sessions_user_id_idx on public.analysis_sessions(user_id);
+create index if not exists analysis_sessions_clip_hash_idx on public.analysis_sessions(clip_hash);
+create index if not exists analysis_sessions_retention_expires_at_idx on public.analysis_sessions(retention_expires_at);
+create index if not exists analysis_sessions_deleted_at_idx on public.analysis_sessions(deleted_at);
+
+create index if not exists analysis_feedback_analysis_session_id_idx on public.analysis_feedback(analysis_session_id);
+create index if not exists analysis_feedback_user_id_idx on public.analysis_feedback(user_id);
+create index if not exists analysis_feedback_clip_hash_idx on public.analysis_feedback(clip_hash);
+create index if not exists analysis_feedback_review_status_idx on public.analysis_feedback(review_status);
+create index if not exists analysis_feedback_dataset_eligibility_status_idx on public.analysis_feedback(dataset_eligibility_status);
+create index if not exists analysis_feedback_retention_expires_at_idx on public.analysis_feedback(retention_expires_at);
+create index if not exists analysis_feedback_deleted_at_idx on public.analysis_feedback(deleted_at);

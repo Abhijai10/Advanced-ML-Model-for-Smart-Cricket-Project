@@ -9,13 +9,14 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from fastapi.testclient import TestClient
 
 from backend.api.app import app
+from backend.api.evidence import EvidenceOutcome, evidence_is_reviewable
 from backend.api.persistence import PersistenceResult
-from backend.api.services import AuthContext, _FEEDBACK_RATE_LIMIT_BUCKETS, _RATE_LIMIT_BUCKETS, enforce_auth
+from backend.api.services import AnalysisTimeoutError, AuthContext, _FEEDBACK_RATE_LIMIT_BUCKETS, _RATE_LIMIT_BUCKETS, enforce_auth
 from ml.src.voice.tts_service import VoiceOutput
 
 
@@ -293,7 +294,7 @@ class SmartCricketAPITests(unittest.TestCase):
         )
         self.assertIn(response.status_code, {422, 503})
 
-    def test_feedback_valid_bound_session_is_stored_for_review(self) -> None:
+    def test_feedback_valid_bound_session_without_evidence_is_not_review_candidate(self) -> None:
         app.dependency_overrides[enforce_auth] = lambda: AuthContext(user_id="00000000-0000-0000-0000-000000000001", authorization_present=True)
         analysis = {
             "id": "11111111-1111-1111-1111-111111111111",
@@ -331,7 +332,7 @@ class SmartCricketAPITests(unittest.TestCase):
         self.assertEqual(response.status_code, 201, response.text)
         payload = response.json()
         self.assertTrue(payload["stored"])
-        self.assertTrue(payload["accepted_for_review"])
+        self.assertFalse(payload["accepted_for_review"])
         self.assertEqual(payload["storage_status"], "stored")
 
     def test_feedback_duplicate_clip_hash_is_reported_without_saved_message(self) -> None:
@@ -418,7 +419,19 @@ class SmartCricketAPITests(unittest.TestCase):
             min_clean_pose_frames=20,
             evidence_retention_days=30,
             evidence_storage_backend="none",
+            evidence_local_storage_dir="/tmp/smart-cricket-evidence-test",
+            evidence_supabase_bucket=None,
+            allow_model_improvement_participation=False,
             consent_version="2026-08-04-v1",
+            environment="test",
+            analysis_execution_timeout_seconds=45,
+            audio_signing_secret="x" * 40,
+            audio_url_ttl_seconds=900,
+            audio_max_url_ttl_seconds=3600,
+            audio_retention_seconds=3600,
+            jwks_timeout_seconds=1,
+            jwks_cache_ttl_seconds=600,
+            rate_limit_backend="memory",
         )
         with patch("backend.api.services.SETTINGS", strict_settings):
             response = self.client.post(
@@ -430,6 +443,207 @@ class SmartCricketAPITests(unittest.TestCase):
                 },
             )
         self.assertEqual(response.status_code, 401)
+
+    def test_feedback_with_consent_without_retained_evidence_is_metadata_only(self) -> None:
+        app.dependency_overrides[enforce_auth] = lambda: AuthContext(user_id="00000000-0000-0000-0000-000000000001", authorization_present=True)
+        analysis = {
+            "id": "11111111-1111-1111-1111-111111111111",
+            "user_id": "00000000-0000-0000-0000-000000000001",
+            "clip_hash": "a" * 64,
+            "predicted_shot": "cover_drive",
+            "storage_status": "not_retained",
+            "evidence_object_path": None,
+            "model_provenance": {"model_version": "phase8-best-test", "pipeline_version": "phase12"},
+        }
+        captured: dict[str, dict] = {}
+
+        def capture_feedback(row: dict) -> PersistenceResult:
+            captured["row"] = row
+            return PersistenceResult(stored=True, status="stored", record_id=row["id"])
+
+        with patch("backend.api.routes.is_persistence_configured", return_value=True), patch(
+            "backend.api.routes.load_analysis_session",
+            return_value=PersistenceResult(stored=True, status="stored", record_id=analysis["id"], record=analysis),
+        ), patch("backend.api.routes.persist_feedback_record", side_effect=capture_feedback):
+            response = self.client.post(
+                "/feedback",
+                json={
+                    "analysis_session_id": analysis["id"],
+                    "prediction_was_correct": "correct",
+                    "consent_to_model_improvement": True,
+                },
+            )
+        self.assertEqual(response.status_code, 201, response.text)
+        self.assertFalse(response.json()["accepted_for_review"])
+        self.assertFalse(captured["row"]["accepted_for_review"])
+        self.assertEqual(captured["row"]["dataset_eligibility_status"], "not_eligible")
+        self.assertEqual(captured["row"]["review_status"], "evidence_not_retained")
+
+    def test_feedback_with_consent_and_retained_evidence_can_enter_review(self) -> None:
+        app.dependency_overrides[enforce_auth] = lambda: AuthContext(user_id="00000000-0000-0000-0000-000000000001", authorization_present=True)
+        analysis = {
+            "id": "11111111-1111-1111-1111-111111111111",
+            "user_id": "00000000-0000-0000-0000-000000000001",
+            "clip_hash": "a" * 64,
+            "predicted_shot": "cover_drive",
+            "storage_status": "stored",
+            "evidence_object_path": "user/session/object.webm",
+            "retention_expires_at": "2999-01-01T00:00:00Z",
+            "evidence_metadata": {
+                "user_id": "00000000-0000-0000-0000-000000000001",
+                "analysis_session_id": "11111111-1111-1111-1111-111111111111",
+                "checksum_sha256": "b" * 64,
+            },
+            "model_provenance": {"model_version": "phase8-best-test", "pipeline_version": "phase12"},
+        }
+        self.assertTrue(evidence_is_reviewable(analysis))
+        captured: dict[str, dict] = {}
+
+        def capture_feedback(row: dict) -> PersistenceResult:
+            captured["row"] = row
+            return PersistenceResult(stored=True, status="stored", record_id=row["id"])
+
+        with patch("backend.api.routes.is_persistence_configured", return_value=True), patch(
+            "backend.api.routes.load_analysis_session",
+            return_value=PersistenceResult(stored=True, status="stored", record_id=analysis["id"], record=analysis),
+        ), patch("backend.api.routes.persist_feedback_record", side_effect=capture_feedback):
+            response = self.client.post(
+                "/feedback",
+                json={
+                    "analysis_session_id": analysis["id"],
+                    "prediction_was_correct": "correct",
+                    "consent_to_model_improvement": True,
+                },
+            )
+        self.assertEqual(response.status_code, 201, response.text)
+        self.assertTrue(response.json()["accepted_for_review"])
+        self.assertEqual(captured["row"]["dataset_eligibility_status"], "pending_review")
+        self.assertEqual(captured["row"]["review_status"], "candidate")
+
+    def test_retained_evidence_withdrawn_deleted_or_expired_is_not_reviewable(self) -> None:
+        base = {
+            "storage_status": "stored",
+            "evidence_object_path": "user/session/object.webm",
+            "retention_expires_at": "2999-01-01T00:00:00Z",
+            "evidence_metadata": {
+                "user_id": "user",
+                "analysis_session_id": "session",
+                "checksum_sha256": "b" * 64,
+            },
+        }
+        self.assertFalse(evidence_is_reviewable({**base, "withdrawn_at": "2026-01-01T00:00:00Z"}))
+        self.assertFalse(evidence_is_reviewable({**base, "deleted_at": "2026-01-01T00:00:00Z"}))
+        self.assertFalse(evidence_is_reviewable({**base, "retention_expires_at": "2000-01-01T00:00:00Z"}))
+
+    def test_analyze_retention_storage_failure_is_reported_not_candidate(self) -> None:
+        app.dependency_overrides[enforce_auth] = lambda: AuthContext(user_id="00000000-0000-0000-0000-000000000001", authorization_present=True)
+        content = self._make_video("retain-failed.mp4", "blue")
+        with patch("backend.api.services.analyze_raw_video", side_effect=_fake_analysis), patch(
+            "backend.api.services.synthesize_spoken_feedback",
+            side_effect=_fake_voice,
+        ), patch(
+            "backend.api.services.get_evidence_provider"
+        ) as provider_factory, patch("backend.api.services.persist_analysis_session") as persist_mock:
+            provider_factory.return_value.retain_raw_clip.return_value = EvidenceOutcome(
+                retained=False,
+                status="failed",
+                provider="local_development",
+                error_code="storage_failed",
+            )
+            persist_mock.return_value = PersistenceResult(stored=True, status="stored", record_id="11111111-1111-1111-1111-111111111111")
+            response = self.client.post(
+                "/analyze",
+                data={"retain_evidence": "true"},
+                files={"file": ("retain-failed.mp4", content, "video/mp4")},
+            )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["api_metadata"]["evidence_retention"]["status"], "failed")
+
+    def test_retained_evidence_is_deleted_if_analysis_persistence_fails(self) -> None:
+        app.dependency_overrides[enforce_auth] = lambda: AuthContext(user_id="00000000-0000-0000-0000-000000000001", authorization_present=True)
+        content = self._make_video("orphan.mp4", "blue")
+        provider = SimpleNamespace()
+        provider.retain_raw_clip = Mock(
+            return_value=EvidenceOutcome(
+                retained=True,
+                status="stored",
+                provider="local_development",
+                object_path="user/session/object.mp4",
+                metadata={
+                    "user_id": "00000000-0000-0000-0000-000000000001",
+                    "analysis_session_id": "session",
+                    "checksum_sha256": "b" * 64,
+                    "retention_expires_at": "2999-01-01T00:00:00Z",
+                },
+            )
+        )
+        provider.delete = Mock(return_value=EvidenceOutcome(False, "deleted", "local_development", "user/session/object.mp4"))
+        with patch("backend.api.services.analyze_raw_video", side_effect=_fake_analysis), patch(
+            "backend.api.services.synthesize_spoken_feedback",
+            side_effect=_fake_voice,
+        ), patch("backend.api.services.get_evidence_provider", return_value=provider), patch(
+            "backend.api.services.persist_analysis_session",
+            return_value=PersistenceResult(stored=False, status="temporary_failure", error_code="persistence_failed"),
+        ):
+            response = self.client.post(
+                "/analyze",
+                data={"retain_evidence": "true"},
+                files={"file": ("orphan.mp4", content, "video/mp4")},
+            )
+        self.assertEqual(response.status_code, 200, response.text)
+        provider.delete.assert_called_once_with("user/session/object.mp4")
+        self.assertEqual(response.json()["api_metadata"]["evidence_retention"]["status"], "deleted_after_persistence_failure")
+
+    def test_analysis_overload_returns_429_retry_after(self) -> None:
+        content = self._make_video("busy.mp4", "blue")
+        with patch("backend.api.services._ANALYSIS_SEMAPHORE") as semaphore:
+            semaphore.acquire.return_value = False
+            response = self.client.post(
+                "/analyze",
+                files={"file": ("busy.mp4", content, "video/mp4")},
+            )
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response.json()["detail"]["error_code"], "analysis_overloaded")
+        self.assertIn("retry-after", {key.lower(): value for key, value in response.headers.items()})
+
+    def test_analysis_timeout_returns_stable_503(self) -> None:
+        content = self._make_video("timeout.mp4", "blue")
+        with patch("backend.api.services._run_raw_video_with_timeout", side_effect=AnalysisTimeoutError("timed out")):
+            response = self.client.post(
+                "/analyze",
+                files={"file": ("timeout.mp4", content, "video/mp4")},
+            )
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["detail"]["error_code"], "analysis_timeout")
+        self.assertIn("retry-after", {key.lower(): value for key, value in response.headers.items()})
+
+    def test_general_product_feedback_never_enters_training_queue(self) -> None:
+        captured: dict[str, dict] = {}
+
+        def capture_feedback(row: dict) -> PersistenceResult:
+            captured["row"] = row
+            return PersistenceResult(stored=True, status="stored", record_id=row["id"])
+
+        with patch("backend.api.routes.is_persistence_configured", return_value=True), patch(
+            "backend.api.routes.persist_feedback_record",
+            side_effect=capture_feedback,
+        ):
+            response = self.client.post(
+                "/product-feedback",
+                json={
+                    "usability_rating": 4,
+                    "bug_category": "camera",
+                    "feature_request": "offline mode",
+                    "notes": "The upload fallback was clear.",
+                    "page_context": "camera",
+                },
+            )
+        self.assertEqual(response.status_code, 201, response.text)
+        self.assertFalse(response.json()["accepted_for_review"])
+        self.assertFalse(captured["row"]["accepted_for_review"])
+        self.assertEqual(captured["row"]["review_status"], "product_feedback")
+        self.assertEqual(captured["row"]["dataset_eligibility_status"], "not_eligible")
+        self.assertFalse(captured["row"]["consent_to_model_improvement"])
 
 
 if __name__ == "__main__":

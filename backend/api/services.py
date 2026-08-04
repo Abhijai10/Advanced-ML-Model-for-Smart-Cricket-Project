@@ -11,6 +11,7 @@ import tempfile
 import time
 import threading
 import urllib.request
+import concurrent.futures
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -37,6 +38,7 @@ from ml.src.voice.voice_config import AUDIO_OUTPUT_DIR
 
 from .audio import sign_audio_url
 from .config import SETTINGS
+from .evidence import EvidenceOutcome, get_evidence_provider
 from .persistence import persist_analysis_session
 from .provenance import build_provenance
 from .services_version import PHASE13_VERSION
@@ -55,6 +57,24 @@ class APIValidationError(ValueError):
     def __init__(self, message: str, error_code: str = "invalid_request") -> None:
         super().__init__(message)
         self.error_code = error_code
+
+
+class AnalysisOverloadError(RuntimeError):
+    """Raised when analysis capacity is exhausted before validation starts."""
+
+    error_code = "analysis_overloaded"
+
+
+class AnalysisTimeoutError(RuntimeError):
+    """Raised when bounded inference execution exceeds the configured limit."""
+
+    error_code = "analysis_timeout"
+
+
+class JWKSUnavailableError(RuntimeError):
+    """Raised when configured JWKS verification cannot reach the identity provider."""
+
+    error_code = "jwks_unavailable"
 
 
 @dataclass(frozen=True)
@@ -154,6 +174,21 @@ def _save_upload_to_temp(file: UploadFile, filename: str) -> tuple[Path, int, st
 
 def _cleanup_temp_path(path: Path) -> None:
     shutil.rmtree(path.parent, ignore_errors=True)
+
+
+def _run_raw_video_with_timeout(temp_path: Path) -> dict[str, Any]:
+    """Run raw-video inference with bounded caller wait and clear timeout status."""
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(analyze_raw_video, temp_path)
+    try:
+        return future.result(timeout=SETTINGS.analysis_execution_timeout_seconds)
+    except concurrent.futures.TimeoutError as exc:
+        future.cancel()
+        executor.shutdown(wait=False, cancel_futures=True)
+        raise AnalysisTimeoutError("Analysis took too long and was stopped. Try a shorter, clearer clip.") from exc
+    finally:
+        if future.done():
+            executor.shutdown(wait=True, cancel_futures=True)
 
 
 def _segment_timing(result: dict[str, Any]) -> dict[str, Any]:
@@ -285,15 +320,17 @@ def _analysis_quality(result: dict[str, Any]) -> dict[str, Any]:
 def analyze_uploaded_video(file: UploadFile, *, request_id: str) -> dict[str, Any]:
     """Analyze one uploaded cricket video from its actual bytes."""
     if not _ANALYSIS_SEMAPHORE.acquire(timeout=SETTINGS.analysis_queue_timeout_seconds):
-        raise APIValidationError("The analysis queue is busy. Wait a moment and try again.", "analysis_overloaded")
+        raise AnalysisOverloadError("The analysis queue is busy. Wait a moment and try again.")
     try:
         filename = _validate_video_upload(file)
         temp_path, upload_bytes, clip_hash, video_probe = _save_upload_to_temp(file, filename)
         try:
             try:
-                raw_result = analyze_raw_video(temp_path)
+                raw_result = _run_raw_video_with_timeout(temp_path)
                 raw_result.setdefault("debug_metadata", {})["upload_video_probe"] = video_probe
             except Exception as exc:
+                if isinstance(exc, AnalysisTimeoutError):
+                    raise
                 raise APIValidationError(
                     (
                         "The uploaded video could not be converted into a valid Smart Cricket "
@@ -309,6 +346,77 @@ def analyze_uploaded_video(file: UploadFile, *, request_id: str) -> dict[str, An
                 request_id=request_id,
                 clip_hash=clip_hash,
             )
+        finally:
+            _cleanup_temp_path(temp_path)
+    finally:
+        _ANALYSIS_SEMAPHORE.release()
+
+
+def analyze_uploaded_video_with_retention(
+    file: UploadFile,
+    *,
+    request_id: str,
+    auth: AuthContext,
+    retain_evidence: bool = False,
+) -> tuple[dict[str, Any], EvidenceOutcome | None]:
+    """Analyze an upload and optionally retain consented raw evidence before temp cleanup."""
+    if not _ANALYSIS_SEMAPHORE.acquire(timeout=SETTINGS.analysis_queue_timeout_seconds):
+        raise AnalysisOverloadError("The analysis queue is busy. Wait a moment and try again.")
+    try:
+        filename = _validate_video_upload(file)
+        temp_path, upload_bytes, clip_hash, video_probe = _save_upload_to_temp(file, filename)
+        evidence_outcome: EvidenceOutcome | None = None
+        analysis_session_id = str(uuid4())
+        try:
+            try:
+                raw_result = _run_raw_video_with_timeout(temp_path)
+                raw_result.setdefault("debug_metadata", {})["upload_video_probe"] = video_probe
+            except Exception as exc:
+                if isinstance(exc, AnalysisTimeoutError):
+                    raise
+                raise APIValidationError(
+                    (
+                        "The uploaded video could not be converted into a valid Smart Cricket "
+                        "temporal sequence. Record a clear batting motion with the full body visible."
+                    ),
+                    "raw_video_analysis_failed",
+                ) from exc
+            if retain_evidence:
+                if not auth.user_id:
+                    evidence_outcome = EvidenceOutcome(
+                        retained=False,
+                        status="failed",
+                        provider=SETTINGS.evidence_storage_backend,
+                        error_code="auth_required_for_evidence_retention",
+                    )
+                else:
+                    media_type = getattr(file, "content_type", None) or "application/octet-stream"
+                    evidence_outcome = get_evidence_provider().retain_raw_clip(
+                        source_path=temp_path,
+                        user_id=auth.user_id,
+                        analysis_session_id=analysis_session_id,
+                        consent_version=SETTINGS.consent_version,
+                        media_type=media_type,
+                        retention_days=SETTINGS.evidence_retention_days,
+                    )
+            result = _attach_voice_and_metadata(
+                raw_result,
+                filename=filename,
+                upload_bytes=upload_bytes,
+                analysis_mode="raw_video_upload",
+                request_id=request_id,
+                clip_hash=clip_hash,
+            )
+            result["api_metadata"]["evidence_retention"] = {
+                "requested": retain_evidence,
+                "status": evidence_outcome.status if evidence_outcome else "not_requested",
+                "retained": bool(evidence_outcome and evidence_outcome.retained),
+                "provider": evidence_outcome.provider if evidence_outcome else SETTINGS.evidence_storage_backend,
+                "error_code": evidence_outcome.error_code if evidence_outcome else None,
+                "retention_expires_at": (evidence_outcome.metadata or {}).get("retention_expires_at") if evidence_outcome else None,
+            }
+            result["api_metadata"]["planned_analysis_session_id"] = analysis_session_id
+            return result, evidence_outcome
         finally:
             _cleanup_temp_path(temp_path)
     finally:
@@ -337,12 +445,11 @@ def analyze_dataset_sample(
 
 def api_health() -> dict[str, Any]:
     """Return lightweight liveness information without checking dependencies."""
-    readiness = api_readiness()
     return {
         "status": "ok",
         "service": "smart_cricket_api",
         "phase": "Phase 13",
-        "inference_ready": readiness["status"] == "ready",
+        "inference_ready": False,
         "version": PHASE13_VERSION,
     }
 
@@ -373,9 +480,31 @@ def api_readiness() -> dict[str, Any]:
             shutil.rmtree(probe_dir, ignore_errors=True)
     record(
         "auth_configuration",
-        (not SETTINGS.require_auth) or bool(SETTINGS.supabase_jwt_secret),
-        "auth optional" if not SETTINGS.require_auth else "SUPABASE_JWT_SECRET required",
+        _auth_config_ready(),
+        _auth_config_detail(),
     )
+    record(
+        "audio_signing_secret",
+        _audio_config_ready(),
+        "SMART_CRICKET_AUDIO_SIGNING_SECRET configured or local development/test mode",
+    )
+    if SETTINGS.environment == "production":
+        record(
+            "persistence_configuration",
+            bool(SETTINGS.supabase_url and SETTINGS.supabase_service_role_key),
+            "production requires Supabase URL and service-role key for server persistence",
+        )
+        if SETTINGS.allow_model_improvement_participation:
+            record(
+                "evidence_storage_configuration",
+                SETTINGS.evidence_storage_backend == "supabase" and bool(SETTINGS.evidence_supabase_bucket),
+                "production model-improvement participation requires private Supabase Storage bucket",
+            )
+        record(
+            "rate_limit_backend",
+            SETTINGS.rate_limit_backend != "memory",
+            "production multi-instance deployments require Redis/gateway rate limiting",
+        )
 
     return {
         "status": "ready" if all(item["ok"] for item in checks.values()) else "not_ready",
@@ -383,6 +512,26 @@ def api_readiness() -> dict[str, Any]:
         "version": PHASE13_VERSION,
         "checks": checks,
     }
+
+
+def _auth_config_ready() -> bool:
+    if not SETTINGS.require_auth:
+        return True
+    if SETTINGS.environment == "production" and (not SETTINGS.jwt_audience or not SETTINGS.jwt_issuer):
+        return False
+    return bool(SETTINGS.supabase_jwt_secret or SETTINGS.supabase_url)
+
+
+def _auth_config_detail() -> str:
+    if not SETTINGS.require_auth:
+        return "auth optional"
+    return "JWT secret or JWKS-capable Supabase URL configured with issuer/audience in production"
+
+
+def _audio_config_ready() -> bool:
+    if SETTINGS.audio_signing_secret and len(SETTINGS.audio_signing_secret) >= 32:
+        return True
+    return SETTINGS.environment in {"development", "test"}
 
 
 def _client_key(request: Request) -> str:
@@ -483,12 +632,17 @@ def _jwk_int(value: str) -> int:
 def _load_jwks() -> list[dict[str, Any]]:
     if not SETTINGS.supabase_url:
         return []
-    if time.time() - float(_JWKS_CACHE["loaded_at"]) < 600:
+    if time.time() - float(_JWKS_CACHE["loaded_at"]) < SETTINGS.jwks_cache_ttl_seconds:
         return list(_JWKS_CACHE["keys"])
     url = f"{SETTINGS.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
-    with urllib.request.urlopen(url, timeout=5) as response:
-        payload = json.loads(response.read().decode("utf-8") or "{}")
+    try:
+        with urllib.request.urlopen(url, timeout=SETTINGS.jwks_timeout_seconds) as response:
+            payload = json.loads(response.read().decode("utf-8") or "{}")
+    except Exception as exc:
+        raise JWKSUnavailableError("Identity provider signing keys are temporarily unavailable.") from exc
     keys = payload.get("keys") if isinstance(payload, dict) else None
+    if not isinstance(keys, list):
+        raise JWKSUnavailableError("Identity provider signing keys response is invalid.")
     _JWKS_CACHE["loaded_at"] = time.time()
     _JWKS_CACHE["keys"] = keys if isinstance(keys, list) else []
     return list(_JWKS_CACHE["keys"])
@@ -505,7 +659,11 @@ def _verify_asymmetric_jwt(token: str) -> dict[str, Any]:
     kid = header.get("kid")
     if alg not in {"RS256", "ES256"}:
         raise APIValidationError("Unsupported authorization token algorithm.", "invalid_token")
-    key = next((item for item in _load_jwks() if item.get("kid") == kid and item.get("alg") in {None, alg}), None)
+    try:
+        keys = _load_jwks()
+    except JWKSUnavailableError:
+        raise
+    key = next((item for item in keys if item.get("kid") == kid and item.get("alg") in {None, alg}), None)
     if not key:
         raise APIValidationError("Authorization signing key was not found.", "invalid_token")
     signing_input = f"{header_b64}.{payload_b64}".encode("ascii")
@@ -574,6 +732,15 @@ def enforce_auth(request: Request, authorization: str | None = Header(default=No
                 "request_id": request.state.request_id,
             },
         ) from exc
+    except JWKSUnavailableError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "detail": str(exc),
+                "error_code": exc.error_code,
+                "request_id": request.state.request_id,
+            },
+        ) from exc
     context = AuthContext(
         user_id=str(claims.get("sub")) if claims.get("sub") else None,
         claims=claims,
@@ -589,6 +756,8 @@ def persist_verified_analysis_for_auth_user(
     result: dict[str, Any],
     filename: str,
     request_id: str,
+    analysis_session_id: str | None = None,
+    evidence_outcome: EvidenceOutcome | None = None,
 ) -> None:
     """Attach non-fatal backend persistence metadata to an analysis response."""
     api_metadata = result.setdefault("api_metadata", {})
@@ -601,7 +770,15 @@ def persist_verified_analysis_for_auth_user(
         request_id=request_id,
         clip_hash=str(clip_hash or ""),
         provenance=provenance,
+        analysis_session_id=analysis_session_id,
+        evidence_outcome=evidence_outcome,
     )
+    if evidence_outcome and evidence_outcome.retained and not outcome.stored and evidence_outcome.object_path:
+        delete_outcome = get_evidence_provider().delete(evidence_outcome.object_path)
+        evidence_meta = api_metadata.setdefault("evidence_retention", {})
+        evidence_meta["retained"] = False
+        evidence_meta["status"] = "deleted_after_persistence_failure" if delete_outcome.status == "deleted" else "orphan_cleanup_failed"
+        evidence_meta["error_code"] = delete_outcome.error_code or outcome.error_code or outcome.status
     api_metadata["analysis_persistence"] = {
         "attempted": bool(auth.user_id),
         "stored": outcome.stored,

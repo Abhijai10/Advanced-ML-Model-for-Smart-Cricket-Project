@@ -1,8 +1,7 @@
-"""Export consented feedback candidates for human review.
+"""Export adjudicated feedback candidates for human review manifests.
 
-This script intentionally exports review candidates only. It must not be wired
-directly into training; accepted labels belong in an adjudicated dataset
-manifest after expert review.
+This script intentionally excludes raw feedback rows that are metadata-only,
+unreviewed, expired, withdrawn, deleted, or missing protected evidence.
 """
 
 from __future__ import annotations
@@ -16,6 +15,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
+from datetime import datetime, timezone
 
 
 def fetch_candidates(limit: int) -> list[dict[str, Any]]:
@@ -29,7 +29,11 @@ def fetch_candidates(limit: int) -> list[dict[str, Any]]:
             "select": "*",
             "accepted_for_review": "eq.true",
             "consent_to_model_improvement": "eq.true",
-            "review_status": "eq.candidate",
+            "review_status": "eq.approved",
+            "dataset_eligibility_status": "eq.eligible",
+            "storage_status": "eq.stored",
+            "withdrawn_at": "is.null",
+            "deleted_at": "is.null",
             "order": "created_at.asc",
             "limit": str(limit),
         }
@@ -47,6 +51,25 @@ def fetch_candidates(limit: int) -> list[dict[str, Any]]:
     if not isinstance(payload, list):
         raise SystemExit("Unexpected Supabase response shape.")
     return payload
+
+
+def filter_reviewable(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    now = datetime.now(timezone.utc)
+    reviewable: list[dict[str, Any]] = []
+    for row in rows:
+        if not row.get("accepted_for_review") or not row.get("evidence_object_path"):
+            continue
+        if not row.get("reviewer_id") or not row.get("reviewer_label"):
+            continue
+        expires_at = row.get("retention_expires_at")
+        if isinstance(expires_at, str):
+            try:
+                if datetime.fromisoformat(expires_at.replace("Z", "+00:00")) <= now:
+                    continue
+            except ValueError:
+                continue
+        reviewable.append(row)
+    return reviewable
 
 
 def write_csv(rows: list[dict[str, Any]], output: Path) -> None:
@@ -96,7 +119,7 @@ def main() -> int:
     parser.add_argument("--limit", type=int, default=500)
     parser.add_argument("--output", type=Path, default=Path("exports/feedback_candidates.csv"))
     args = parser.parse_args()
-    rows = fetch_candidates(args.limit)
+    rows = filter_reviewable(fetch_candidates(args.limit))
     write_csv(rows, args.output)
     print(f"Exported {len(rows)} feedback candidate(s) to {args.output}")
     return 0

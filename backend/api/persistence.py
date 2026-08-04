@@ -7,11 +7,12 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
 from .config import SETTINGS
+from .evidence import evidence_is_reviewable
 
 
 SUPPORTED_SHOTS = {"cover_drive", "defensive_shot", "pull_shot", "sweep_shot"}
@@ -101,6 +102,33 @@ def _postgrest_select_one(table: str, filters: dict[str, str]) -> PersistenceRes
     return PersistenceResult(stored=True, status="stored", record_id=str(payload[0].get("id") or ""), record=payload[0])
 
 
+def _postgrest_patch(table: str, filters: dict[str, str], row: dict[str, Any]) -> PersistenceResult:
+    if not is_persistence_configured():
+        return PersistenceResult(stored=False, status="persistence_not_configured", error_code="persistence_not_configured")
+    query = urllib.parse.urlencode({key: f"eq.{value}" for key, value in filters.items()})
+    request = urllib.request.Request(
+        f"{SETTINGS.supabase_url.rstrip('/')}/rest/v1/{table}?{query}",
+        data=json.dumps(row).encode("utf-8"),
+        method="PATCH",
+        headers={
+            "apikey": SETTINGS.supabase_service_role_key or "",
+            "authorization": f"Bearer {SETTINGS.supabase_service_role_key}",
+            "content-type": "application/json",
+            "prefer": "return=representation",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=SETTINGS.persistence_timeout_seconds) as response:
+            payload = json.loads(response.read().decode("utf-8") or "[]")
+    except urllib.error.HTTPError as exc:
+        status = "temporary_failure" if exc.code in {408, 429, 500, 502, 503, 504} else "failed"
+        return PersistenceResult(stored=False, status=status, error_code=f"supabase_http_{exc.code}")
+    except Exception:
+        return PersistenceResult(stored=False, status="temporary_failure", error_code="persistence_failed")
+    record = payload[0] if isinstance(payload, list) and payload and isinstance(payload[0], dict) else None
+    return PersistenceResult(stored=True, status="stored", record_id=str((record or {}).get("id") or ""), record=record)
+
+
 def persist_analysis_session(
     *,
     user_id: str | None,
@@ -109,14 +137,22 @@ def persist_analysis_session(
     request_id: str,
     clip_hash: str,
     provenance: dict[str, Any],
+    analysis_session_id: str | None = None,
+    evidence_outcome: Any | None = None,
 ) -> PersistenceResult:
     """Persist a verified analysis response as server-owned history when configured."""
     if not user_id:
         return PersistenceResult(stored=False, status="missing_user", error_code="missing_user")
     segment = result.get("segmentation", {}) if isinstance(result.get("segmentation"), dict) else {}
     timing = result.get("timing", {}) if isinstance(result.get("timing"), dict) else {}
+    evidence_metadata = evidence_outcome.metadata if evidence_outcome and evidence_outcome.metadata else {
+        "storage_backend": SETTINGS.evidence_storage_backend,
+        "raw_clip_retained": False,
+        "processed_evidence_retained": False,
+        "external_storage_verification": "not_configured",
+    }
     row = {
-        "id": str(uuid4()),
+        "id": analysis_session_id or str(uuid4()),
         "user_id": user_id,
         "video_file_name": filename,
         "predicted_shot": result.get("predicted_shot"),
@@ -141,18 +177,13 @@ def persist_analysis_session(
         "label_mapping_sha256": provenance.get("label_mapping_sha256"),
         "scoring_template_sha256": provenance.get("scoring_template_sha256"),
         "feedback_engine_version": provenance.get("feedback_engine_version"),
-        "storage_status": "not_retained",
-        "consent_scope": "none",
-        "consent_version": None,
-        "consented_at": None,
-        "retention_expires_at": None,
-        "evidence_object_path": None,
-        "evidence_metadata": {
-            "storage_backend": SETTINGS.evidence_storage_backend,
-            "raw_clip_retained": False,
-            "processed_evidence_retained": False,
-            "external_storage_verification": "not_configured",
-        },
+        "storage_status": evidence_outcome.status if evidence_outcome else "not_retained",
+        "consent_scope": "model_improvement_raw_clip" if evidence_outcome and evidence_outcome.retained else "none",
+        "consent_version": SETTINGS.consent_version if evidence_outcome and evidence_outcome.retained else None,
+        "consented_at": evidence_metadata.get("created_at") if evidence_outcome and evidence_outcome.retained else None,
+        "retention_expires_at": evidence_metadata.get("retention_expires_at") if evidence_outcome and evidence_outcome.retained else None,
+        "evidence_object_path": evidence_outcome.object_path if evidence_outcome else None,
+        "evidence_metadata": evidence_metadata,
         "withdrawn_at": None,
         "deleted_at": None,
         "persistence_source": "server_verified_inference",
@@ -163,6 +194,39 @@ def persist_analysis_session(
 def load_analysis_session(*, analysis_session_id: str, user_id: str) -> PersistenceResult:
     """Load a trusted server-created analysis for feedback binding."""
     return _postgrest_select_one("analysis_sessions", {"id": analysis_session_id, "user_id": user_id})
+
+
+def mark_analysis_withdrawn_or_deleted(
+    *,
+    analysis_session_id: str,
+    user_id: str,
+    deleted: bool = False,
+) -> PersistenceResult:
+    now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    row = {
+        "withdrawn_at": now,
+        "storage_status": "deleted" if deleted else "withdrawn",
+        "consent_scope": "withdrawn",
+        "deleted_at": now if deleted else None,
+    }
+    return _postgrest_patch("analysis_sessions", {"id": analysis_session_id, "user_id": user_id}, row)
+
+
+def mark_feedback_withdrawn_or_deleted(
+    *,
+    analysis_session_id: str,
+    user_id: str,
+    deleted: bool = False,
+) -> PersistenceResult:
+    now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    row = {
+        "withdrawn_at": now,
+        "deleted_at": now if deleted else None,
+        "review_status": "deleted" if deleted else "withdrawn",
+        "dataset_eligibility_status": "deleted" if deleted else "withdrawn",
+        "accepted_for_review": False,
+    }
+    return _postgrest_patch("analysis_feedback", {"analysis_session_id": analysis_session_id, "user_id": user_id}, row)
 
 
 def build_feedback_record(
@@ -193,9 +257,15 @@ def build_feedback_record(
         raise ValueError("A verified analysis session is required for model-improvement feedback.")
     provenance = (analysis or {}).get("model_provenance") if isinstance((analysis or {}).get("model_provenance"), dict) else {}
     clip_hash = (analysis or {}).get("clip_hash")
-    retention_deadline = (
-        datetime.now(timezone.utc) + timedelta(days=SETTINGS.evidence_retention_days)
-    ).isoformat().replace("+00:00", "Z") if consent else None
+    reviewable_evidence = bool(consent and analysis and evidence_is_reviewable(analysis))
+    if consent and analysis and not reviewable_evidence:
+        storage_state = (analysis or {}).get("storage_status") or "not_retained"
+        review_status = "evidence_not_retained" if storage_state == "not_retained" else "awaiting_evidence"
+    elif consent:
+        review_status = "candidate"
+    else:
+        review_status = "not_consented"
+    retention_deadline = (analysis or {}).get("retention_expires_at") if consent else None
     return {
         "id": str(uuid4()),
         "user_id": user_id,
@@ -209,8 +279,8 @@ def build_feedback_record(
         "tip_flags": payload.tip_flags,
         "notes": payload.notes,
         "consent_to_model_improvement": consent,
-        "accepted_for_review": bool(consent and user_id and analysis),
-        "review_status": "candidate" if consent and user_id and analysis else "product_feedback",
+        "accepted_for_review": reviewable_evidence,
+        "review_status": review_status,
         "model_version": provenance.get("model_version"),
         "pipeline_version": provenance.get("pipeline_version"),
         "feature_contract_version": provenance.get("feature_contract_version"),
@@ -224,8 +294,8 @@ def build_feedback_record(
         "storage_status": (analysis or {}).get("storage_status") or "not_retained",
         "evidence_object_path": (analysis or {}).get("evidence_object_path"),
         "evidence_metadata": (analysis or {}).get("evidence_metadata") or {},
-        "dataset_eligibility_status": "pending_review" if consent else "not_eligible",
-        "provenance_completeness_score": 1.0 if provenance else 0.0,
+        "dataset_eligibility_status": "pending_review" if reviewable_evidence else "not_eligible",
+        "provenance_completeness_score": 1.0 if reviewable_evidence and provenance else 0.0,
         "label_quality_score": None,
         "provenance": {
             "source": "user_reported_feedback",
@@ -234,6 +304,7 @@ def build_feedback_record(
             "ai_assisted_review_allowed": True,
             "ai_is_ground_truth": False,
             "analysis_session_verified": bool(analysis),
+            "reviewable_evidence": reviewable_evidence,
         },
     }
 
