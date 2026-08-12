@@ -33,7 +33,7 @@ Release verdict: controlled technical beta only after P0 code-hardening items be
 | RM-08 | Phase 8: training/evaluation | Partial | P0 | Best model checkpoint exists; model card reports test accuracy 0.6667 and macro F1 0.6762; split is not player-disjoint. | Player-held-out metrics, calibration, confidence thresholds, drift plan. |
 | RM-09 | Phase 9: segmentation/prediction gating | Partial | P1 | State machine emits one trigger; reusable reset/rearm behavior is missing at initial audit. | Multi-shot/rearm tests pass while one-shot default remains unchanged. |
 | RM-10 | Phase 10: technique scoring | Partial | P1 | Rule/template scoring artifacts exist; not coach-certified and may be sensitive to feature semantics. | Coach validation and per-issue safety review. |
-| RM-11 | Phase 11: feedback engine | Partial | P1 | Feedback text exists; no user feedback safety loop at initial audit. | Human-in-the-loop feedback system with consent, moderation, expert adjudication. |
+| RM-11 | Phase 11: feedback engine | Partial | P1 | Feedback text exists and the beta feedback/reviewer workflow now has consent, evidence gating, reviewer decision capture, and approved-candidate export helpers. | Real coach/expert adjudication and advice-safety validation remain external. |
 | RM-12 | Phase 12: offline inference pipeline | Unverified | P0 | `raw_video_pipeline.py` exists, but repo contains no raw `.mp4/.mov/.webm/.avi/.mkv` fixture. Current API tests mock `analyze_raw_video`. | One actual batting video goes through MediaPipe, preprocessing, checkpoint, segmentation, scoring, feedback, API response, and audio without mocks. |
 | RM-13 | Phase 13: API integration | Partial | P0 | FastAPI wrapper exists; server-side persistence, production JWT/JWKS validation, durable rate limiting, observability, timeouts, deployment/TLS, and RLS validation are incomplete. | Production env configured; backend-owned persistence; auth/RLS tested; deployment smoke and monitoring pass. |
 | RM-14 | Phase 14: voice output | Partial | P1 | Local macOS `say` plus WAV cue fallback exists; not natural production TTS and provider failure can fail analysis at initial audit. | Provider abstraction, graceful degradation, protected audio, cleanup lifecycle, provider and browser tests. |
@@ -114,9 +114,9 @@ Release verdict: controlled technical beta only after P0 code-hardening items be
 | FB-03 | Rate technique feedback. | Not Started initially | P1 | 1-5 rating with optional note. |
 | FB-04 | Mark tips useful, incorrect, or unsafe. | Not Started initially | P0 | Safety flags are captured and never used for automatic retraining. |
 | FB-05 | Consent to contribute clip/result. | Partial | P0 | Pre-analysis retention consent, feedback consent, version/timestamp metadata, and deletion/withdraw endpoints exist. Live storage/privacy approval remains external. |
-| FB-06 | Safe human-in-the-loop pipeline. | Partial | P0 | Candidate gating now requires retained evidence; export excludes metadata-only/unreviewed/expired/withdrawn/deleted rows. Reviewer operations still need real ops workflow. |
-| FB-07 | AI-assisted review boundaries. | Documentation Needed | P1 | AI may triage/flag inconsistencies but is never ground truth. |
-| FB-08 | No blind retraining on user reports. | Required | P0 | Export/review flow produces candidates; no training job consumes raw reports automatically. |
+| FB-06 | Safe human-in-the-loop pipeline. | Partial | P0 | Candidate gating now requires retained evidence; reviewer CLI lists pending candidates, can request short-lived evidence access, records approve/reject decisions, and export excludes metadata-only/unreviewed/expired/withdrawn/deleted/unsafe rows. Live reviewer staffing and Supabase execution remain external. |
+| FB-07 | AI-assisted review boundaries. | Done | P1 | Docs state AI may triage/flag inconsistencies but is never ground truth. |
+| FB-08 | No blind retraining on user reports. | Done | P0 | Export/review flow produces adjudicated manifests only; no training job consumes raw reports automatically. |
 
 ## Website and Product Gaps
 

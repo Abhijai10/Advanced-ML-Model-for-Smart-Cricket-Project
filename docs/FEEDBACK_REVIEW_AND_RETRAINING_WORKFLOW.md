@@ -6,16 +6,18 @@ Anonymous or unbound reports must not become training data. General usability, b
 
 ## Review Pipeline
 
-1. Export only adjudicated rows from `analysis_feedback` where `accepted_for_review = true`, `consent_to_model_improvement = true`, `review_status = 'approved'`, `dataset_eligibility_status = 'eligible'`, `storage_status = 'stored'`, and neither `withdrawn_at` nor `deleted_at` is set.
-2. Deduplicate by `clip_hash`, `model_version`, `pipeline_version`, and user where applicable.
-3. Exclude any row or clip without consent, unclear provenance, privacy risk, unsafe content, or missing source metadata.
-4. Have a qualified reviewer inspect the retained protected evidence, model result, corrected label, and user notes. Evidence is reviewable only when the protected object path, checksum, user ID, analysis session ID, consent version, storage provider, and retention deadline are complete.
-5. Assign label-quality status: `approved`, `needs_second_review`, `rejected`, or `unsafe`.
-6. Resolve disagreements through a second human review. AI tools may summarize or flag inconsistencies, but they are never the deciding label authority.
-7. Keep train, validation, and test users/clips isolated. A clip reported by a validation/test user must not leak into training.
-8. Version the accepted dataset, feature schema, scaler, checkpoint, label map, scoring templates, and feedback rules together.
-9. Retrain only after release gates pass: minimum data diversity, player-held-out metrics, calibration, safety review, regression tests, and rollback plan.
-10. Monitor drift, low-confidence rate, unsafe-tip flags, duplicate reports, and class imbalance after beta release.
+1. List pending candidates from `analysis_feedback` where `accepted_for_review = true`, `consent_to_model_improvement = true`, `review_status = 'candidate'`, `dataset_eligibility_status = 'pending_review'`, `storage_status = 'stored'`, evidence has not expired, and neither `withdrawn_at` nor `deleted_at` is set.
+2. Have a qualified reviewer inspect the retained protected evidence, model result, corrected label, and user notes. Evidence is reviewable only when the protected object path, checksum, user ID, analysis session ID, consent version, storage provider, and retention deadline are complete.
+3. Record reviewer ID, reviewer label, label-quality score, second-review flag, disagreement notes, rejection reason, safety flag, split assignment, and training inclusion version.
+4. Approve only when the evidence supports the label and there is no unsafe-content flag. Rejected/unsafe rows become non-eligible.
+5. Export only adjudicated rows from `analysis_feedback` where `accepted_for_review = true`, `consent_to_model_improvement = true`, `review_status = 'approved'`, `dataset_eligibility_status = 'eligible'`, `storage_status = 'stored'`, and neither `withdrawn_at` nor `deleted_at` is set.
+6. Deduplicate by `clip_hash`, `model_version`, `pipeline_version`, and user where applicable.
+7. Exclude any row or clip without consent, unclear provenance, privacy risk, unsafe content, or missing source metadata.
+8. Resolve disagreements through a second human review. AI tools may summarize or flag inconsistencies, but they are never the deciding label authority.
+9. Keep train, validation, and test users/clips isolated. A clip reported by a validation/test user must not leak into training.
+10. Version the accepted dataset, feature schema, scaler, checkpoint, label map, scoring templates, and feedback rules together.
+11. Retrain only after release gates pass: minimum data diversity, player-held-out metrics, calibration, safety review, regression tests, and rollback plan.
+12. Monitor drift, low-confidence rate, unsafe-tip flags, duplicate reports, and class imbalance after beta release.
 
 ## Export Contract
 
@@ -43,13 +45,33 @@ Non-consented clips are deleted after inference and must not be retained for mod
 
 ## Candidate Export Helper
 
-Use the review helper only from a trusted server or local maintainer machine with server credentials:
+Use reviewer helpers only from a trusted server or local maintainer machine with server credentials. First list pending candidates:
+
+```bash
+python scripts/review_feedback_candidates.py list
+python scripts/review_feedback_candidates.py list --include-access
+```
+
+Then record a reviewer decision:
+
+```bash
+python scripts/review_feedback_candidates.py decision \
+  --feedback-id <feedback-row-id> \
+  --reviewer-id <reviewer-user-id> \
+  --decision approve \
+  --reviewer-label cover_drive \
+  --label-quality-score 0.95 \
+  --split-assignment train \
+  --training-inclusion-version dataset-2026-08
+```
+
+Finally export approved, eligible rows:
 
 ```bash
 python scripts/export_feedback_candidates.py --output exports/feedback_candidates.csv
 ```
 
-The exported CSV is an adjudicated manifest input, not a raw training dataset. Metadata-only, expired, withdrawn, deleted, unreviewed, or rejected feedback is excluded.
+The exported CSV is an adjudicated manifest input, not a raw training dataset. Metadata-only, expired, withdrawn, deleted, unreviewed, unsafe, or rejected feedback is excluded.
 
 ## Evidence Cleanup Helper
 

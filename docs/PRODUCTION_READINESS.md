@@ -37,6 +37,7 @@ It should not be described as fully production-ready yet. The remaining blockers
 - Model-improvement participation is default-disabled. When `SMART_CRICKET_ALLOW_MODEL_IMPROVEMENT_PARTICIPATION=false`, the backend records retention requests as disabled and the frontend disables consent controls.
 - Consent withdrawal now disables training eligibility immediately and attempts provider-aware evidence deletion using the stored `evidence_metadata.storage_provider`, not the current runtime provider setting.
 - Failed evidence deletion is marked `deletion_pending` for retry by `scripts/cleanup_evidence.py`; pending/deleted/withdrawn rows are not reviewable or exportable.
+- Reviewer/admin operations are available through `scripts/review_feedback_candidates.py`: list pending candidates, optionally issue short-lived reviewer evidence access, and record approve/reject decisions with reviewer provenance, label quality, split assignment, safety flags, and training inclusion version.
 - Voice output degrades to text-only metadata if TTS generation fails, so analysis does not fail just because audio generation is unavailable.
 - Analysis responses include `analysis_quality.status` with `ok`, `uncertain`, or `insufficient_quality` based on configurable confidence and clean-pose-frame thresholds.
 

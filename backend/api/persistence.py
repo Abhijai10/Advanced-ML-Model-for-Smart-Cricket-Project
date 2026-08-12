@@ -241,6 +241,60 @@ def list_evidence_cleanup_candidates(*, now_iso: str, limit: int = 100) -> Persi
     )
 
 
+def list_feedback_review_candidates(*, now_iso: str, limit: int = 100) -> PersistenceResult:
+    """List user-consented feedback rows that are pending human review."""
+    return _postgrest_select_many(
+        "analysis_feedback",
+        {
+            "accepted_for_review": "eq.true",
+            "consent_to_model_improvement": "eq.true",
+            "review_status": "eq.candidate",
+            "dataset_eligibility_status": "eq.pending_review",
+            "storage_status": "eq.stored",
+            "withdrawn_at": "is.null",
+            "deleted_at": "is.null",
+            "retention_expires_at": f"gt.{now_iso}",
+            "order": "created_at.asc",
+            "limit": str(max(1, min(limit, 1000))),
+        },
+    )
+
+
+def record_feedback_review_decision(
+    *,
+    feedback_id: str,
+    reviewer_id: str,
+    reviewer_label: str | None,
+    label_quality_score: float | None,
+    second_review_required: bool,
+    disagreement_notes: str | None,
+    rejection_reason: str | None,
+    unsafe_content_flag: bool,
+    split_assignment: str | None,
+    training_inclusion_version: str | None,
+    approved: bool,
+) -> PersistenceResult:
+    """Record a trusted reviewer decision for one feedback candidate."""
+    now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    review_status = "approved" if approved else "rejected"
+    row = {
+        "reviewer_id": reviewer_id,
+        "reviewed_at": now,
+        "reviewer_label": reviewer_label,
+        "label_quality_score": label_quality_score,
+        "second_review_required": second_review_required,
+        "disagreement_notes": disagreement_notes,
+        "rejection_reason": rejection_reason,
+        "unsafe_content_flag": unsafe_content_flag,
+        "split_assignment": split_assignment if approved else None,
+        "training_inclusion_version": training_inclusion_version if approved else None,
+        "review_status": review_status,
+        "dataset_eligibility_status": "eligible" if approved and not unsafe_content_flag else "rejected",
+        "accepted_for_review": bool(approved and not unsafe_content_flag),
+    }
+    return _postgrest_patch("analysis_feedback", {"id": feedback_id}, row)
+
+
 def mark_analysis_withdrawn_or_deleted(
     *,
     analysis_session_id: str,
