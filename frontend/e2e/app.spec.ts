@@ -41,6 +41,20 @@ const analysisResponse = {
 };
 
 test("demo upload review, mocked analysis, and feedback flow", async ({ page }) => {
+  await page.route("**/capabilities", async (route) => {
+    await route.fulfill({
+      json: {
+        auth_required: false,
+        feedback_enabled: true,
+        model_improvement_enabled: false,
+        evidence_retention_enabled: false,
+        tts_provider: "signed_audio",
+        max_upload_bytes: 262144000,
+        max_recording_duration_seconds: 20,
+        accepted_video_extensions: [".mp4", ".mov", ".webm"],
+      },
+    });
+  });
   await page.route("**/analyze", async (route) => {
     await route.fulfill({ json: analysisResponse });
   });
@@ -50,11 +64,11 @@ test("demo upload review, mocked analysis, and feedback flow", async ({ page }) 
         status: "stored",
         storage_status: "stored",
         feedback_id: "feedback-1",
-        accepted_for_review: true,
+        accepted_for_review: false,
         stored: true,
         duplicate_clip_hash: false,
         request_id: "request-1",
-        message: "Feedback queued.",
+        message: "Feedback was saved as metadata only because model-improvement consent was not granted.",
       },
     });
   });
@@ -75,7 +89,8 @@ test("demo upload review, mocked analysis, and feedback flow", async ({ page }) 
 
   await page.getByRole("radio", { name: "incorrect" }).check();
   await page.getByLabel(/correct shot/i).selectOption("pull_shot");
-  await page.getByRole("checkbox", { name: /^This sends judgement and notes/i }).check();
+  await expect(page.getByText(/Feedback will be saved outside training review/i)).toBeVisible();
+  await expect(page.getByLabel(/human-reviewed model improvement/i)).toBeDisabled();
   await page.getByRole("button", { name: /save feedback/i }).click();
   await expect(page.getByRole("button", { name: /feedback saved/i })).toBeVisible();
 });
