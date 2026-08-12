@@ -46,7 +46,7 @@ Release verdict: controlled technical beta only after P0 code-hardening items be
 | DS-02 | Upload validation too weak. | Partial | P0 | Extension, byte signature, OpenCV probe, size, duration, resolution, bounded queue, execution timeout, and MIME/extension tests exist. | Real production load and device matrix still required. |
 | DS-03 | `/health` reports `inference_ready: true` without readiness checks. | Fixed | P1 | `/health` is lightweight liveness; `/ready` owns dependency checks. | Keep readiness smoke in CI. |
 | DS-04 | Client-forged trusted history. | Partial | P0 | Frontend no longer writes analysis results directly; backend-owned persistence exists with service-role-only configuration. | Live Supabase RLS/project verification remains external. |
-| DS-05 | Auth validation is incomplete. | Partial | P0 | HS256/JWKS logic exists; direct HS256 and JWKS-failure tests pass. | Full RS256/ES256 live Supabase key-rotation tests remain external/partial. |
+| DS-05 | Auth validation is incomplete. | Partial | P0 | HS256, RS256, ES256, malformed/expired/nbf/audience/issuer/sub, JWKS outage/invalid JSON/empty keys, and local key-rotation cache-refresh tests pass. | Live Supabase project key-rotation verification remains external. |
 | DS-06 | Rate limiting is in-memory and proxy trust is unsafe. | Partial | P1 | `_client_key` trusts `x-forwarded-for`; in-memory buckets are single-process only. | Add trusted proxy config and pluggable rate-limit backend contract. |
 | DS-07 | TTS can fail analysis and is not production-natural TTS. | Partial | P1 | `synthesize_spoken_feedback` can raise; local cue fallback is not speech. | Graceful degradation and provider docs/tests. |
 | DS-08 | Audio files are public static artifacts without lifecycle protection. | Partial | P1 | Public static mount removed; signed links, TTL caps, secret validation, and cleanup command/tests exist. | Protected object storage and production audio hosting remain external. |
@@ -85,7 +85,7 @@ Release verdict: controlled technical beta only after P0 code-hardening items be
 
 | ID | Requirement | Status | Severity | Acceptance Criteria |
 | --- | --- | --- | --- | --- |
-| API-01 | Production authentication. | Partial | P0 | Supabase JWKS/JWT validation configured and tested with invalid/expired/wrong-audience tokens. |
+| API-01 | Production authentication. | Partial | P0 | Supabase JWT/JWKS verifier supports HS256 plus RS256/ES256 JWKS, validates exp/nbf/sub/aud/iss, refreshes JWKS on unknown `kid`, and returns controlled 401/503 errors. Live Supabase issuer/audience/key-rotation verification remains external. |
 | API-02 | Server-side Supabase persistence. | Not Started initially | P0 | Backend inserts verified analysis and feedback rows; frontend never uses service role. |
 | API-03 | RLS validation. | Partial | P0 | Migration includes RLS; tests against Supabase local/project prove owner isolation. |
 | API-04 | Production storage. | Not Started | P1 | Audio/clips are stored in protected storage with retention and signed access. |
@@ -142,7 +142,7 @@ Release verdict: controlled technical beta only after P0 code-hardening items be
 | TEST-01 | Python unit tests | Partial | P1 | `python -m pytest` must pass. |
 | TEST-02 | Backend API tests | Partial | P0 | Upload validation, auth, rate limit, overload, timeout, feedback evidence gating, persistence fallback, audio signing/cleanup, product feedback, and TTS failure tests. |
 | TEST-03 | True ML E2E | Blocked External | P0 | Real fixture through unmocked raw pipeline. |
-| TEST-04 | API security | Partial | P0 | Invalid tokens, JWKS outage, forged feedback/history payloads, size/type/rate limits, signed audio expiry, and evidence ownership checks. |
+| TEST-04 | API security | Partial | P0 | Invalid HS256/RS256/ES256 tokens, JWKS outage/invalid JSON/empty keys, key-cache refresh, forged feedback/history payloads, size/type/rate limits, signed audio expiry, and evidence ownership checks. |
 | TEST-05 | Supabase integration | Partial | P0 | Migration/RLS checks plus mocked/local service-role tests. |
 | TEST-06 | Frontend component tests | Not Started initially | P1 | Camera/upload/results/history/auth fallback tests. |
 | TEST-07 | Browser E2E | Not Started initially | P1 | Happy-path mocked API, auth fallback, feedback, upload review, result display. |
@@ -213,7 +213,7 @@ This section must be updated after implementation.
 | Command | Result | Duration | Notes |
 | --- | --- | --- | --- |
 | `python3 -m pytest` | Pass | 21.48s | 111 passed, 1 skipped. The skip is `ml/src/inference/tests/test_true_raw_video_e2e.py` because `ml/data/e2e/raw_batting_fixture.mp4` is absent. |
-| `python3 -m pytest backend/api/tests/test_api.py backend/api/tests/test_auth.py backend/api/tests/test_audio.py backend/api/tests/test_supabase_migrations.py` | Pass | 17.10s | 43 focused backend/API/auth/audio/migration tests passed. |
+| `python3 -m pytest backend/api/tests/test_api.py backend/api/tests/test_auth.py backend/api/tests/test_audio.py backend/api/tests/test_supabase_migrations.py` | Pass | superseded | Auth coverage now includes HS256/RS256/ES256/JWKS rotation; latest full Python evidence is below. |
 | `npm run lint` in `frontend` | Pass | about 9s | ESLint passed. |
 | `npm run build` in `frontend` | Pass | about 11s | TypeScript and Vite production build passed; `ShotCharts` emitted as separate lazy chunk. |
 | `npm run test` in `frontend` | Pass | 7.71s | 14 component/accessibility tests passed. jsdom logged the expected missing `HTMLCanvasElement.getContext()` implementation for chart-adjacent dependencies; no test failed. |

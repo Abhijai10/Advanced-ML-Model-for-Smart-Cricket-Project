@@ -642,10 +642,10 @@ def _jwk_int(value: str) -> int:
     return int.from_bytes(_base64url_decode(value), "big")
 
 
-def _load_jwks() -> list[dict[str, Any]]:
+def _load_jwks(*, force_refresh: bool = False) -> list[dict[str, Any]]:
     if not SETTINGS.supabase_url:
         return []
-    if time.time() - float(_JWKS_CACHE["loaded_at"]) < SETTINGS.jwks_cache_ttl_seconds:
+    if not force_refresh and time.time() - float(_JWKS_CACHE["loaded_at"]) < SETTINGS.jwks_cache_ttl_seconds:
         return list(_JWKS_CACHE["keys"])
     url = f"{SETTINGS.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
     try:
@@ -677,6 +677,9 @@ def _verify_asymmetric_jwt(token: str) -> dict[str, Any]:
     except JWKSUnavailableError:
         raise
     key = next((item for item in keys if item.get("kid") == kid and item.get("alg") in {None, alg}), None)
+    if not key and kid:
+        keys = _load_jwks(force_refresh=True)
+        key = next((item for item in keys if item.get("kid") == kid and item.get("alg") in {None, alg}), None)
     if not key:
         raise APIValidationError("Authorization signing key was not found.", "invalid_token")
     signing_input = f"{header_b64}.{payload_b64}".encode("ascii")

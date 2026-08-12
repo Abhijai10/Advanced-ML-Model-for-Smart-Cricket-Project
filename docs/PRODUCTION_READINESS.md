@@ -23,7 +23,8 @@ It should not be described as fully production-ready yet. The remaining blockers
 - Readiness checks checkpoint, scaler, schemas, technique templates, pose model, temp storage, auth configuration, production persistence, signing secret, evidence storage, and rate-limit backend when those are required.
 - `GET /capabilities` exposes non-secret frontend capability flags for auth, feedback, model-improvement participation, evidence retention, TTS mode, upload size, recording duration, and accepted video extensions.
 - Request IDs are attached to responses and error payloads.
-- Analysis requests can require Supabase JWTs by setting `SMART_CRICKET_REQUIRE_AUTH=true` and `SUPABASE_JWT_SECRET`.
+- Analysis requests can require Supabase JWTs by setting `SMART_CRICKET_REQUIRE_AUTH=true`. Legacy HS256 verification uses `SUPABASE_JWT_SECRET`; modern asymmetric Supabase tokens use `SUPABASE_URL` for JWKS plus `SUPABASE_JWT_AUDIENCE` and `SUPABASE_JWT_ISSUER`.
+- Local auth tests cover HS256, RS256, ES256, malformed signatures, empty/invalid JWKS responses, route-level JWKS outage behavior, and key-cache refresh on unknown `kid`. Live Supabase issuer/audience/key-rotation verification remains an external deployment gate.
 - Basic in-memory rate limiting protects single-process deployments and local demos.
 - Voice artifacts are unique per request and exposed through signed `/audio/<filename>` links. Production/staging require `SMART_CRICKET_AUDIO_SIGNING_SECRET`; the local fallback is test/development only.
 - UI duration uses backend timing from source video timestamps when available.
