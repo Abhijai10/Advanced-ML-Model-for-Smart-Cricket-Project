@@ -38,8 +38,10 @@ It should not be described as fully production-ready yet. The remaining blockers
 - Consent withdrawal now disables training eligibility immediately and attempts provider-aware evidence deletion using the stored `evidence_metadata.storage_provider`, not the current runtime provider setting.
 - Failed evidence deletion is marked `deletion_pending` for retry by `scripts/cleanup_evidence.py`; pending/deleted/withdrawn rows are not reviewable or exportable.
 - Reviewer/admin operations are available through `scripts/review_feedback_candidates.py`: list pending candidates, optionally issue short-lived reviewer evidence access, and record approve/reject decisions with reviewer provenance, label quality, split assignment, safety flags, and training inclusion version.
+- Supabase retained evidence can be served to trusted reviewers through short-lived Storage signed URLs generated server-side by the evidence provider. Live Supabase Storage verification still requires a private bucket and project credentials.
 - Voice output degrades to text-only metadata if TTS generation fails, so analysis does not fail just because audio generation is unavailable.
 - Analysis responses include `analysis_quality.status` with `ok`, `uncertain`, or `insufficient_quality` based on configurable confidence and clean-pose-frame thresholds.
+- ML evaluation tooling now supports player-disjoint manifest generation plus calibration/reliability reports for future player-held-out predictions. This does not change the current model validity blocker.
 
 ## Environment
 
@@ -131,3 +133,7 @@ python scripts/cleanup_evidence.py --execute
 ```
 
 Run without `--execute` for a dry run. Live Supabase Storage verification remains an external deployment gate.
+
+## ML Evaluation Tooling
+
+Use `python -m ml.src.evaluation.player_disjoint_split` for future manifests with player IDs, and `python -m ml.src.evaluation.evaluate_predictions` for player-held-out prediction reports. The evaluation output includes reliability data, ECE, Brier score, confidence rejection curves, confusion matrix, and class-wise metrics. These reports are release evidence only when run on larger, representative, coach-reviewed data.

@@ -38,6 +38,13 @@ def _iso(value: datetime) -> str:
     return value.isoformat().replace("+00:00", "Z")
 
 
+def _safe_object_path(object_path: str) -> Path | None:
+    safe = Path(object_path)
+    if not object_path or safe.is_absolute() or ".." in safe.parts or "\\" in object_path:
+        return None
+    return safe
+
+
 def evidence_is_reviewable(record: dict[str, Any], *, now: datetime | None = None) -> bool:
     """Return whether an analysis/feedback record still has reviewable evidence."""
     current = now or _utc_now()
@@ -143,8 +150,8 @@ class LocalEvidenceProvider(EvidenceProvider):
         )
 
     def delete(self, object_path: str) -> EvidenceOutcome:
-        safe = Path(object_path)
-        if safe.is_absolute() or ".." in safe.parts:
+        safe = _safe_object_path(object_path)
+        if safe is None:
             return EvidenceOutcome(False, "failed", self.provider_id, object_path, error_code="invalid_evidence_path")
         path = self.root / safe
         path.unlink(missing_ok=True)
@@ -152,8 +159,8 @@ class LocalEvidenceProvider(EvidenceProvider):
         return EvidenceOutcome(False, "deleted", self.provider_id, object_path)
 
     def reviewer_access_url(self, object_path: str, *, ttl_seconds: int = 300) -> EvidenceOutcome:
-        safe = Path(object_path)
-        if safe.is_absolute() or ".." in safe.parts:
+        safe = _safe_object_path(object_path)
+        if safe is None:
             return EvidenceOutcome(False, "failed", self.provider_id, object_path, error_code="invalid_evidence_path")
         return EvidenceOutcome(
             True,
@@ -233,6 +240,8 @@ class SupabaseEvidenceProvider(EvidenceProvider):
     def delete(self, object_path: str) -> EvidenceOutcome:
         if not self._configured():
             return EvidenceOutcome(False, "failed", self.provider_id, object_path, error_code="supabase_storage_not_configured")
+        if _safe_object_path(object_path) is None:
+            return EvidenceOutcome(False, "failed", self.provider_id, object_path, error_code="invalid_evidence_path")
         encoded_path = urllib.parse.quote(object_path)
         url = f"{SETTINGS.supabase_url.rstrip('/')}/storage/v1/object/{SETTINGS.evidence_supabase_bucket}/{encoded_path}"
         request = urllib.request.Request(
@@ -249,6 +258,52 @@ class SupabaseEvidenceProvider(EvidenceProvider):
         except Exception:
             return EvidenceOutcome(False, "temporary_failure", self.provider_id, object_path, error_code="supabase_storage_failed")
         return EvidenceOutcome(False, "deleted", self.provider_id, object_path)
+
+    def reviewer_access_url(self, object_path: str, *, ttl_seconds: int = 300) -> EvidenceOutcome:
+        """Generate a short-lived signed URL for trusted reviewer access."""
+        if not self._configured():
+            return EvidenceOutcome(False, "failed", self.provider_id, object_path, error_code="supabase_storage_not_configured")
+        if _safe_object_path(object_path) is None:
+            return EvidenceOutcome(False, "failed", self.provider_id, object_path, error_code="invalid_evidence_path")
+
+        ttl = max(1, min(int(ttl_seconds), 300))
+        encoded_path = urllib.parse.quote(object_path)
+        url = f"{SETTINGS.supabase_url.rstrip('/')}/storage/v1/object/sign/{SETTINGS.evidence_supabase_bucket}/{encoded_path}"
+        request = urllib.request.Request(
+            url,
+            data=json.dumps({"expiresIn": ttl}).encode("utf-8"),
+            method="POST",
+            headers={
+                "authorization": f"Bearer {SETTINGS.supabase_service_role_key}",
+                "apikey": SETTINGS.supabase_service_role_key or "",
+                "content-type": "application/json",
+            },
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=SETTINGS.persistence_timeout_seconds) as response:
+                payload = json.loads(response.read().decode("utf-8") or "{}")
+        except urllib.error.HTTPError as exc:
+            return EvidenceOutcome(False, "temporary_failure", self.provider_id, object_path, error_code=f"supabase_storage_http_{exc.code}")
+        except Exception:
+            return EvidenceOutcome(False, "temporary_failure", self.provider_id, object_path, error_code="supabase_storage_failed")
+
+        signed_url = payload.get("signedURL") or payload.get("signedUrl") or payload.get("signed_url")
+        if not isinstance(signed_url, str) or not signed_url:
+            return EvidenceOutcome(False, "failed", self.provider_id, object_path, error_code="supabase_signed_url_missing")
+        if signed_url.startswith("/"):
+            signed_url = f"{SETTINGS.supabase_url.rstrip('/')}{signed_url}"
+        return EvidenceOutcome(
+            True,
+            "stored",
+            self.provider_id,
+            object_path,
+            metadata={
+                "signed_url": signed_url,
+                "ttl_seconds": ttl,
+                "access_type": "supabase_storage_signed_url",
+                "public": False,
+            },
+        )
 
 
 def get_evidence_provider_by_id(provider_id: str | None) -> EvidenceProvider:

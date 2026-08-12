@@ -52,6 +52,8 @@ python scripts/review_feedback_candidates.py list
 python scripts/review_feedback_candidates.py list --include-access
 ```
 
+For local development evidence, `--include-access` returns a bounded local path for a trusted maintainer. For Supabase Storage evidence, it requests a short-lived private-bucket signed URL from the server-side provider using backend-only credentials. These access tokens are for reviewer operations only and must not be exposed through the public frontend.
+
 Then record a reviewer decision:
 
 ```bash

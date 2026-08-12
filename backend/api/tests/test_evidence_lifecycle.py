@@ -5,14 +5,16 @@ from __future__ import annotations
 import tempfile
 import unittest
 from dataclasses import replace
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
+import urllib.error
 
 from fastapi.testclient import TestClient
 
 from backend.api.app import app
 from backend.api.config import SETTINGS
-from backend.api.evidence import EvidenceOutcome, delete_evidence_for_record
+from backend.api.evidence import EvidenceOutcome, SupabaseEvidenceProvider, delete_evidence_for_record
 from backend.api.persistence import PersistenceResult
 from backend.api.services import AuthContext, enforce_auth
 
@@ -52,6 +54,91 @@ class EvidenceLifecycleTests(unittest.TestCase):
             outcome = delete_evidence_for_record(record)
         delete_mock.assert_called_once_with("user/session/object.webm")
         self.assertEqual(outcome.status, "deleted")
+
+    def test_supabase_reviewer_access_uses_signed_url_and_caps_ttl(self) -> None:
+        settings = replace(
+            SETTINGS,
+            supabase_url="https://project.supabase.co",
+            supabase_service_role_key="service-secret",
+            evidence_supabase_bucket="smart-cricket-evidence",
+        )
+
+        class FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self) -> bytes:
+                return b'{"signedURL": "/storage/v1/object/sign/smart-cricket-evidence/user/session/object.webm?token=abc"}'
+
+        with patch("backend.api.evidence.SETTINGS", settings), patch(
+            "backend.api.evidence.urllib.request.urlopen",
+            return_value=FakeResponse(),
+        ) as urlopen:
+            outcome = SupabaseEvidenceProvider().reviewer_access_url("user/session/object.webm", ttl_seconds=999)
+
+        request = urlopen.call_args.args[0]
+        self.assertEqual(outcome.status, "stored")
+        self.assertEqual(outcome.metadata["ttl_seconds"], 300)
+        self.assertEqual(outcome.metadata["access_type"], "supabase_storage_signed_url")
+        self.assertTrue(outcome.metadata["signed_url"].startswith("https://project.supabase.co/storage/v1/object/sign/"))
+        self.assertEqual(request.method, "POST")
+        self.assertEqual(request.headers["Authorization"], "Bearer service-secret")
+        self.assertIn(b'"expiresIn": 300', request.data)
+
+    def test_supabase_reviewer_access_rejects_traversal(self) -> None:
+        settings = replace(
+            SETTINGS,
+            supabase_url="https://project.supabase.co",
+            supabase_service_role_key="service-secret",
+            evidence_supabase_bucket="smart-cricket-evidence",
+        )
+        with patch("backend.api.evidence.SETTINGS", settings):
+            outcome = SupabaseEvidenceProvider().reviewer_access_url("../object.webm")
+
+        self.assertEqual(outcome.status, "failed")
+        self.assertEqual(outcome.error_code, "invalid_evidence_path")
+
+    def test_supabase_delete_rejects_traversal_without_http_call(self) -> None:
+        settings = replace(
+            SETTINGS,
+            supabase_url="https://project.supabase.co",
+            supabase_service_role_key="service-secret",
+            evidence_supabase_bucket="smart-cricket-evidence",
+        )
+        with patch("backend.api.evidence.SETTINGS", settings), patch(
+            "backend.api.evidence.urllib.request.urlopen",
+        ) as urlopen:
+            outcome = SupabaseEvidenceProvider().delete("user/../object.webm")
+
+        self.assertEqual(outcome.status, "failed")
+        self.assertEqual(outcome.error_code, "invalid_evidence_path")
+        urlopen.assert_not_called()
+
+    def test_supabase_reviewer_access_reports_http_failure(self) -> None:
+        settings = replace(
+            SETTINGS,
+            supabase_url="https://project.supabase.co",
+            supabase_service_role_key="service-secret",
+            evidence_supabase_bucket="smart-cricket-evidence",
+        )
+        error = urllib.error.HTTPError(
+            "https://project.supabase.co/storage/v1/object/sign/bucket/object",
+            403,
+            "Forbidden",
+            {},
+            BytesIO(b"forbidden"),
+        )
+        with patch("backend.api.evidence.SETTINGS", settings), patch(
+            "backend.api.evidence.urllib.request.urlopen",
+            side_effect=error,
+        ):
+            outcome = SupabaseEvidenceProvider().reviewer_access_url("user/session/object.webm")
+
+        self.assertEqual(outcome.status, "temporary_failure")
+        self.assertEqual(outcome.error_code, "supabase_storage_http_403")
 
     def test_unknown_evidence_provider_is_not_deleted_by_current_config(self) -> None:
         record = {

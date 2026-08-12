@@ -13,6 +13,7 @@
   --warning: oklch(0.68 0.14 72);
   --danger: oklch(0.55 0.18 25);
   --line: oklch(0.88 0.01 110);
+  --focus: oklch(0.72 0.12 110 / 0.45);
   --white: oklch(1 0 0);
   --shadow: 0 8px 20px oklch(0.22 0.02 112 / 0.08);
   font-family:
@@ -834,6 +835,32 @@ meter {
   margin-top: 18px;
 }
 
+.history-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.history-tools label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.history-tools select {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0 34px 0 10px;
+  color: var(--ink);
+  background: var(--white);
+  font-weight: 750;
+}
+
 .chart-wrap {
   overflow: hidden;
   border: 1px solid var(--line);
@@ -901,9 +928,16 @@ meter {
   }
 
   .app-header,
-  .panel-heading {
+  .panel-heading,
+  .history-tools {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .history-tools,
+  .history-tools label,
+  .history-tools select {
+    width: 100%;
   }
 
   .auth-intro h1,

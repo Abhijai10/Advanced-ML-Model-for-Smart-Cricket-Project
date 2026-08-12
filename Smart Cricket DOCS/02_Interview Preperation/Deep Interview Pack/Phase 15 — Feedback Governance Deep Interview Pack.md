@@ -14,7 +14,7 @@ Deep answer:
 
 1. `POST /feedback` stores user-reported feedback only after verifying ownership of `analysis_session_id`.
 2. `scripts/review_feedback_candidates.py list` returns pending candidates with reviewable evidence.
-3. `scripts/review_feedback_candidates.py list --include-access` can request short-lived reviewer access from the stored evidence provider.
+3. `scripts/review_feedback_candidates.py list --include-access` can request short-lived reviewer access from the stored evidence provider. Local evidence returns a trusted maintainer path; Supabase evidence returns a server-created private-bucket signed URL.
 4. `scripts/review_feedback_candidates.py decision` records reviewer ID, label, quality score, second-review flag, notes, safety flags, split assignment, and training inclusion version.
 5. `scripts/export_feedback_candidates.py` exports only approved, eligible, unexpired, non-withdrawn rows.
 
@@ -26,9 +26,9 @@ Deep answer: General bug reports and feature requests now go to `product_feedbac
 
 ## What prevents privacy mistakes?
 
-Short answer: Consent, provider-aware deletion, expiration cleanup, and export filters.
+Short answer: Consent, private evidence, provider-aware deletion, short-lived reviewer access, expiration cleanup, and export filters.
 
-Deep answer: Evidence metadata records the storage provider, object path, checksum, user ID, analysis session ID, consent version, and retention deadline. Withdrawal disables training eligibility immediately and attempts physical deletion. If deletion fails, the row is marked `deletion_pending` and remains excluded from reviewer export.
+Deep answer: Evidence metadata records the storage provider, object path, checksum, user ID, analysis session ID, consent version, and retention deadline. Reviewer access is generated server-side through the original provider and is short-lived. Withdrawal disables training eligibility immediately and attempts physical deletion. If deletion fails, the row is marked `deletion_pending` and remains excluded from reviewer export.
 
 ## What is still not production-complete?
 

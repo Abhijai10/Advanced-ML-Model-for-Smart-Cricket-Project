@@ -18,6 +18,11 @@ The current split is deterministic and class-balanced:
 
 This split is not player-disjoint. It should not be used as evidence of unseen-player generalization.
 
+Future manifests with player/group identity metadata can be split with
+`ml/src/evaluation/player_disjoint_split.py`. The utility writes a manifest with
+a `split` column plus a JSON summary proving whether train, validation, and test
+are group-disjoint. It intentionally fails when player/group IDs are missing.
+
 ## Known Gaps
 
 - More players, camera positions, lighting conditions, and skill levels are needed.
@@ -27,7 +32,7 @@ This split is not player-disjoint. It should not be used as evidence of unseen-p
 
 ## Next Dataset Work
 
-- Add player IDs and group-aware split generation.
-- Report per-player and per-class metrics.
+- Run player-disjoint split generation once the next consented manifest includes player IDs.
+- Report per-player and per-class metrics from player-held-out predictions.
 - Add uncertainty thresholds and insufficient-quality labels.
 - Keep dataset shape/count validation data-driven for larger datasets.

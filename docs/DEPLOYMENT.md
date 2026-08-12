@@ -44,6 +44,7 @@ Set:
 - Set `SUPABASE_SERVICE_ROLE_KEY` only on the backend. Never expose it to the frontend.
 - Set `SMART_CRICKET_AUDIO_SIGNING_SECRET` to a high-entropy secret that is not the Supabase service-role key.
 - Set `SMART_CRICKET_EVIDENCE_STORAGE_BACKEND=supabase`, `SMART_CRICKET_EVIDENCE_SUPABASE_BUCKET`, and private bucket policies before enabling model-improvement participation.
+- Use `python scripts/review_feedback_candidates.py list --include-access` only from a trusted backend/maintainer environment. Supabase reviewer access is generated as a short-lived signed URL and requires backend-only Supabase credentials.
 - Schedule `python scripts/cleanup_audio.py` for generated audio cleanup.
 - Schedule `python scripts/cleanup_evidence.py --execute` for expired or deletion-pending retained evidence after protected evidence storage is enabled.
 - Set a narrow `SMART_CRICKET_CORS_ORIGINS` value.

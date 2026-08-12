@@ -11,6 +11,8 @@ Current Phase:
 - Phase 13 Completed — API Integration
 - Phase 14 Completed — Voice Output
 - Core roadmap completed through Phase 14
+- Post-Phase Production Hardening in progress on PR #3
+- Current release verdict: restricted internal beta candidate only, not public production-ready
 
 Project Architecture Status:
 - Baseline tabular ML pipeline completed
@@ -20,6 +22,9 @@ Project Architecture Status:
 - temporal model architecture layer completed
 - GRU architecture validated
 - BiLSTM architecture validated
+- Trusted analysis persistence boundary added
+- Evidence-retention and reviewer workflow architecture added
+- ML evaluation governance tooling added for future player-held-out datasets
 
 Project Status:
 - Full preprocessing pipeline completed
@@ -63,6 +68,13 @@ Project Status:
 - Phase 14 voice output layer completed
 - playable audio artifact and frontend audio-ready response generated from `spoken_feedback`
 - React website/app shell completed for camera capture, Supabase auth, analysis history, and shot charts
+- Product feedback separated from model-analysis feedback
+- Feedback is bound to server-created analysis sessions before model-improvement review
+- Model-improvement candidates require authenticated consent plus retained, unexpired, reviewable evidence
+- Supabase evidence reviewer access can be generated through short-lived server-side signed URLs
+- Player-disjoint split and calibration/reliability report tools are available for future evaluation data
+- Real-video Phase 12 validation remains blocked until a legal raw batting-video fixture is added
+- ML production validity remains blocked by larger player-held-out data, calibration, and coach validation
 
 Current Outputs:
 
@@ -168,6 +180,21 @@ Website/App Artifacts:
 - DESIGN.md
 - supabase/migrations/202608040001_smart_cricket_app_schema.sql
 - ml/src/inference/raw_video_pipeline.py
+
+Post-Phase Production Hardening Artifacts:
+- docs/MASTER_PRODUCTION_READINESS_CHECKLIST.md
+- docs/PRODUCTION_READINESS.md
+- docs/FEEDBACK_REVIEW_AND_RETRAINING_WORKFLOW.md
+- docs/ML_EVALUATION_AND_DATASET_GOVERNANCE.md
+- backend/api/evidence.py
+- backend/api/persistence.py
+- backend/api/rate_limit.py
+- scripts/review_feedback_candidates.py
+- scripts/export_feedback_candidates.py
+- scripts/cleanup_evidence.py
+- ml/src/evaluation/player_disjoint_split.py
+- ml/src/evaluation/calibration_report.py
+- ml/src/evaluation/evaluate_predictions.py
 
 Current Dataset Status:
 - 80 validated ML samples

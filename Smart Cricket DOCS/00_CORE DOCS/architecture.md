@@ -43,12 +43,59 @@ It detects common mistakes and provides actionable suggestions (for example, sta
 
 ## 9. API Layer
 
-The backend API exposes endpoints for video upload, inference execution, score retrieval, and feedback delivery.  
-It coordinates data flow between storage, ML pipeline modules, and response formatting.
+The backend API exposes endpoints for video upload, inference execution, readiness, capabilities, feedback, product feedback, consent withdrawal, evidence deletion, and signed audio delivery.
 
-## 10. Future Frontend Integration
+It coordinates:
 
-A future web interface can connect to the API to upload videos, display final shot prediction, show technique score, and present coaching feedback in a user-friendly dashboard.
+- upload validation;
+- bounded analysis capacity;
+- raw-video inference;
+- model provenance;
+- trusted server-side persistence;
+- consented evidence retention;
+- text/audio response formatting;
+- feedback review eligibility.
+
+## 10. Frontend Product Layer
+
+The web app is now an active Smart Cricket workspace, not only a future integration target.
+
+It supports:
+
+- Supabase-backed authentication when configured;
+- local demo mode when Supabase is absent;
+- camera recording with countdown, timer, preview, retake, and upload fallback;
+- model-improvement consent controls based on backend capabilities;
+- prediction, confidence, technique score, quality state, timing, probabilities, coaching tips, and audio/text fallback;
+- feedback collection bound to verified analysis sessions;
+- trusted/local/demo history labels and filters.
+
+The frontend must never claim that local rows are secure server history. Trusted history comes from backend-created `analysis_sessions` rows.
+
+## 11. Feedback and Evidence Governance Layer
+
+User feedback is not ground truth. It becomes a review candidate only when:
+
+- the user is authenticated;
+- the feedback is bound to a verified server analysis;
+- model-improvement participation is enabled;
+- the user gave consent;
+- protected evidence was retained before analysis;
+- evidence has not expired, been withdrawn, or been deleted.
+
+General usability, bug, and feature feedback is stored separately in `product_feedback` and never enters ML-training workflows.
+
+## 12. Release-Gate Layer
+
+Production claims require evidence outside the current codebase:
+
+- legal real raw-video fixture for Phase 12 E2E;
+- live Supabase auth, RLS, persistence, and private Storage verification;
+- production hosting, TLS, CORS, secrets, and monitoring;
+- larger consented dataset with player/group IDs;
+- player-held-out calibration and evaluation reports;
+- coach review of labels and advice safety;
+- privacy/legal approval for consent, retention, deletion, and incident response.
 
 ## End-to-End Data Flow
 
@@ -61,4 +108,30 @@ A future web interface can connect to the API to upload videos, display final sh
 7. Sequence Model Layer predicts one final shot label.
 8. Technique Scoring Layer computes match percentage vs references.
 9. Feedback Engine generates mistake analysis and coaching advice.
-10. API Layer returns prediction, score, and feedback (for backend clients now and frontend apps later).
+10. API Layer returns prediction, score, feedback, provenance, quality state, audio state, persistence state, and optional evidence-retention state.
+11. Backend persists trusted analysis history when authenticated server-side persistence is configured.
+12. Frontend displays trusted rows as server-saved and local/demo rows as untrusted.
+13. User feedback is saved as metadata or a human-review candidate depending on consent and retained evidence.
+
+## Current Production-Hardened Data Flow
+
+```mermaid
+flowchart TD
+  A["Camera or upload clip"] --> B["Frontend preview and consent controls"]
+  B --> C["FastAPI /analyze"]
+  C --> D["Validation: extension, bytes, size, duration, resolution"]
+  D --> E["Raw video pipeline"]
+  E --> F["Pose extraction, cleaning, normalization, 60x32 features"]
+  F --> G["Temporal GRU classifier"]
+  G --> H["Technique scoring and feedback"]
+  H --> I["Signed audio or text-only fallback"]
+  H --> J["Server-owned analysis_sessions row"]
+  J --> K["Trusted history in frontend"]
+  J --> L["Optional protected evidence object"]
+  L --> M["Human reviewer CLI"]
+  M --> N["Adjudicated export manifest"]
+```
+
+## Current Release Verdict
+
+Smart Cricket is a restricted internal beta candidate after PR #3 is green and reviewed. It is not public production-ready until the external release gates are satisfied.

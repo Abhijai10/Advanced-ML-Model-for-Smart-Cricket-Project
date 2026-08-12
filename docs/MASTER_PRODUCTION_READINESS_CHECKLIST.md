@@ -1,9 +1,9 @@
 # Smart Cricket - Master Production Readiness Checklist and Current State
 
-Last updated: 2026-08-04
+Last updated: 2026-08-12
 Working branch: `production-readiness-execution`
 Base branch: `origin/production-hardening`
-Existing PR context: draft PR #2, `production-hardening` -> `main`
+Active PR context: draft PR #3, `production-readiness-execution` -> `production-hardening`
 
 ## Executive Readiness Verdict
 
@@ -16,7 +16,8 @@ Release verdict: controlled technical beta only after P0 code-hardening items be
 - `main`: latest local and remote main is `49cfbf3 Add Smart Cricket website app`; it does not contain `production-hardening`.
 - `origin/production-hardening`: latest inspected commit is `796521f Polish frontend browser basics`.
 - Working branch for this execution: `production-readiness-execution`, created from `origin/production-hardening`.
-- Draft PR #2 exists per prior review and appears to contain production-hardening work. This pass should create or update a draft PR from `production-readiness-execution`; it must not merge automatically.
+- Draft PR #2 exists per prior review and contains the upstream `production-hardening` work toward `main`.
+- Draft PR #3 is the active execution PR from `production-readiness-execution` into `production-hardening`; it must not merge automatically.
 - No production deployment, release tag, verified Supabase project, or production CI run was confirmed during the initial audit.
 
 ## Roadmap Phase 1-14 Status
@@ -28,9 +29,9 @@ Release verdict: controlled technical beta only after P0 code-hardening items be
 | RM-03 | Phase 3: pose extraction | Partial | P0 | `ml/src/preprocessing/extract_pose.py` and MediaPipe path exist; not validated in CI against a real cricket video. | Real-video MediaPipe extraction test passes or explicit fixture blocker remains. |
 | RM-04 | Phase 4: cleaning/normalization | Partial | P1 | Cleaning, normalization, alignment modules exist; field robustness unverified. | Tests with varied framing/lighting/occlusion and coach-reviewed quality labels. |
 | RM-05 | Phase 5: feature engineering | Partial | P0 | 32-D schema exists; `lead_wrist_acceleration` is documented as acceleration-like but actually computes abs lead-vs-trail velocity difference. Duplicate feature systems still exist. | Versioned feature contract and migration plan; no silent tensor change without retraining. |
-| RM-06 | Phase 6: dataset infrastructure | Partial | P0 | Temporal dataset is `(80, 60, 32)` with 80 samples; split metadata exists. | Player/group metadata, scalable manifests, group-held-out split generation. |
+| RM-06 | Phase 6: dataset infrastructure | Partial | P0 | Temporal dataset is `(80, 60, 32)` with 80 samples; split metadata exists. Player-disjoint split tooling now exists for future manifests with player/group IDs. | Larger consented dataset, complete player/group metadata, and actual group-held-out split execution. |
 | RM-07 | Phase 7: temporal architectures | Complete for prototype | P2 | GRU/BiLSTM architecture and shape tests exist. | Production gate still depends on valid dataset/evaluation. |
-| RM-08 | Phase 8: training/evaluation | Partial | P0 | Best model checkpoint exists; model card reports test accuracy 0.6667 and macro F1 0.6762; split is not player-disjoint. | Player-held-out metrics, calibration, confidence thresholds, drift plan. |
+| RM-08 | Phase 8: training/evaluation | Partial | P0 | Best model checkpoint exists; model card reports test accuracy 0.6667 and macro F1 0.6762; split is not player-disjoint. Calibration/reliability report tooling now exists. | Player-held-out metrics, calibrated confidence thresholds, drift plan, and coach validation. |
 | RM-09 | Phase 9: segmentation/prediction gating | Partial | P1 | State machine emits one trigger; reusable reset/rearm behavior is missing at initial audit. | Multi-shot/rearm tests pass while one-shot default remains unchanged. |
 | RM-10 | Phase 10: technique scoring | Partial | P1 | Rule/template scoring artifacts exist; not coach-certified and may be sensitive to feature semantics. | Coach validation and per-issue safety review. |
 | RM-11 | Phase 11: feedback engine | Partial | P1 | Feedback text exists and the beta feedback/reviewer workflow now has consent, evidence gating, reviewer decision capture, and approved-candidate export helpers. | Real coach/expert adjudication and advice-safety validation remain external. |
@@ -63,8 +64,8 @@ Release verdict: controlled technical beta only after P0 code-hardening items be
 | ID | Blocker | Status | Severity | Acceptance Criteria |
 | --- | --- | --- | --- | --- |
 | ML-01 | Dataset has only 80 samples. | Blocked External | P0 | Larger consented dataset across players, devices, lighting, camera positions, skill levels. |
-| ML-02 | Official split is not player-disjoint. | Blocked External | P0 | Player/group IDs and held-out evaluation with no player leakage. |
-| ML-03 | Calibration and uncertainty thresholds are engineering heuristics. | Partial | P0 | Calibrated probabilities and thresholds validated on held-out data. |
+| ML-02 | Official split is not player-disjoint. | Blocked External | P0 | Player-disjoint split utility is implemented, but release evidence still requires player/group IDs and held-out evaluation with no player leakage. |
+| ML-03 | Calibration and uncertainty thresholds are engineering heuristics. | Partial | P0 | Calibration/reliability report utility is implemented; calibrated probabilities and thresholds still require held-out data. |
 | ML-04 | No coach validation of shot labels, technique issues, or advice safety. | Blocked External | P0 | Coach-reviewed label and feedback acceptance report. |
 | ML-05 | Feature schema migration is unresolved. | Partial | P0 | Versioned feature contract, migration guide, retrained artifacts for any tensor change. |
 | ML-06 | `lead_wrist_acceleration` semantic mismatch. | Partial | P0 | Metadata documents v1 meaning; v2 migration is explicit and retrained. |
@@ -152,7 +153,7 @@ Release verdict: controlled technical beta only after P0 code-hardening items be
 | TEST-11 | Privacy/security | Partial | P0 | Retention, consent, protected storage, secrets audit. |
 | TEST-12 | Container/deployment smoke | Done | P1 | GitHub Actions builds the API image, starts it, and checks `/health` plus `/ready`. |
 | TEST-13 | Migration/rollback | Partial | P1 | SQL migration syntax, RLS, rollback/disaster recovery docs. |
-| TEST-14 | Model evaluation | Blocked External | P0 | Player-held-out metrics, calibration, drift monitoring. |
+| TEST-14 | Model evaluation | Partial / Blocked External | P0 | Tooling exists for player-disjoint split summaries and calibration/reliability reports; real player-held-out metrics, calibration, and drift monitoring still require a larger labelled dataset. |
 | TEST-15 | Coach/user acceptance | Blocked External | P0 | Coach and beta-user acceptance reports. |
 
 ## Can Be Completed in Code Now
@@ -204,7 +205,7 @@ Release verdict: controlled technical beta only after P0 code-hardening items be
 
 Release gate A, controlled beta: all P0 code items done or explicitly blocked external; Python/API/frontend checks pass; no mock is represented as real-E2E.
 
-Release gate B, public production: all P0/P1 code items pass, real-video E2E passes, Supabase/auth/deployment/TLS are verified, dataset is larger and player-held-out, coach validation is complete, and privacy/retention is approved.
+Release gate B, public production: all P0/P1 code items pass, real-video E2E passes, Supabase/auth/deployment/TLS are verified, dataset is larger and player-held-out, calibration/reliability reports pass thresholds, coach validation is complete, and privacy/retention is approved.
 
 ## Verification Log
 
@@ -212,19 +213,26 @@ This section must be updated after implementation.
 
 | Command | Result | Duration | Notes |
 | --- | --- | --- | --- |
-| `python3 -m pytest` | Pass | 21.48s | 111 passed, 1 skipped. The skip is `ml/src/inference/tests/test_true_raw_video_e2e.py` because `ml/data/e2e/raw_batting_fixture.mp4` is absent. |
+| `python3 -m pytest` | Pass | 19.62s | 154 passed, 1 skipped, 8 subtests passed. The skip is `ml/src/inference/tests/test_true_raw_video_e2e.py` because `ml/data/e2e/raw_batting_fixture.mp4` is absent. |
 | `python3 -m pytest backend/api/tests/test_api.py backend/api/tests/test_auth.py backend/api/tests/test_audio.py backend/api/tests/test_supabase_migrations.py` | Pass | superseded | Auth coverage now includes HS256/RS256/ES256/JWKS rotation; latest full Python evidence is below. |
-| `npm run lint` in `frontend` | Pass | about 9s | ESLint passed. |
-| `npm run build` in `frontend` | Pass | about 11s | TypeScript and Vite production build passed; `ShotCharts` emitted as separate lazy chunk. |
-| `npm run test` in `frontend` | Pass | 7.71s | 14 component/accessibility tests passed. jsdom logged the expected missing `HTMLCanvasElement.getContext()` implementation for chart-adjacent dependencies; no test failed. |
-| `npm run test:e2e` in `frontend` | Pass | 6.8s | 1 Playwright Chromium test passed with mocked `/analyze` and `/feedback`; not real ML evidence. |
-| `npm audit --audit-level=high` in `frontend` | Pass | about 1s | 0 vulnerabilities reported after adding `axe-core`. |
+| `npm run lint` in `frontend` | Pass | 3.8s | ESLint passed. |
+| `npm run build` in `frontend` | Pass | 4.97s | TypeScript and Vite production build passed; `ShotCharts` emitted as separate lazy chunk. |
+| `npm run test -- --run` in `frontend` | Pass | 3.05s | 18 component/accessibility tests passed. jsdom logged the expected missing `HTMLCanvasElement.getContext()` implementation for chart-adjacent dependencies; no test failed. |
+| `npm run test:e2e` in `frontend` | Pass | 4.4s | 1 Playwright Chromium test passed with mocked `/analyze` and `/feedback`; not real ML evidence. |
+| `npm audit --audit-level=high` in `frontend` | Pass | about 1s | 0 vulnerabilities reported. |
 | secret scan for service-role/JWT patterns | Pass | immediate | No obvious service-role key, `sb_secret_`, or JWT-like value found outside docs/examples. |
 | real raw video fixture search | Blocked External | immediate | No `.mp4`, `.mov`, `.webm`, `.avi`, or `.mkv` fixture was found in the repository. |
 | `supabase migration list --local` | Blocked External | about 11s | Supabase CLI exists, but no local Postgres/Supabase DB is running; live RLS verification remains external. |
 | `docker --version` | Blocked External | immediate | Docker CLI is not installed locally, so local container smoke cannot run here. |
 | GitHub Actions container smoke | Pass | 3m09s | Remote CI builds the image, starts the container, calls `/health`, calls `/ready`, prints readiness details, and removes the container. Local Docker CLI is not installed. |
 | `python3 -m json.tool ml/data/final_temporal/temporal_feature_schema.json` | Pass | immediate | Feature schema JSON remains parseable. |
+| `python3 -m pytest backend/api/tests/test_evidence_lifecycle.py ml/src/evaluation/tests -q` | Pass | 19.91s | 15 tests passed before the final explicit-label guard; the final full Python run covers the added evaluation regression. |
+| `python3 -m pytest backend/api/tests/test_evidence_lifecycle.py -q` | Pass | 15.19s | 9 tests passed, including Supabase signed reviewer access and Supabase deletion traversal rejection. |
+| `python3 -m pytest ml/src/evaluation/tests -q` | Pass | 0.02s | 8 tests passed, including the explicit-label mismatch guard. |
+| `python3 -m pytest backend/api/tests/test_review_feedback_candidates.py -q` | Pass | 0.04s | 4 tests passed; reviewer candidate listing/export behavior remains covered after adding signed access support. |
+| `python3 -m ml.src.evaluation.evaluate_predictions --predictions /tmp/smart-cricket-predictions.csv --output-dir /tmp/smart-cricket-eval --labels cover_drive,pull_shot --run-id smoke` | Pass | immediate | Smoke report and reliability SVG were generated under `/tmp/smart-cricket-eval/smoke`. This validates tooling only, not model quality. |
+| `npm run test -- --run src/components/ShotCharts.test.tsx src/components/Accessibility.test.tsx` in `frontend` | Pass | about 2s | 3 focused component/accessibility tests passed; jsdom emitted the expected canvas warning from chart-adjacent dependencies. |
+| Desktop/tablet/mobile Playwright screenshot smoke against local Vite app | Pass with caveat | immediate | Login and demo workspace screenshots rendered without horizontal overflow at 1440px, 820px, 430px, and 390px. Local `/capabilities` probes can log expected connection-refused errors when no backend is running during screenshot capture. |
 
 ## Final Checklist Status
 
@@ -232,7 +240,7 @@ Phase D status: code-feasible P0/P1 items were implemented where possible. Produ
 
 Done: `NOW-01`, `NOW-03`, `NOW-04`, `NOW-05`, `NOW-09`, `NOW-10`, `NOW-11`, `NOW-12`, `NOW-14`, `NOW-15`, `NOW-16`, `NOW-17`, `NOW-18`, `NOW-21`, `NOW-22`.
 
-Partial: `NOW-02` because countdown/auto-stop/MIME handling are implemented and unit-tested but real-device mobile recording remains unverified; `NOW-06`, `NOW-07`, `NOW-08`, `NOW-19`, `NOW-20` because code/mock tests now enforce safe feedback, server-owned history, evidence gating, retention/deletion paths, and non-training product feedback, but live Supabase/RLS/storage verification remains external.
+Partial: `NOW-02` because countdown/auto-stop/MIME handling are implemented and unit-tested but real-device mobile recording remains unverified; `NOW-06`, `NOW-07`, `NOW-08`, `NOW-19`, `NOW-20` because code/mock tests now enforce safe feedback, server-owned history, evidence gating, retention/deletion paths, Supabase signed reviewer access, and non-training product feedback, but live Supabase/RLS/storage verification remains external.
 
 Blocked External: `NOW-13`, `E2E-01` through `E2E-05`, `EXT-01` through `EXT-08`.
 

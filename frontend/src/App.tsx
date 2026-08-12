@@ -167,7 +167,7 @@ function App() {
         <div className="history-empty">Loading history...</div>
       ) : (
         <Suspense fallback={<div className="history-empty">Loading trends...</div>}>
-          <ShotCharts rows={history} />
+          <ShotCharts rows={history} onRefresh={userId ? () => refreshTrustedHistory(userId) : undefined} />
         </Suspense>
       )}
     </div>

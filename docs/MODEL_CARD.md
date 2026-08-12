@@ -43,3 +43,15 @@ API responses include `analysis_quality.status`:
 - `insufficient_quality` when too few clean pose frames are available.
 
 These thresholds are engineering safeguards, not calibrated clinical or coaching guarantees.
+
+## Evaluation Tooling
+
+`ml/src/evaluation/evaluate_predictions.py` generates the repeatable release
+evaluation report for prediction files that contain true labels and class
+probabilities. It reports accuracy, macro F1, class-wise metrics, confusion
+matrix, negative log likelihood, multiclass Brier score, expected calibration
+error, maximum calibration error, reliability-bin data, a reliability SVG, and
+confidence-threshold rejection coverage.
+
+The report must be produced from player-held-out, coach-reviewed predictions
+before it can support release claims.
