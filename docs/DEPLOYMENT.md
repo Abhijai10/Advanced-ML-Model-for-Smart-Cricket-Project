@@ -48,6 +48,7 @@ Set:
 - Schedule `python scripts/cleanup_evidence.py --execute` for expired or deletion-pending retained evidence after protected evidence storage is enabled.
 - Set a narrow `SMART_CRICKET_CORS_ORIGINS` value.
 - Use protected object storage and a cleanup policy for generated audio and any retained model-improvement evidence.
-- Put a reverse proxy in front of the API for TLS and stronger distributed rate limiting; production multi-instance deployments should use Redis/gateway rate limiting rather than process memory.
+- Put a reverse proxy in front of the API for TLS and configure `SMART_CRICKET_TRUSTED_PROXY_HOPS` only for proxies you operate.
+- Production multi-instance deployments should set `SMART_CRICKET_RATE_LIMIT_BACKEND=redis` with `SMART_CRICKET_REDIS_URL`, or `SMART_CRICKET_RATE_LIMIT_BACKEND=gateway` when a verified external gateway/WAF owns rate limiting. Do not use the memory backend for public production.
 - Keep trusted analysis history server-side. Browser roles must not receive `INSERT` or `UPDATE` grants on `analysis_sessions`.
 - Run the container smoke from CI locally before production: build image, start container, call `/health`, call `/ready`, inspect logs, shut down cleanly.

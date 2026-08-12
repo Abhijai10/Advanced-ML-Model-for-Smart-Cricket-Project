@@ -83,6 +83,7 @@ class APISettings:
     jwks_timeout_seconds: int = _int_env("SMART_CRICKET_JWKS_TIMEOUT_SECONDS", 5)
     jwks_cache_ttl_seconds: int = _int_env("SMART_CRICKET_JWKS_CACHE_TTL_SECONDS", 600)
     rate_limit_backend: str = os.getenv("SMART_CRICKET_RATE_LIMIT_BACKEND", "memory")
+    redis_url: str | None = os.getenv("SMART_CRICKET_REDIS_URL") or None
 
 
 SETTINGS = APISettings()

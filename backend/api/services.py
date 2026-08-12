@@ -12,7 +12,6 @@ import time
 import threading
 import urllib.request
 import concurrent.futures
-from collections import defaultdict, deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -41,12 +40,15 @@ from .config import SETTINGS
 from .evidence import EvidenceOutcome, get_evidence_provider
 from .persistence import persist_analysis_session
 from .provenance import build_provenance
+from .rate_limit import MemoryRateLimiter, RedisRateLimiter, memory_buckets, request_rate_key
 from .services_version import PHASE13_VERSION
 
 
 ALLOWED_VIDEO_EXTENSIONS = {".avi", ".mkv", ".mov", ".mp4", ".webm"}
-_RATE_LIMIT_BUCKETS: dict[str, deque[float]] = defaultdict(deque)
-_FEEDBACK_RATE_LIMIT_BUCKETS: dict[str, deque[float]] = defaultdict(deque)
+_RATE_LIMIT_BUCKETS = memory_buckets()
+_FEEDBACK_RATE_LIMIT_BUCKETS = memory_buckets()
+_MEMORY_RATE_LIMITER = MemoryRateLimiter(_RATE_LIMIT_BUCKETS)
+_MEMORY_FEEDBACK_RATE_LIMITER = MemoryRateLimiter(_FEEDBACK_RATE_LIMIT_BUCKETS)
 _ANALYSIS_SEMAPHORE = threading.BoundedSemaphore(max(1, SETTINGS.max_concurrent_analyses))
 _JWKS_CACHE: dict[str, Any] = {"loaded_at": 0.0, "keys": []}
 
@@ -515,8 +517,8 @@ def api_readiness() -> dict[str, Any]:
             )
         record(
             "rate_limit_backend",
-            SETTINGS.rate_limit_backend != "memory",
-            "production multi-instance deployments require Redis/gateway rate limiting",
+            _rate_limit_config_ready(),
+            _rate_limit_config_detail(),
         )
 
     return {
@@ -547,47 +549,78 @@ def _audio_config_ready() -> bool:
     return SETTINGS.environment in {"development", "test"}
 
 
-def _client_key(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded and SETTINGS.trusted_proxy_hops > 0:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
-
-
 def enforce_rate_limit(request: Request) -> None:
-    """Small in-memory rate limiter for single-process deployments/tests."""
-    _enforce_bucket_limit(
+    """Apply the configured analysis limiter."""
+    _enforce_limit(
         request=request,
-        buckets=_RATE_LIMIT_BUCKETS,
+        scope="analysis",
         limit=SETTINGS.rate_limit_per_minute,
         message="Too many analysis requests. Wait a moment and try again.",
     )
 
 
 def enforce_feedback_rate_limit(request: Request) -> None:
-    """Small in-memory feedback limiter for single-process deployments/tests."""
-    _enforce_bucket_limit(
+    """Apply the configured feedback limiter."""
+    _enforce_limit(
         request=request,
-        buckets=_FEEDBACK_RATE_LIMIT_BUCKETS,
+        scope="feedback",
         limit=SETTINGS.feedback_rate_limit_per_minute,
         message="Too many feedback requests. Wait a moment and try again.",
     )
 
 
-def _enforce_bucket_limit(
+def _limiter_for_scope(scope: str):
+    backend = (SETTINGS.rate_limit_backend or "memory").strip().lower()
+    if backend == "memory":
+        return _MEMORY_FEEDBACK_RATE_LIMITER if scope == "feedback" else _MEMORY_RATE_LIMITER
+    if backend == "redis":
+        return RedisRateLimiter(redis_url=SETTINGS.redis_url)
+    return _MEMORY_FEEDBACK_RATE_LIMITER if scope == "feedback" else _MEMORY_RATE_LIMITER
+
+
+def _rate_limit_config_ready() -> bool:
+    backend = (SETTINGS.rate_limit_backend or "memory").strip().lower()
+    if backend == "memory":
+        return SETTINGS.environment != "production"
+    if backend == "redis":
+        return bool(SETTINGS.redis_url)
+    if backend == "gateway":
+        return True
+    return False
+
+
+def _rate_limit_config_detail() -> str:
+    backend = (SETTINGS.rate_limit_backend or "memory").strip().lower()
+    if backend == "memory":
+        return "memory limiter is local only; production multi-instance deployments require redis or gateway"
+    if backend == "redis":
+        return "Redis rate-limit backend configured" if SETTINGS.redis_url else "SMART_CRICKET_REDIS_URL is required for redis rate limiting"
+    if backend == "gateway":
+        return "external gateway/WAF rate limiting is expected"
+    return f"unsupported SMART_CRICKET_RATE_LIMIT_BACKEND={backend}"
+
+
+def _enforce_limit(
     *,
     request: Request,
-    buckets: dict[str, deque[float]],
+    scope: str,
     limit: int,
     message: str,
 ) -> None:
-    if limit <= 0:
-        return
-    now = time.monotonic()
-    bucket = buckets[_client_key(request)]
-    while bucket and now - bucket[0] > 60.0:
-        bucket.popleft()
-    if len(bucket) >= limit:
+    key = request_rate_key(request, scope=scope, trusted_proxy_hops=SETTINGS.trusted_proxy_hops)
+    try:
+        limiter = _limiter_for_scope(scope)
+        allowed = limiter.allow(key=key, limit=limit, window_seconds=60)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "detail": "Rate limiting is not available right now.",
+                "error_code": "rate_limit_backend_unavailable",
+                "request_id": request.state.request_id,
+            },
+        ) from exc
+    if not allowed:
         raise HTTPException(
             status_code=429,
             detail={
@@ -596,7 +629,6 @@ def _enforce_bucket_limit(
                 "request_id": request.state.request_id,
             },
         )
-    bucket.append(now)
 
 
 def _base64url_decode(value: str) -> bytes:

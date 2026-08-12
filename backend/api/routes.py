@@ -72,8 +72,8 @@ def analyze(
     request: Request,
     file: UploadFile = File(...),
     retain_evidence: bool = Form(default=False),
-    _rate_limit: None = Depends(enforce_rate_limit),
     auth: AuthContext = Depends(enforce_auth),
+    _rate_limit: None = Depends(enforce_rate_limit),
 ) -> dict:
     """Analyze one uploaded cricket batting video from its actual bytes."""
     try:
@@ -139,8 +139,8 @@ def submit_feedback(
     payload: FeedbackRequest,
     request: Request,
     response: Response,
-    _rate_limit: None = Depends(enforce_feedback_rate_limit),
     auth: AuthContext = Depends(enforce_auth),
+    _rate_limit: None = Depends(enforce_feedback_rate_limit),
 ) -> dict:
     """Accept controlled-beta feedback without treating it as ground truth."""
     if not is_persistence_configured():
@@ -262,8 +262,8 @@ def submit_product_feedback(
     payload: ProductFeedbackRequest,
     request: Request,
     response: Response,
-    _rate_limit: None = Depends(enforce_feedback_rate_limit),
     auth: AuthContext = Depends(enforce_auth),
+    _rate_limit: None = Depends(enforce_feedback_rate_limit),
 ) -> dict:
     """Accept general product feedback that can never enter model training."""
     if not is_persistence_configured():

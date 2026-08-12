@@ -25,7 +25,7 @@ It should not be described as fully production-ready yet. The remaining blockers
 - Request IDs are attached to responses and error payloads.
 - Analysis requests can require Supabase JWTs by setting `SMART_CRICKET_REQUIRE_AUTH=true`. Legacy HS256 verification uses `SUPABASE_JWT_SECRET`; modern asymmetric Supabase tokens use `SUPABASE_URL` for JWKS plus `SUPABASE_JWT_AUDIENCE` and `SUPABASE_JWT_ISSUER`.
 - Local auth tests cover HS256, RS256, ES256, malformed signatures, empty/invalid JWKS responses, route-level JWKS outage behavior, and key-cache refresh on unknown `kid`. Live Supabase issuer/audience/key-rotation verification remains an external deployment gate.
-- Basic in-memory rate limiting protects single-process deployments and local demos.
+- Rate limiting now uses an explicit adapter contract with authenticated user keys when auth has resolved and IP keys otherwise. The memory backend protects single-process deployments and local demos; production readiness rejects memory mode and expects Redis or a verified gateway/WAF. Trusted proxy parsing uses the configured proxy-hop count instead of blindly trusting the first `X-Forwarded-For` value.
 - Voice artifacts are unique per request and exposed through signed `/audio/<filename>` links. Production/staging require `SMART_CRICKET_AUDIO_SIGNING_SECRET`; the local fallback is test/development only.
 - UI duration uses backend timing from source video timestamps when available.
 - Frontend sends Supabase access tokens when a user is signed in.
@@ -55,6 +55,8 @@ Important variables:
 - `SUPABASE_SERVICE_ROLE_KEY` (server only; never expose to frontend)
 - `SMART_CRICKET_ENABLE_DEV_DATASET_ENDPOINTS`
 - `SMART_CRICKET_RATE_LIMIT_PER_MINUTE`
+- `SMART_CRICKET_RATE_LIMIT_BACKEND`
+- `SMART_CRICKET_REDIS_URL`
 - `SMART_CRICKET_TRUSTED_PROXY_HOPS`
 - `SMART_CRICKET_ANALYSIS_EXECUTION_TIMEOUT_SECONDS`
 - `SMART_CRICKET_PERSISTENCE_TIMEOUT_SECONDS`
