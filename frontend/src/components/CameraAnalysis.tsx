@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Camera, CircleStop, Clock3, Play, RotateCcw, Upload, UserRoundCheck } from "lucide-react";
 import { analyzeVideo } from "../lib/api";
 import type { AnalysisResponse, Capabilities } from "../types";
+import { BorderGlow } from "./reactbits/ReactBits";
 
 type CameraAnalysisProps = {
   onResult: (result: AnalysisResponse, sourceName: string) => Promise<void>;
   accessToken?: string;
   capabilities?: Capabilities | null;
+  onWorkflowStep?: (step: number) => void;
 };
 
 type RecordingFormat = {
@@ -32,7 +34,7 @@ function selectRecordingFormat(): RecordingFormat | null {
   return recordingFormats.find((format) => MediaRecorder.isTypeSupported(format.mimeType)) ?? null;
 }
 
-export function CameraAnalysis({ onResult, accessToken, capabilities }: CameraAnalysisProps) {
+export function CameraAnalysis({ onResult, accessToken, capabilities, onWorkflowStep }: CameraAnalysisProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -88,6 +90,7 @@ export function CameraAnalysis({ onResult, accessToken, capabilities }: CameraAn
 
   async function startCamera() {
     setError("");
+    onWorkflowStep?.(0);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "environment" },
@@ -107,6 +110,7 @@ export function CameraAnalysis({ onResult, accessToken, capabilities }: CameraAn
   function beginCountdown() {
     if (!streamRef.current) return;
     setError("");
+    onWorkflowStep?.(0);
     setCountdown(3);
     if (countdownTimerRef.current) window.clearInterval(countdownTimerRef.current);
     countdownTimerRef.current = window.setInterval(() => {
@@ -151,6 +155,7 @@ export function CameraAnalysis({ onResult, accessToken, capabilities }: CameraAn
     recorder.start();
     setRecordingSeconds(0);
     setIsRecording(true);
+    onWorkflowStep?.(0);
   }
 
   function stopRecording() {
@@ -163,6 +168,7 @@ export function CameraAnalysis({ onResult, accessToken, capabilities }: CameraAn
   async function submitBlob(blob: Blob, filename: string) {
     setIsAnalyzing(true);
     setError("");
+    onWorkflowStep?.(1);
     setAnalysisStage("uploading");
     analysisTimersRef.current.forEach((timer) => window.clearTimeout(timer));
     analysisTimersRef.current = [
@@ -171,6 +177,7 @@ export function CameraAnalysis({ onResult, accessToken, capabilities }: CameraAn
     try {
       const result = await analyzeVideo(blob, filename, accessToken, canRetainEvidence && retainEvidence);
       setAnalysisStage("result");
+      onWorkflowStep?.(2);
       await onResult(result, filename);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Analysis failed.");
@@ -194,6 +201,7 @@ export function CameraAnalysis({ onResult, accessToken, capabilities }: CameraAn
     setPendingClip(null);
     setError("");
     setRetainEvidence(false);
+    onWorkflowStep?.(0);
   }
 
   useEffect(() => {
@@ -212,6 +220,7 @@ export function CameraAnalysis({ onResult, accessToken, capabilities }: CameraAn
       previewUrl: URL.createObjectURL(file),
       mediaType: file.type || "application/octet-stream",
     });
+    onWorkflowStep?.(0);
     event.target.value = "";
   }
 
@@ -225,32 +234,34 @@ export function CameraAnalysis({ onResult, accessToken, capabilities }: CameraAn
         <span className={isRecording ? "status-pill recording" : "status-pill"}>{isRecording ? "Recording" : "Ready"}</span>
       </div>
 
-      <div className="camera-window">
-        <video ref={videoRef} autoPlay muted playsInline aria-label="Camera preview" />
-        <div className="framing-guide" aria-hidden="true">
-          <span />
-          <span />
+      <BorderGlow className="camera-frame-glow" active={isRecording || isAnalyzing}>
+        <div className="camera-window">
+          <video ref={videoRef} autoPlay muted playsInline aria-label="Camera preview" />
+          <div className="framing-guide" aria-hidden="true">
+            <span />
+            <span />
+          </div>
+          {!isCameraReady && (
+            <div className="camera-empty">
+              <UserRoundCheck size={34} aria-hidden="true" />
+              <p>Fit the full body, bat path, and front foot inside the guide.</p>
+            </div>
+          )}
+          {countdown > 0 && <div className="countdown-overlay" aria-live="assertive">{countdown}</div>}
+          {isRecording && (
+            <div className="recording-clock" aria-live="polite">
+              <Clock3 size={16} aria-hidden="true" />
+              {recordingSeconds}s / {maxRecordingSeconds}s
+            </div>
+          )}
+          {isAnalyzing && (
+            <div className="analysis-overlay" aria-live="polite">
+              <strong>{stageLabel}</strong>
+              <span>Keep this tab open while the server checks pose quality and model confidence.</span>
+            </div>
+          )}
         </div>
-        {!isCameraReady && (
-          <div className="camera-empty">
-            <UserRoundCheck size={34} aria-hidden="true" />
-            <p>Fit the full body, bat path, and front foot inside the guide.</p>
-          </div>
-        )}
-        {countdown > 0 && <div className="countdown-overlay" aria-live="assertive">{countdown}</div>}
-        {isRecording && (
-          <div className="recording-clock" aria-live="polite">
-            <Clock3 size={16} aria-hidden="true" />
-            {recordingSeconds}s / {maxRecordingSeconds}s
-          </div>
-        )}
-        {isAnalyzing && (
-          <div className="analysis-overlay" aria-live="polite">
-            <strong>{stageLabel}</strong>
-            <span>Keep this tab open while the server checks pose quality and model confidence.</span>
-          </div>
-        )}
-      </div>
+      </BorderGlow>
 
       <div className="quality-guidance" aria-label="Recording guidance">
         <span>Full body visible</span>

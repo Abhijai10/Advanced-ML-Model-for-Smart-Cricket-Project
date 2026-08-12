@@ -9,6 +9,7 @@ import {
 } from "recharts";
 import { RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { buildChartData, shotName } from "../lib/history";
 import type { AnalysisSession } from "../types";
 
@@ -116,13 +117,13 @@ export function ShotCharts({ rows, onRefresh }: ShotChartsProps) {
           <span role="columnheader">Duration</span>
           <span role="columnheader">Trust</span>
         </div>
-        {filteredRows.slice(0, 6).map((row) => (
-          <div className="history-row" role="row" key={row.id}>
+        {filteredRows.slice(0, 8).map((row) => (
+          <Link className="history-row" role="row" key={row.id} to={`/app/history/${row.id}`}>
             <span role="cell">{shotName(row.predicted_shot)}</span>
             <span role="cell">{row.technique_match_score ? Math.round(row.technique_match_score) : "—"}</span>
             <span role="cell">{row.shot_duration_seconds?.toFixed(2) ?? "0.00"}s</span>
             <span role="cell">{historyStatusLabel(row)}</span>
-          </div>
+          </Link>
         ))}
       </div>
     </section>

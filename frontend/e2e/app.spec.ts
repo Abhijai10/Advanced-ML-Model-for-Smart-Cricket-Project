@@ -74,7 +74,10 @@ test("demo upload review, mocked analysis, and feedback flow", async ({ page }) 
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: /preview app without login/i }).click();
+  await expect(page.getByRole("heading", { name: /understand the shot/i })).toBeVisible();
+  await page.getByRole("button", { name: /analyze a shot/i }).first().click();
+  await expect(page).toHaveURL(/\/app\/analyze$/);
+  await expect(page.getByRole("heading", { name: /analysis workspace/i })).toBeVisible();
 
   await page.getByLabel(/upload clip/i).setInputFiles({
     name: "shot.webm",

@@ -3,6 +3,7 @@ import { CheckCircle2, Send, Volume2 } from "lucide-react";
 import { shotName } from "../lib/history";
 import { resolveApiUrl, submitAnalysisFeedback } from "../lib/api";
 import type { AnalysisResponse, Capabilities, EvidenceRetentionState, FeedbackPayload } from "../types";
+import { AnimatedContent, CountUp, MagicBento } from "./reactbits/ReactBits";
 
 type FeedbackPanelProps = {
   result: AnalysisResponse | null;
@@ -124,23 +125,23 @@ export function FeedbackPanel({ result, accessToken, capabilities }: FeedbackPan
   }
 
   return (
-    <aside className="feedback-panel" aria-label="Analysis feedback">
+    <AnimatedContent className="feedback-panel" aria-label="Analysis feedback">
       <div className="result-topline">
         <span>Prediction</span>
         <strong>{shotName(activeResult.predicted_shot)}</strong>
         <em>{qualityLabel}</em>
       </div>
 
-      <div className="score-grid">
+      <MagicBento className="score-grid">
         <div>
           <span>Confidence</span>
-          <strong>{Math.round(activeResult.shot_confidence * 100)}%</strong>
+          <strong><CountUp value={activeResult.shot_confidence * 100} suffix="%" /></strong>
         </div>
         <div>
           <span>Technique</span>
-          <strong>{Math.round(activeResult.technique_match_score)}</strong>
+          <strong><CountUp value={activeResult.technique_match_score} /></strong>
         </div>
-      </div>
+      </MagicBento>
 
       <section className="mini-section">
         <h3>Shot segment</h3>
@@ -297,6 +298,6 @@ export function FeedbackPanel({ result, accessToken, capabilities }: FeedbackPan
         {storageMessage ? <p className="success-banner" role="status" aria-live="polite">{storageMessage}</p> : null}
         {submitError ? <p className="error-banner" role="alert">{submitError}</p> : null}
       </form>
-    </aside>
+    </AnimatedContent>
   );
 }

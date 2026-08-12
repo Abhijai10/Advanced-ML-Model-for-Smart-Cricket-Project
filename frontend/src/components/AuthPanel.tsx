@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Activity, Lock, Mail, UserRound } from "lucide-react";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
 
@@ -7,6 +8,7 @@ type AuthPanelProps = {
 };
 
 export function AuthPanel({ onDemoMode }: AuthPanelProps) {
+  const navigate = useNavigate();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -48,20 +50,30 @@ export function AuthPanel({ onDemoMode }: AuthPanelProps) {
     }
   }
 
+  function enterDemo() {
+    onDemoMode();
+    navigate("/app");
+  }
+
   return (
     <main className="auth-shell">
       <section className="auth-intro" aria-labelledby="intro-title">
-        <div className="brand-lockup">
+        <Link to="/" className="brand-lockup" aria-label="Smart Cricket home">
           <span className="brand-mark">
             <Activity size={20} aria-hidden="true" />
           </span>
           <span>Smart Cricket</span>
-        </div>
+        </Link>
         <h1 id="intro-title">AI cricket shot analysis, built for practice review.</h1>
         <p>
           Record a batting motion, run the Smart Cricket model, and review the predicted shot,
           technique score, coaching feedback, voice output, and shot history in one focused app.
         </p>
+        <div className="auth-metric-strip" aria-label="Preview capability summary">
+          <span><strong>20s</strong>max clip</span>
+          <span><strong>4</strong>shot classes</span>
+          <span><strong>Opt-in</strong>data use</span>
+        </div>
         <div className="creator-credit">Made by Abhijai Raghuvanshi</div>
       </section>
 
@@ -124,13 +136,13 @@ export function AuthPanel({ onDemoMode }: AuthPanelProps) {
           </button>
           {!isSupabaseConfigured && (
             <p className="form-note">
-              Supabase is not connected yet. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to enable login.
+              Account login is not configured in this preview. Demo mode remains available.
             </p>
           )}
           {status && <p className="form-note">{status}</p>}
         </form>
 
-        <button className="secondary-action" type="button" onClick={onDemoMode}>
+        <button className="secondary-action" type="button" onClick={enterDemo}>
           Preview app without login
         </button>
       </section>

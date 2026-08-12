@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ShotCharts } from "./ShotCharts";
@@ -23,11 +24,19 @@ function row(id: string, history_status: AnalysisSession["history_status"]): Ana
   };
 }
 
+function renderCharts(rows: AnalysisSession[], onRefresh?: () => void) {
+  return render(
+    <MemoryRouter>
+      <ShotCharts rows={rows} onRefresh={onRefresh} />
+    </MemoryRouter>,
+  );
+}
+
 describe("ShotCharts", () => {
   it("filters by history trust state and exposes refresh", async () => {
     const user = userEvent.setup();
     const onRefresh = vi.fn();
-    render(<ShotCharts rows={[row("server", "server_saved"), row("local", "unsaved")]} onRefresh={onRefresh} />);
+    renderCharts([row("server", "server_saved"), row("local", "unsaved")], onRefresh);
 
     expect(screen.getByText(/some rows are local unsaved/i)).toBeInTheDocument();
     expect(screen.getByText("Cover Drive")).toBeInTheDocument();
@@ -44,7 +53,7 @@ describe("ShotCharts", () => {
 
   it("shows a filtered empty state", async () => {
     const user = userEvent.setup();
-    render(<ShotCharts rows={[row("local", "unsaved")]} />);
+    renderCharts([row("local", "unsaved")]);
 
     await user.selectOptions(screen.getByLabelText(/trust filter/i), "server_saved");
 
