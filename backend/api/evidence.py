@@ -251,6 +251,40 @@ class SupabaseEvidenceProvider(EvidenceProvider):
         return EvidenceOutcome(False, "deleted", self.provider_id, object_path)
 
 
+def get_evidence_provider_by_id(provider_id: str | None) -> EvidenceProvider:
+    """Resolve a stored evidence provider id to the matching backend adapter."""
+    normalized = (provider_id or "").strip().lower()
+    if normalized == LocalEvidenceProvider.provider_id:
+        return LocalEvidenceProvider()
+    if normalized == SupabaseEvidenceProvider.provider_id:
+        return SupabaseEvidenceProvider()
+    if normalized in {"none", ""}:
+        return EvidenceProvider()
+    provider = EvidenceProvider()
+    provider.provider_id = normalized
+    return provider
+
+
+def provider_id_for_record(record: dict[str, Any]) -> str:
+    """Return the provider id recorded with retained evidence."""
+    metadata = record.get("evidence_metadata") if isinstance(record.get("evidence_metadata"), dict) else {}
+    provider = metadata.get("storage_provider") or metadata.get("storage_backend") or record.get("storage_provider")
+    return str(provider or "none")
+
+
+def delete_evidence_for_record(record: dict[str, Any]) -> EvidenceOutcome:
+    """Delete evidence using the provider captured when the object was retained."""
+    object_path = record.get("evidence_object_path")
+    if record.get("deleted_at") or record.get("storage_status") == "deleted":
+        return EvidenceOutcome(False, "already_deleted", provider_id_for_record(record), str(object_path) if object_path else None)
+    if not object_path:
+        return EvidenceOutcome(False, "not_found", provider_id_for_record(record), None, error_code="evidence_object_missing")
+    provider = get_evidence_provider_by_id(provider_id_for_record(record))
+    if provider.provider_id not in {LocalEvidenceProvider.provider_id, SupabaseEvidenceProvider.provider_id}:
+        return EvidenceOutcome(False, "failed", provider.provider_id, str(object_path), error_code="unknown_evidence_provider")
+    return provider.delete(str(object_path))
+
+
 def get_evidence_provider() -> EvidenceProvider:
     backend = (SETTINGS.evidence_storage_backend or "none").strip().lower()
     if backend == "local":

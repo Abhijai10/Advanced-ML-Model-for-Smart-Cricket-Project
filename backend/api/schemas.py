@@ -26,6 +26,19 @@ class ReadyResponse(BaseModel):
     checks: dict[str, dict[str, Any]]
 
 
+class CapabilitiesResponse(BaseModel):
+    """Safe client bootstrap capabilities."""
+
+    auth_required: bool
+    feedback_enabled: bool
+    model_improvement_enabled: bool
+    evidence_retention_enabled: bool
+    tts_provider: str
+    max_upload_bytes: int
+    max_recording_duration_seconds: int
+    accepted_video_extensions: list[str]
+
+
 class AnalyzeResponse(BaseModel):
     """Frontend-consumable analysis response."""
 

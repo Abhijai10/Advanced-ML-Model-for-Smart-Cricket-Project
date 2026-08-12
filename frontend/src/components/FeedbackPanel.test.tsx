@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FeedbackPanel } from "./FeedbackPanel";
-import type { AnalysisResponse } from "../types";
+import type { AnalysisResponse, Capabilities } from "../types";
 
 const mocks = vi.hoisted(() => ({
   submitAnalysisFeedback: vi.fn(async () => ({
@@ -60,7 +60,25 @@ const result: AnalysisResponse = {
     analysis_session_id: "11111111-1111-1111-1111-111111111111",
     clip_hash: "a".repeat(64),
     pipeline_version: "phase12",
+    evidence_retention: {
+      requested: true,
+      status: "stored",
+      retained: true,
+      provider: "local_development",
+      retention_expires_at: "2999-01-01T00:00:00Z",
+    },
   },
+};
+
+const capabilities: Capabilities = {
+  auth_required: false,
+  feedback_enabled: true,
+  model_improvement_enabled: true,
+  evidence_retention_enabled: true,
+  tts_provider: "signed_audio",
+  max_upload_bytes: 250 * 1024 * 1024,
+  max_recording_duration_seconds: 20,
+  accepted_video_extensions: [".mp4", ".mov", ".webm"],
 };
 
 describe("FeedbackPanel", () => {
@@ -70,7 +88,7 @@ describe("FeedbackPanel", () => {
 
   it("renders result details and submits safe feedback payload", async () => {
     const user = userEvent.setup();
-    render(<FeedbackPanel result={result} accessToken="token" />);
+    render(<FeedbackPanel result={result} accessToken="token" capabilities={capabilities} />);
 
     expect(screen.getAllByText(/cover drive/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/audio unavailable/i)).toBeInTheDocument();
@@ -96,7 +114,7 @@ describe("FeedbackPanel", () => {
   it("does not show saved when feedback persistence fails", async () => {
     mocks.submitAnalysisFeedback.mockRejectedValueOnce(new Error("Feedback could not be saved durably."));
     const user = userEvent.setup();
-    render(<FeedbackPanel result={result} accessToken="token" />);
+    render(<FeedbackPanel result={result} accessToken="token" capabilities={capabilities} />);
 
     await user.click(screen.getByRole("button", { name: /save feedback/i }));
 
@@ -116,12 +134,32 @@ describe("FeedbackPanel", () => {
       message: "This feedback candidate was already saved for review.",
     });
     const user = userEvent.setup();
-    render(<FeedbackPanel result={result} accessToken="token" />);
+    render(<FeedbackPanel result={result} accessToken="token" capabilities={capabilities} />);
 
     await user.click(screen.getByRole("button", { name: /save feedback/i }));
 
     expect(await screen.findByText(/already saved for review/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /already saved/i })).toBeDisabled();
+  });
+
+  it("does not submit model-improvement consent when capability is disabled", async () => {
+    const disabledCapabilities = {
+      ...capabilities,
+      model_improvement_enabled: false,
+      evidence_retention_enabled: false,
+    };
+    const user = userEvent.setup();
+    render(<FeedbackPanel result={result} accessToken="token" capabilities={disabledCapabilities} />);
+
+    expect(screen.getByText(/participation is disabled/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/human-reviewed model improvement/i)).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: /save feedback/i }));
+
+    await waitFor(() => expect(mocks.submitAnalysisFeedback).toHaveBeenCalled());
+    expect(mocks.submitAnalysisFeedback).toHaveBeenCalledWith(
+      expect.objectContaining({ consent_to_model_improvement: false }),
+      "token",
+    );
   });
 
   it("resets feedback state when a new analysis arrives", async () => {
@@ -135,13 +173,13 @@ describe("FeedbackPanel", () => {
         clip_hash: "b".repeat(64),
       },
     };
-    const { rerender } = render(<FeedbackPanel result={result} accessToken="token" />);
+    const { rerender } = render(<FeedbackPanel result={result} accessToken="token" capabilities={capabilities} />);
 
     await user.click(screen.getByRole("radio", { name: "incorrect" }));
     await user.click(screen.getByRole("button", { name: /save feedback/i }));
     expect(await screen.findByRole("button", { name: /feedback saved/i })).toBeDisabled();
 
-    rerender(<FeedbackPanel result={nextResult} accessToken="token" />);
+    rerender(<FeedbackPanel result={nextResult} accessToken="token" capabilities={capabilities} />);
 
     expect(screen.getByRole("button", { name: /save feedback/i })).not.toBeDisabled();
     expect(screen.getByRole("radio", { name: "unsure" })).toBeChecked();

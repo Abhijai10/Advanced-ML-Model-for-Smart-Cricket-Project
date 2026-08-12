@@ -382,7 +382,20 @@ def analyze_uploaded_video_with_retention(
                     "raw_video_analysis_failed",
                 ) from exc
             if retain_evidence:
-                if not auth.user_id:
+                if not SETTINGS.allow_model_improvement_participation:
+                    evidence_outcome = EvidenceOutcome(
+                        retained=False,
+                        status="disabled",
+                        provider=SETTINGS.evidence_storage_backend,
+                        error_code="model_improvement_disabled",
+                        metadata={
+                            "storage_provider": SETTINGS.evidence_storage_backend,
+                            "raw_clip_retained": False,
+                            "processed_evidence_retained": False,
+                            "reason": "model_improvement_disabled",
+                        },
+                    )
+                elif not auth.user_id:
                     evidence_outcome = EvidenceOutcome(
                         retained=False,
                         status="failed",

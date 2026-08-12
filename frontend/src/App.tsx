@@ -5,8 +5,9 @@ import { AuthPanel } from "./components/AuthPanel";
 import { CameraAnalysis } from "./components/CameraAnalysis";
 import { FeedbackPanel } from "./components/FeedbackPanel";
 import { segmentDurationSeconds, fallbackHistory } from "./lib/history";
+import { getCapabilities } from "./lib/api";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
-import type { AnalysisResponse, AnalysisSession } from "./types";
+import type { AnalysisResponse, AnalysisSession, Capabilities } from "./types";
 
 const ShotCharts = lazy(() => import("./components/ShotCharts").then((module) => ({ default: module.ShotCharts })));
 
@@ -16,6 +17,7 @@ function App() {
   const [latestResult, setLatestResult] = useState<AnalysisResponse | null>(null);
   const [history, setHistory] = useState<AnalysisSession[]>(fallbackHistory);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
 
   const userId = session?.user.id;
 
@@ -33,18 +35,25 @@ function App() {
     if (!supabase || !userId) {
       return;
     }
-    setIsLoadingHistory(true);
-    void supabase
-      .from("analysis_sessions")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(20)
-      .then(({ data, error }) => {
-        if (!error && data) setHistory(data as AnalysisSession[]);
-        setIsLoadingHistory(false);
-      });
+    void refreshTrustedHistory(userId);
   }, [userId]);
+
+  useEffect(() => {
+    void getCapabilities()
+      .then(setCapabilities)
+      .catch(() =>
+        setCapabilities({
+          auth_required: false,
+          feedback_enabled: false,
+          model_improvement_enabled: false,
+          evidence_retention_enabled: false,
+          tts_provider: "unknown",
+          max_upload_bytes: 250 * 1024 * 1024,
+          max_recording_duration_seconds: 20,
+          accepted_video_extensions: [".mp4", ".mov", ".webm"],
+        }),
+      );
+  }, []);
 
   const canUseApp = Boolean(session) || demoMode;
   const displayName = useMemo(() => {
@@ -52,11 +61,33 @@ function App() {
     return session?.user.user_metadata.display_name ?? session?.user.email ?? "Smart Cricket";
   }, [demoMode, session]);
 
+  async function refreshTrustedHistory(activeUserId: string) {
+    if (!supabase) return;
+    setIsLoadingHistory(true);
+    const { data, error } = await supabase
+      .from("analysis_sessions")
+      .select("*")
+      .eq("user_id", activeUserId)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (!error && data) {
+      setHistory((data as AnalysisSession[]).map((row) => ({ ...row, history_status: "server_saved" })));
+    }
+    setIsLoadingHistory(false);
+  }
+
   async function saveResult(result: AnalysisResponse, sourceName: string) {
     setLatestResult(result);
     const duration = segmentDurationSeconds(result);
+    const serverAnalysisId =
+      typeof result.api_metadata.analysis_session_id === "string" ? result.api_metadata.analysis_session_id : "";
+    const persistence = result.api_metadata.analysis_persistence as
+      | { attempted?: boolean; stored?: boolean; storage_status?: string; error_code?: string | null }
+      | undefined;
+    const historyStatus: AnalysisSession["history_status"] =
+      serverAnalysisId && persistence?.stored ? "server_saved" : userId ? "unsaved" : "local_demo";
     const localRow: AnalysisSession = {
-      id: crypto.randomUUID(),
+      id: serverAnalysisId || crypto.randomUUID(),
       user_id: userId ?? "demo",
       video_file_name: sourceName,
       predicted_shot: result.predicted_shot,
@@ -69,6 +100,7 @@ function App() {
       coaching_tips: result.coaching_tips,
       full_result: result,
       created_at: new Date().toISOString(),
+      history_status: historyStatus,
     };
 
     if (!supabase || !userId) {
@@ -76,7 +108,10 @@ function App() {
       return;
     }
 
-    setHistory((rows) => [localRow, ...rows].slice(0, 20));
+    setHistory((rows) => [localRow, ...rows.filter((row) => row.id !== localRow.id)].slice(0, 20));
+    if (serverAnalysisId && persistence?.stored) {
+      await refreshTrustedHistory(userId);
+    }
   }
 
   async function signOut() {
@@ -124,8 +159,8 @@ function App() {
       </section>
 
       <main className="analysis-grid">
-        <CameraAnalysis onResult={saveResult} accessToken={session?.access_token} />
-        <FeedbackPanel result={latestResult} accessToken={session?.access_token} />
+        <CameraAnalysis onResult={saveResult} accessToken={session?.access_token} capabilities={capabilities} />
+        <FeedbackPanel result={latestResult} accessToken={session?.access_token} capabilities={capabilities} />
       </main>
 
       {isLoadingHistory ? (

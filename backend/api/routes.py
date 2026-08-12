@@ -2,21 +2,21 @@
 
 from __future__ import annotations
 
-from uuid import uuid4
-
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
 
 from .config import SETTINGS
-from .evidence import get_evidence_provider
+from .evidence import delete_evidence_for_record
 from .persistence import (
+    build_product_feedback_record,
     build_feedback_record,
     is_persistence_configured,
     load_analysis_session,
     mark_analysis_withdrawn_or_deleted,
     mark_feedback_withdrawn_or_deleted,
     persist_feedback_record,
+    persist_product_feedback_record,
 )
-from .schemas import AnalyzeResponse, EvidenceDeletionResponse, FeedbackRequest, FeedbackResponse, HealthResponse, ProductFeedbackRequest, ReadyResponse
+from .schemas import AnalyzeResponse, CapabilitiesResponse, EvidenceDeletionResponse, FeedbackRequest, FeedbackResponse, HealthResponse, ProductFeedbackRequest, ReadyResponse
 from .services import (
     AnalysisOverloadError,
     AnalysisTimeoutError,
@@ -49,6 +49,22 @@ def ready() -> dict:
     if payload["status"] != "ready":
         raise HTTPException(status_code=503, detail=payload)
     return payload
+
+
+@router.get("/capabilities", response_model=CapabilitiesResponse)
+def capabilities() -> dict:
+    """Return non-secret product capabilities for frontend controls."""
+    return {
+        "auth_required": SETTINGS.require_auth,
+        "feedback_enabled": is_persistence_configured(),
+        "model_improvement_enabled": SETTINGS.allow_model_improvement_participation,
+        "evidence_retention_enabled": SETTINGS.allow_model_improvement_participation
+        and SETTINGS.evidence_storage_backend.strip().lower() in {"local", "supabase"},
+        "tts_provider": "signed_audio" if SETTINGS.audio_signing_secret or SETTINGS.environment in {"development", "test"} else "text_only",
+        "max_upload_bytes": SETTINGS.max_upload_bytes,
+        "max_recording_duration_seconds": SETTINGS.max_video_duration_seconds,
+        "accepted_video_extensions": [".avi", ".mkv", ".mov", ".mp4", ".webm"],
+    }
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
@@ -205,6 +221,7 @@ def submit_feedback(
         ) from exc
 
     outcome = persist_feedback_record(row)
+    message = _feedback_success_message(row)
     if outcome.status == "duplicate":
         response.status_code = 200
         return {
@@ -215,7 +232,7 @@ def submit_feedback(
             "stored": False,
             "duplicate_clip_hash": True,
             "request_id": request.state.request_id,
-            "message": "This feedback candidate was already saved for review.",
+            "message": _feedback_duplicate_message(row),
         }
     if not outcome.stored:
         raise HTTPException(
@@ -236,11 +253,7 @@ def submit_feedback(
         "stored": True,
         "duplicate_clip_hash": False,
         "request_id": request.state.request_id,
-        "message": (
-            "Feedback was saved and queued for human review."
-            if row["accepted_for_review"]
-            else "Feedback was saved as product feedback only because model-improvement consent was not granted."
-        ),
+        "message": message,
     }
 
 
@@ -262,30 +275,8 @@ def submit_product_feedback(
                 "request_id": request.state.request_id,
             },
         )
-    row = {
-        "id": str(uuid4()),
-        "user_id": auth.user_id,
-        "analysis_session_id": None,
-        "prediction_was_correct": "unsure",
-        "corrected_shot": None,
-        "technique_feedback_rating": payload.usability_rating,
-        "tip_flags": [],
-        "notes": payload.notes,
-        "consent_to_model_improvement": False,
-        "accepted_for_review": False,
-        "review_status": "product_feedback",
-        "dataset_eligibility_status": "not_eligible",
-        "storage_status": "metadata_only",
-        "evidence_metadata": {
-            "feedback_type": "general_product_feedback",
-            "bug_category": payload.bug_category,
-            "feature_request": payload.feature_request,
-            "page_context": payload.page_context,
-        },
-        "request_id": request.state.request_id,
-        "auth_present": auth.authorization_present,
-    }
-    outcome = persist_feedback_record(row)
+    row = build_product_feedback_record(payload=payload, user_id=auth.user_id, request_id=request.state.request_id)
+    outcome = persist_product_feedback_record(row)
     if not outcome.stored:
         raise HTTPException(
             status_code=503 if outcome.status in {"persistence_not_configured", "temporary_failure"} else 502,
@@ -323,12 +314,30 @@ def withdraw_consent(
         raise HTTPException(status_code=404, detail={"detail": "Analysis session was not found.", "error_code": "analysis_session_not_found", "request_id": request.state.request_id})
     if not lookup.stored:
         raise HTTPException(status_code=503, detail={"detail": "Analysis session could not be verified.", "error_code": lookup.error_code or "analysis_lookup_failed", "request_id": request.state.request_id})
-    mark_analysis_withdrawn_or_deleted(analysis_session_id=analysis_session_id, user_id=auth.user_id, deleted=False)
-    mark_feedback_withdrawn_or_deleted(analysis_session_id=analysis_session_id, user_id=auth.user_id, deleted=False)
+    delete_outcome = delete_evidence_for_record(lookup.record or {})
+    deletion_success = delete_outcome.status in {"deleted", "already_deleted", "not_found"}
+    analysis_update = mark_analysis_withdrawn_or_deleted(
+        analysis_session_id=analysis_session_id,
+        user_id=auth.user_id,
+        deleted=delete_outcome.status in {"deleted", "already_deleted"},
+        deletion_pending=not deletion_success,
+        deletion_error_code=None if deletion_success else delete_outcome.error_code or delete_outcome.status,
+        evidence_metadata=(lookup.record or {}).get("evidence_metadata") if isinstance((lookup.record or {}).get("evidence_metadata"), dict) else None,
+    )
+    feedback_update = mark_feedback_withdrawn_or_deleted(
+        analysis_session_id=analysis_session_id,
+        user_id=auth.user_id,
+        deleted=delete_outcome.status in {"deleted", "already_deleted"},
+        deletion_pending=not deletion_success,
+    )
+    if not analysis_update.stored:
+        raise HTTPException(status_code=503, detail={"detail": "Consent withdrawal could not be saved durably.", "error_code": analysis_update.error_code or analysis_update.status, "request_id": request.state.request_id})
+    if feedback_update.status not in {"stored", "not_found"}:
+        raise HTTPException(status_code=503, detail={"detail": "Feedback eligibility could not be updated durably.", "error_code": feedback_update.error_code or feedback_update.status, "request_id": request.state.request_id})
     return {
-        "status": "withdrawn",
+        "status": "withdrawn" if deletion_success else "withdrawn_deletion_pending",
         "analysis_session_id": analysis_session_id,
-        "evidence_deleted": False,
+        "evidence_deleted": delete_outcome.status in {"deleted", "already_deleted"},
         "training_eligibility_disabled": True,
         "request_id": request.state.request_id,
     }
@@ -349,22 +358,55 @@ def delete_evidence(
     if not lookup.stored:
         raise HTTPException(status_code=503, detail={"detail": "Analysis session could not be verified.", "error_code": lookup.error_code or "analysis_lookup_failed", "request_id": request.state.request_id})
     record = lookup.record or {}
-    object_path = record.get("evidence_object_path")
-    deleted = False
-    if object_path:
-        outcome = get_evidence_provider().delete(str(object_path))
-        deleted = outcome.status == "deleted"
-        if outcome.status not in {"deleted", "not_found"}:
-            raise HTTPException(status_code=503, detail={"detail": "Retained evidence could not be deleted right now.", "error_code": outcome.error_code or "evidence_delete_failed", "request_id": request.state.request_id})
-    mark_analysis_withdrawn_or_deleted(analysis_session_id=analysis_session_id, user_id=auth.user_id, deleted=True)
-    mark_feedback_withdrawn_or_deleted(analysis_session_id=analysis_session_id, user_id=auth.user_id, deleted=True)
+    outcome = delete_evidence_for_record(record)
+    deleted = outcome.status in {"deleted", "already_deleted"}
+    if outcome.status not in {"deleted", "already_deleted", "not_found"}:
+        analysis_update = mark_analysis_withdrawn_or_deleted(
+            analysis_session_id=analysis_session_id,
+            user_id=auth.user_id,
+            deleted=False,
+            deletion_pending=True,
+            deletion_error_code=outcome.error_code or outcome.status,
+            evidence_metadata=record.get("evidence_metadata") if isinstance(record.get("evidence_metadata"), dict) else None,
+        )
+        mark_feedback_withdrawn_or_deleted(analysis_session_id=analysis_session_id, user_id=auth.user_id, deletion_pending=True)
+        if not analysis_update.stored:
+            raise HTTPException(status_code=503, detail={"detail": "Evidence deletion failure could not be recorded durably.", "error_code": analysis_update.error_code or analysis_update.status, "request_id": request.state.request_id})
+        raise HTTPException(status_code=503, detail={"detail": "Retained evidence could not be deleted right now; it has been marked for cleanup retry.", "error_code": outcome.error_code or "evidence_delete_failed", "request_id": request.state.request_id})
+    analysis_update = mark_analysis_withdrawn_or_deleted(analysis_session_id=analysis_session_id, user_id=auth.user_id, deleted=deleted)
+    feedback_update = mark_feedback_withdrawn_or_deleted(analysis_session_id=analysis_session_id, user_id=auth.user_id, deleted=deleted)
+    if not analysis_update.stored:
+        raise HTTPException(status_code=503, detail={"detail": "Evidence deletion could not be saved durably.", "error_code": analysis_update.error_code or analysis_update.status, "request_id": request.state.request_id})
+    if feedback_update.status not in {"stored", "not_found"}:
+        raise HTTPException(status_code=503, detail={"detail": "Feedback eligibility could not be updated durably.", "error_code": feedback_update.error_code or feedback_update.status, "request_id": request.state.request_id})
     return {
-        "status": "deleted",
+        "status": "deleted" if deleted else "not_found",
         "analysis_session_id": analysis_session_id,
         "evidence_deleted": deleted,
         "training_eligibility_disabled": True,
         "request_id": request.state.request_id,
     }
+
+
+def _feedback_success_message(row: dict) -> str:
+    if row.get("accepted_for_review"):
+        return "Feedback was saved and queued for human review."
+    if not row.get("consent_to_model_improvement"):
+        return "Feedback was saved as metadata only because model-improvement consent was not granted."
+    review_status = row.get("review_status")
+    if review_status == "evidence_not_retained":
+        return "Feedback was saved, but no retained evidence is available, so it will not enter model-training review."
+    if review_status == "awaiting_evidence":
+        return "Feedback was saved, but evidence is not currently reviewable, so it is not queued for model-training review."
+    return "Feedback was saved as metadata only and is not queued for model-training review."
+
+
+def _feedback_duplicate_message(row: dict) -> str:
+    if row.get("accepted_for_review"):
+        return "This reviewable feedback candidate was already saved."
+    if not row.get("consent_to_model_improvement"):
+        return "This metadata-only feedback was already saved."
+    return "This feedback was already saved, but it is not reviewable because retained evidence is unavailable."
 
 
 @router.post("/dev/analyze-dataset", response_model=AnalyzeResponse)

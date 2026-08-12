@@ -1,9 +1,17 @@
-import type { AnalysisResponse, FeedbackPayload, FeedbackResponse } from "../types";
+import type { AnalysisResponse, Capabilities, FeedbackPayload, FeedbackResponse } from "../types";
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://127.0.0.1:8000";
 
 export function resolveApiUrl(path: string): string {
   return `${apiBaseUrl.replace(/\/$/, "")}${path}`;
+}
+
+export async function getCapabilities(): Promise<Capabilities> {
+  const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}/capabilities`);
+  if (!response.ok) {
+    throw new Error("Product capabilities could not be loaded.");
+  }
+  return (await response.json()) as Capabilities;
 }
 
 export async function analyzeVideo(

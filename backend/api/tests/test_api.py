@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -14,6 +15,7 @@ from unittest.mock import Mock, patch
 from fastapi.testclient import TestClient
 
 from backend.api.app import app
+from backend.api.config import SETTINGS
 from backend.api.evidence import EvidenceOutcome, evidence_is_reviewable
 from backend.api.persistence import PersistenceResult
 from backend.api.services import AnalysisTimeoutError, AuthContext, _FEEDBACK_RATE_LIMIT_BUCKETS, _RATE_LIMIT_BUCKETS, enforce_auth
@@ -136,6 +138,15 @@ class SmartCricketAPITests(unittest.TestCase):
         payload = response.json() if response.status_code == 200 else response.json()["detail"]
         self.assertIn("checkpoint", payload["checks"])
         self.assertIn("temporary_storage", payload["checks"])
+
+    def test_capabilities_do_not_expose_secrets(self) -> None:
+        response = self.client.get("/capabilities")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIn("model_improvement_enabled", payload)
+        self.assertIn("evidence_retention_enabled", payload)
+        self.assertNotIn("supabase_service_role_key", payload)
+        self.assertNotIn("audio_signing_secret", payload)
 
     def test_analyze_uses_uploaded_bytes_even_with_known_dataset_filename(self) -> None:
         content = self._make_video("source.mp4", "blue")
@@ -461,7 +472,8 @@ class SmartCricketAPITests(unittest.TestCase):
             captured["row"] = row
             return PersistenceResult(stored=True, status="stored", record_id=row["id"])
 
-        with patch("backend.api.routes.is_persistence_configured", return_value=True), patch(
+        enabled_settings = replace(SETTINGS, allow_model_improvement_participation=True)
+        with patch("backend.api.persistence.SETTINGS", enabled_settings), patch("backend.api.routes.is_persistence_configured", return_value=True), patch(
             "backend.api.routes.load_analysis_session",
             return_value=PersistenceResult(stored=True, status="stored", record_id=analysis["id"], record=analysis),
         ), patch("backend.api.routes.persist_feedback_record", side_effect=capture_feedback):
@@ -503,7 +515,8 @@ class SmartCricketAPITests(unittest.TestCase):
             captured["row"] = row
             return PersistenceResult(stored=True, status="stored", record_id=row["id"])
 
-        with patch("backend.api.routes.is_persistence_configured", return_value=True), patch(
+        enabled_settings = replace(SETTINGS, allow_model_improvement_participation=True)
+        with patch("backend.api.persistence.SETTINGS", enabled_settings), patch("backend.api.routes.is_persistence_configured", return_value=True), patch(
             "backend.api.routes.load_analysis_session",
             return_value=PersistenceResult(stored=True, status="stored", record_id=analysis["id"], record=analysis),
         ), patch("backend.api.routes.persist_feedback_record", side_effect=capture_feedback):
@@ -538,7 +551,8 @@ class SmartCricketAPITests(unittest.TestCase):
     def test_analyze_retention_storage_failure_is_reported_not_candidate(self) -> None:
         app.dependency_overrides[enforce_auth] = lambda: AuthContext(user_id="00000000-0000-0000-0000-000000000001", authorization_present=True)
         content = self._make_video("retain-failed.mp4", "blue")
-        with patch("backend.api.services.analyze_raw_video", side_effect=_fake_analysis), patch(
+        enabled_settings = replace(SETTINGS, allow_model_improvement_participation=True)
+        with patch("backend.api.services.SETTINGS", enabled_settings), patch("backend.api.services.analyze_raw_video", side_effect=_fake_analysis), patch(
             "backend.api.services.synthesize_spoken_feedback",
             side_effect=_fake_voice,
         ), patch(
@@ -559,6 +573,22 @@ class SmartCricketAPITests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json()["api_metadata"]["evidence_retention"]["status"], "failed")
 
+    def test_analyze_retention_request_is_disabled_when_model_improvement_off(self) -> None:
+        app.dependency_overrides[enforce_auth] = lambda: AuthContext(user_id="00000000-0000-0000-0000-000000000001", authorization_present=True)
+        content = self._make_video("retain-disabled.mp4", "blue")
+        with patch("backend.api.services.analyze_raw_video", side_effect=_fake_analysis), patch(
+            "backend.api.services.synthesize_spoken_feedback",
+            side_effect=_fake_voice,
+        ), patch("backend.api.services.get_evidence_provider") as provider_factory:
+            response = self.client.post(
+                "/analyze",
+                data={"retain_evidence": "true"},
+                files={"file": ("retain-disabled.mp4", content, "video/mp4")},
+            )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["api_metadata"]["evidence_retention"]["status"], "disabled")
+        provider_factory.assert_not_called()
+
     def test_retained_evidence_is_deleted_if_analysis_persistence_fails(self) -> None:
         app.dependency_overrides[enforce_auth] = lambda: AuthContext(user_id="00000000-0000-0000-0000-000000000001", authorization_present=True)
         content = self._make_video("orphan.mp4", "blue")
@@ -578,7 +608,8 @@ class SmartCricketAPITests(unittest.TestCase):
             )
         )
         provider.delete = Mock(return_value=EvidenceOutcome(False, "deleted", "local_development", "user/session/object.mp4"))
-        with patch("backend.api.services.analyze_raw_video", side_effect=_fake_analysis), patch(
+        enabled_settings = replace(SETTINGS, allow_model_improvement_participation=True)
+        with patch("backend.api.services.SETTINGS", enabled_settings), patch("backend.api.services.analyze_raw_video", side_effect=_fake_analysis), patch(
             "backend.api.services.synthesize_spoken_feedback",
             side_effect=_fake_voice,
         ), patch("backend.api.services.get_evidence_provider", return_value=provider), patch(
@@ -625,7 +656,7 @@ class SmartCricketAPITests(unittest.TestCase):
             return PersistenceResult(stored=True, status="stored", record_id=row["id"])
 
         with patch("backend.api.routes.is_persistence_configured", return_value=True), patch(
-            "backend.api.routes.persist_feedback_record",
+            "backend.api.routes.persist_product_feedback_record",
             side_effect=capture_feedback,
         ):
             response = self.client.post(
@@ -640,10 +671,9 @@ class SmartCricketAPITests(unittest.TestCase):
             )
         self.assertEqual(response.status_code, 201, response.text)
         self.assertFalse(response.json()["accepted_for_review"])
-        self.assertFalse(captured["row"]["accepted_for_review"])
-        self.assertEqual(captured["row"]["review_status"], "product_feedback")
-        self.assertEqual(captured["row"]["dataset_eligibility_status"], "not_eligible")
-        self.assertFalse(captured["row"]["consent_to_model_improvement"])
+        self.assertEqual(captured["row"]["bug_category"], "camera")
+        self.assertEqual(captured["row"]["feature_request"], "offline mode")
+        self.assertEqual(captured["row"]["status"], "new")
 
 
 if __name__ == "__main__":

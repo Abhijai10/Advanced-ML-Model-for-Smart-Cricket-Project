@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CameraAnalysis } from "./CameraAnalysis";
 import { analyzeVideo } from "../lib/api";
+import type { Capabilities } from "../types";
 
 vi.mock("../lib/api", () => ({
   analyzeVideo: vi.fn(async () => ({
@@ -39,6 +40,17 @@ vi.mock("../lib/api", () => ({
     api_metadata: { clip_hash: "a".repeat(64) },
   })),
 }));
+
+const capabilities: Capabilities = {
+  auth_required: false,
+  feedback_enabled: true,
+  model_improvement_enabled: true,
+  evidence_retention_enabled: true,
+  tts_provider: "signed_audio",
+  max_upload_bytes: 250 * 1024 * 1024,
+  max_recording_duration_seconds: 20,
+  accepted_video_extensions: [".mp4", ".mov", ".webm"],
+};
 
 describe("CameraAnalysis", () => {
   let stopTrack: ReturnType<typeof vi.fn>;
@@ -117,6 +129,19 @@ describe("CameraAnalysis", () => {
 
     expect(await screen.findByText(/review this take/i)).toBeInTheDocument();
     expect(onResult).not.toHaveBeenCalled();
+  });
+
+  it("disables clip retention when model improvement is unavailable", async () => {
+    render(
+      <CameraAnalysis
+        onResult={vi.fn()}
+        accessToken="token"
+        capabilities={{ ...capabilities, model_improvement_enabled: false, evidence_retention_enabled: false }}
+      />,
+    );
+
+    expect(screen.getByText(/participation is disabled/i)).toBeInTheDocument();
+    expect(screen.getByRole("checkbox")).toBeDisabled();
   });
 
   it("keeps the live stream through retake and stops tracks on unmount", async () => {

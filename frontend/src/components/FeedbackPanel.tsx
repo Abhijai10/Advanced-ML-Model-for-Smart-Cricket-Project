@@ -2,17 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Send, Volume2 } from "lucide-react";
 import { shotName } from "../lib/history";
 import { resolveApiUrl, submitAnalysisFeedback } from "../lib/api";
-import type { AnalysisResponse, EvidenceRetentionState, FeedbackPayload } from "../types";
+import type { AnalysisResponse, Capabilities, EvidenceRetentionState, FeedbackPayload } from "../types";
 
 type FeedbackPanelProps = {
   result: AnalysisResponse | null;
   accessToken?: string;
+  capabilities?: Capabilities | null;
 };
 
 const shotOptions = ["cover_drive", "defensive_shot", "pull_shot", "sweep_shot"];
 const tipFlags: FeedbackPayload["tip_flags"] = ["useful", "incorrect", "unsafe", "unclear"];
 
-export function FeedbackPanel({ result, accessToken }: FeedbackPanelProps) {
+export function FeedbackPanel({ result, accessToken, capabilities }: FeedbackPanelProps) {
   const [correctness, setCorrectness] = useState<FeedbackPayload["prediction_was_correct"]>("unsure");
   const [correctedShot, setCorrectedShot] = useState("cover_drive");
   const [rating, setRating] = useState(3);
@@ -68,6 +69,7 @@ export function FeedbackPanel({ result, accessToken }: FeedbackPanelProps) {
     | { attempted?: boolean; stored?: boolean; storage_status?: string; error_code?: string | null }
     | undefined;
   const evidence = (activeResult.api_metadata.evidence_retention ?? {}) as EvidenceRetentionState;
+  const canConsentForModelImprovement = Boolean(accessToken && capabilities?.model_improvement_enabled && evidence.retained);
   const evidenceLabel = evidence.retained
     ? `Evidence retained securely${evidence.retention_expires_at ? ` until ${new Date(evidence.retention_expires_at).toLocaleDateString()}` : ""}.`
     : evidence.requested
@@ -103,7 +105,7 @@ export function FeedbackPanel({ result, accessToken }: FeedbackPanelProps) {
           technique_feedback_rating: rating,
           tip_flags: flags,
           notes: notes || null,
-          consent_to_model_improvement: consent,
+          consent_to_model_improvement: canConsentForModelImprovement && consent,
         },
         accessToken,
       );
@@ -267,9 +269,18 @@ export function FeedbackPanel({ result, accessToken }: FeedbackPanelProps) {
 
         <label className="consent-row">
           <span id="feedback-consent-details">
-            This sends judgement and notes for human review only when retained evidence exists. No automatic retraining occurs.
+            {capabilities?.model_improvement_enabled === false
+              ? "Model-improvement participation is disabled in this environment. Feedback will be saved outside training review."
+              : evidence.retained
+                ? "This sends judgement and notes for human review only when retained evidence exists. No automatic retraining occurs."
+                : "No retained evidence is available for this analysis, so feedback cannot enter model-training review."}
           </span>
-          <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
+          <input
+            type="checkbox"
+            checked={consent}
+            disabled={!canConsentForModelImprovement}
+            onChange={(event) => setConsent(event.target.checked)}
+          />
           Use this feedback for human-reviewed model improvement if eligible evidence was retained.
         </label>
 

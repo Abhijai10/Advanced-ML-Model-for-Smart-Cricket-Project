@@ -21,6 +21,7 @@ It should not be described as fully production-ready yet. The remaining blockers
 - Readiness is separate from liveness via `GET /ready`.
 - `GET /health` is lightweight process liveness only; `GET /ready` performs dependency checks.
 - Readiness checks checkpoint, scaler, schemas, technique templates, pose model, temp storage, auth configuration, production persistence, signing secret, evidence storage, and rate-limit backend when those are required.
+- `GET /capabilities` exposes non-secret frontend capability flags for auth, feedback, model-improvement participation, evidence retention, TTS mode, upload size, recording duration, and accepted video extensions.
 - Request IDs are attached to responses and error payloads.
 - Analysis requests can require Supabase JWTs by setting `SMART_CRICKET_REQUIRE_AUTH=true` and `SUPABASE_JWT_SECRET`.
 - Basic in-memory rate limiting protects single-process deployments and local demos.
@@ -32,6 +33,9 @@ It should not be described as fully production-ready yet. The remaining blockers
 - Controlled-beta analysis feedback can be submitted through `POST /feedback` with prediction correctness, corrected label, technique rating, tip flags, notes, and explicit model-improvement consent.
 - General usability/bug/feature feedback is separate at `POST /product-feedback` and never enters model-training review.
 - Feedback is marked as user-reported provenance. It becomes a review candidate only when the user opted in before analysis and protected evidence was retained successfully. It must go through human/expert review before any retraining dataset changes.
+- Model-improvement participation is default-disabled. When `SMART_CRICKET_ALLOW_MODEL_IMPROVEMENT_PARTICIPATION=false`, the backend records retention requests as disabled and the frontend disables consent controls.
+- Consent withdrawal now disables training eligibility immediately and attempts provider-aware evidence deletion using the stored `evidence_metadata.storage_provider`, not the current runtime provider setting.
+- Failed evidence deletion is marked `deletion_pending` for retry by `scripts/cleanup_evidence.py`; pending/deleted/withdrawn rows are not reviewable or exportable.
 - Voice output degrades to text-only metadata if TTS generation fails, so analysis does not fail just because audio generation is unavailable.
 - Analysis responses include `analysis_quality.status` with `ok`, `uncertain`, or `insufficient_quality` based on configurable confidence and clean-pose-frame thresholds.
 
@@ -88,6 +92,8 @@ The migration in `supabase/migrations/202608040001_smart_cricket_app_schema.sql`
 
 The current frontend reads history from owner-scoped RLS tables but does not write analysis results directly. The follow-up migration `20260804080002_secure_trusted_analysis_and_feedback.sql` also revokes browser `INSERT` and `UPDATE` access to `analysis_sessions`, so trusted analysis history is server-created only.
 
+The follow-up migration `20260812135543_product_feedback_and_evidence_lifecycle.sql` creates `public.product_feedback` for usability/bug/feature feedback and expands analysis/evidence states such as `disabled` and `deletion_pending`. This keeps general product reports outside `analysis_feedback` and outside ML retraining workflows.
+
 Authenticated history is durable only when the backend has Supabase server credentials. The frontend must never receive a service-role key. Production setup requires:
 
 - explicit Supabase project selection;
@@ -114,4 +120,10 @@ The feedback endpoint is safe for a controlled beta only when persistence is con
 
 Production must define retention periods for uploaded clips, generated audio, feedback records, and derived pose/features. Audio is currently served through signed local `/audio/<filename>?expires=...&signature=...` links with cleanup support; protected object storage is still required before production use. Users need deletion/export flows, consent withdrawal behavior, and a documented incident-response path.
 
-The current implementation supports a protected local development evidence provider and a Supabase Storage adapter interface with mocked/code tests. Live Supabase Storage verification remains an external deployment gate.
+The current implementation supports a protected local development evidence provider and a Supabase Storage adapter interface with mocked/code tests. Evidence deletion is provider-aware based on stored metadata, and expired/deletion-pending evidence can be retried with:
+
+```bash
+python scripts/cleanup_evidence.py --execute
+```
+
+Run without `--execute` for a dry run. Live Supabase Storage verification remains an external deployment gate.

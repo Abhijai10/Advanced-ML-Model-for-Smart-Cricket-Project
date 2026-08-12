@@ -102,6 +102,32 @@ def _postgrest_select_one(table: str, filters: dict[str, str]) -> PersistenceRes
     return PersistenceResult(stored=True, status="stored", record_id=str(payload[0].get("id") or ""), record=payload[0])
 
 
+def _postgrest_select_many(table: str, query_params: dict[str, str]) -> PersistenceResult:
+    if not is_persistence_configured():
+        return PersistenceResult(stored=False, status="persistence_not_configured", error_code="persistence_not_configured")
+    query = urllib.parse.urlencode(query_params)
+    request = urllib.request.Request(
+        f"{SETTINGS.supabase_url.rstrip('/')}/rest/v1/{table}?select=*&{query}",
+        method="GET",
+        headers={
+            "apikey": SETTINGS.supabase_service_role_key or "",
+            "authorization": f"Bearer {SETTINGS.supabase_service_role_key}",
+            "accept": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=SETTINGS.persistence_timeout_seconds) as response:
+            payload = json.loads(response.read().decode("utf-8") or "[]")
+    except urllib.error.HTTPError as exc:
+        status = "temporary_failure" if exc.code in {408, 429, 500, 502, 503, 504} else "failed"
+        return PersistenceResult(stored=False, status=status, error_code=f"supabase_http_{exc.code}")
+    except Exception:
+        return PersistenceResult(stored=False, status="temporary_failure", error_code="persistence_failed")
+    if not isinstance(payload, list):
+        return PersistenceResult(stored=False, status="failed", error_code="unexpected_response")
+    return PersistenceResult(stored=True, status="stored", record=payload)
+
+
 def _postgrest_patch(table: str, filters: dict[str, str], row: dict[str, Any]) -> PersistenceResult:
     if not is_persistence_configured():
         return PersistenceResult(stored=False, status="persistence_not_configured", error_code="persistence_not_configured")
@@ -125,7 +151,13 @@ def _postgrest_patch(table: str, filters: dict[str, str], row: dict[str, Any]) -
         return PersistenceResult(stored=False, status=status, error_code=f"supabase_http_{exc.code}")
     except Exception:
         return PersistenceResult(stored=False, status="temporary_failure", error_code="persistence_failed")
-    record = payload[0] if isinstance(payload, list) and payload and isinstance(payload[0], dict) else None
+    if not isinstance(payload, list):
+        return PersistenceResult(stored=False, status="failed", error_code="unexpected_response")
+    if not payload:
+        return PersistenceResult(stored=False, status="not_found", error_code="record_not_found")
+    record = payload[0] if isinstance(payload[0], dict) else None
+    if record is None:
+        return PersistenceResult(stored=False, status="failed", error_code="unexpected_response")
     return PersistenceResult(stored=True, status="stored", record_id=str((record or {}).get("id") or ""), record=record)
 
 
@@ -196,19 +228,42 @@ def load_analysis_session(*, analysis_session_id: str, user_id: str) -> Persiste
     return _postgrest_select_one("analysis_sessions", {"id": analysis_session_id, "user_id": user_id})
 
 
+def list_evidence_cleanup_candidates(*, now_iso: str, limit: int = 100) -> PersistenceResult:
+    """List retained analyses whose evidence should no longer be accessible."""
+    return _postgrest_select_many(
+        "analysis_sessions",
+        {
+            "storage_status": "in.(stored,deletion_pending)",
+            "retention_expires_at": f"lte.{now_iso}",
+            "limit": str(max(1, min(limit, 1000))),
+            "order": "retention_expires_at.asc",
+        },
+    )
+
+
 def mark_analysis_withdrawn_or_deleted(
     *,
     analysis_session_id: str,
     user_id: str,
     deleted: bool = False,
+    deletion_pending: bool = False,
+    deletion_error_code: str | None = None,
+    evidence_metadata: dict[str, Any] | None = None,
 ) -> PersistenceResult:
     now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    storage_status = "deleted" if deleted else "deletion_pending" if deletion_pending else "withdrawn"
     row = {
         "withdrawn_at": now,
-        "storage_status": "deleted" if deleted else "withdrawn",
+        "storage_status": storage_status,
         "consent_scope": "withdrawn",
         "deleted_at": now if deleted else None,
     }
+    if deletion_error_code:
+        row["evidence_metadata"] = {
+            **(evidence_metadata or {}),
+            "deletion_error_code": deletion_error_code,
+            "deletion_attempted_at": now,
+        }
     return _postgrest_patch("analysis_sessions", {"id": analysis_session_id, "user_id": user_id}, row)
 
 
@@ -217,12 +272,14 @@ def mark_feedback_withdrawn_or_deleted(
     analysis_session_id: str,
     user_id: str,
     deleted: bool = False,
+    deletion_pending: bool = False,
 ) -> PersistenceResult:
     now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    terminal_status = "deleted" if deleted else "deletion_pending" if deletion_pending else "withdrawn"
     row = {
         "withdrawn_at": now,
         "deleted_at": now if deleted else None,
-        "review_status": "deleted" if deleted else "withdrawn",
+        "review_status": terminal_status,
         "dataset_eligibility_status": "deleted" if deleted else "withdrawn",
         "accepted_for_review": False,
     }
@@ -257,10 +314,15 @@ def build_feedback_record(
         raise ValueError("A verified analysis session is required for model-improvement feedback.")
     provenance = (analysis or {}).get("model_provenance") if isinstance((analysis or {}).get("model_provenance"), dict) else {}
     clip_hash = (analysis or {}).get("clip_hash")
-    reviewable_evidence = bool(consent and analysis and evidence_is_reviewable(analysis))
+    reviewable_evidence = bool(
+        consent
+        and SETTINGS.allow_model_improvement_participation
+        and analysis
+        and evidence_is_reviewable(analysis)
+    )
     if consent and analysis and not reviewable_evidence:
         storage_state = (analysis or {}).get("storage_status") or "not_retained"
-        review_status = "evidence_not_retained" if storage_state == "not_retained" else "awaiting_evidence"
+        review_status = "evidence_not_retained" if storage_state in {"not_retained", "deleted", "withdrawn", "deletion_pending"} else "awaiting_evidence"
     elif consent:
         review_status = "candidate"
     else:
@@ -312,3 +374,28 @@ def build_feedback_record(
 def persist_feedback_record(row: dict[str, Any]) -> PersistenceResult:
     """Persist a beta feedback record if Supabase server credentials are configured."""
     return _postgrest_insert("analysis_feedback", row)
+
+
+def build_product_feedback_record(
+    *,
+    payload: Any,
+    user_id: str | None,
+    request_id: str,
+) -> dict[str, Any]:
+    """Create a general product-feedback row that is outside ML training tables."""
+    return {
+        "id": str(uuid4()),
+        "user_id": user_id,
+        "usability_rating": payload.usability_rating,
+        "bug_category": payload.bug_category,
+        "feature_request": payload.feature_request,
+        "notes": payload.notes,
+        "page_context": payload.page_context,
+        "request_id": request_id,
+        "status": "new",
+    }
+
+
+def persist_product_feedback_record(row: dict[str, Any]) -> PersistenceResult:
+    """Persist general product feedback in its dedicated non-ML table."""
+    return _postgrest_insert("product_feedback", row)

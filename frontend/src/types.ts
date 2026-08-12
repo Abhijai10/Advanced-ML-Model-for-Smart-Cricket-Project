@@ -43,6 +43,17 @@ export type AnalysisResponse = {
   api_metadata: Record<string, unknown>;
 };
 
+export type Capabilities = {
+  auth_required: boolean;
+  feedback_enabled: boolean;
+  model_improvement_enabled: boolean;
+  evidence_retention_enabled: boolean;
+  tts_provider: string;
+  max_upload_bytes: number;
+  max_recording_duration_seconds: number;
+  accepted_video_extensions: string[];
+};
+
 export type EvidenceRetentionState = {
   requested?: boolean;
   status?: "stored" | "not_requested" | "not_retained" | "failed" | "temporary_failure" | "withdrawn" | "deleted" | string;
@@ -88,6 +99,7 @@ export type AnalysisSession = {
   coaching_tips: string[];
   full_result: AnalysisResponse | Record<string, unknown>;
   created_at: string;
+  history_status?: "server_saved" | "local_demo" | "unsaved";
 };
 
 export type ShotChartDatum = {

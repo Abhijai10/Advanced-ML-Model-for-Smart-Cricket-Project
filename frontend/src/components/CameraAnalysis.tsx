@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Camera, CircleStop, Clock3, Play, RotateCcw, Upload, UserRoundCheck } from "lucide-react";
 import { analyzeVideo } from "../lib/api";
-import type { AnalysisResponse } from "../types";
+import type { AnalysisResponse, Capabilities } from "../types";
 
 type CameraAnalysisProps = {
   onResult: (result: AnalysisResponse, sourceName: string) => Promise<void>;
   accessToken?: string;
+  capabilities?: Capabilities | null;
 };
 
 type RecordingFormat = {
@@ -31,7 +32,7 @@ function selectRecordingFormat(): RecordingFormat | null {
   return recordingFormats.find((format) => MediaRecorder.isTypeSupported(format.mimeType)) ?? null;
 }
 
-export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
+export function CameraAnalysis({ onResult, accessToken, capabilities }: CameraAnalysisProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -48,6 +49,7 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
   const [retainEvidence, setRetainEvidence] = useState(false);
   const [error, setError] = useState("");
   const maxRecordingSeconds = clampRecordingSeconds(import.meta.env.VITE_MAX_RECORDING_SECONDS);
+  const canRetainEvidence = Boolean(accessToken && capabilities?.evidence_retention_enabled);
 
   const stageLabel = useMemo(() => {
     if (analysisStage === "uploading") return "Uploading clip";
@@ -167,7 +169,7 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
       window.setTimeout(() => setAnalysisStage("analyzing"), 350),
     ];
     try {
-      const result = await analyzeVideo(blob, filename, accessToken, retainEvidence);
+      const result = await analyzeVideo(blob, filename, accessToken, canRetainEvidence && retainEvidence);
       setAnalysisStage("result");
       await onResult(result, filename);
     } catch (err) {
@@ -193,6 +195,12 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
     setError("");
     setRetainEvidence(false);
   }
+
+  useEffect(() => {
+    if (!canRetainEvidence && retainEvidence) {
+      setRetainEvidence(false);
+    }
+  }, [canRetainEvidence, retainEvidence]);
 
   async function uploadFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -265,11 +273,15 @@ export function CameraAnalysis({ onResult, accessToken }: CameraAnalysisProps) {
         <input
           type="checkbox"
           checked={retainEvidence}
-          disabled={isAnalyzing || !accessToken}
+          disabled={isAnalyzing || !canRetainEvidence}
           onChange={(event) => setRetainEvidence(event.target.checked)}
         />
         <span>
-          Keep this clip securely for human-reviewed model improvement. This must be selected before analysis; no automatic retraining occurs.
+          {capabilities?.model_improvement_enabled === false
+            ? "Model-improvement participation is disabled in this environment, so clips are not retained."
+            : accessToken
+              ? "Keep this clip securely for human-reviewed model improvement. This must be selected before analysis; no automatic retraining occurs."
+              : "Sign in to retain clip evidence for human-reviewed model improvement."}
         </span>
       </label>
 

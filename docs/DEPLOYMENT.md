@@ -14,6 +14,7 @@ Endpoints:
 
 - `GET /health` for liveness
 - `GET /ready` for dependency readiness
+- `GET /capabilities` for non-secret frontend feature flags
 - `POST /analyze` for uploaded video analysis
 - `POST /feedback` for verified analysis feedback
 - `POST /product-feedback` for general usability/bug/feature feedback
@@ -44,6 +45,7 @@ Set:
 - Set `SMART_CRICKET_AUDIO_SIGNING_SECRET` to a high-entropy secret that is not the Supabase service-role key.
 - Set `SMART_CRICKET_EVIDENCE_STORAGE_BACKEND=supabase`, `SMART_CRICKET_EVIDENCE_SUPABASE_BUCKET`, and private bucket policies before enabling model-improvement participation.
 - Schedule `python scripts/cleanup_audio.py` for generated audio cleanup.
+- Schedule `python scripts/cleanup_evidence.py --execute` for expired or deletion-pending retained evidence after protected evidence storage is enabled.
 - Set a narrow `SMART_CRICKET_CORS_ORIGINS` value.
 - Use protected object storage and a cleanup policy for generated audio and any retained model-improvement evidence.
 - Put a reverse proxy in front of the API for TLS and stronger distributed rate limiting; production multi-instance deployments should use Redis/gateway rate limiting rather than process memory.
