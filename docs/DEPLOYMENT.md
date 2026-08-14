@@ -21,6 +21,7 @@ Endpoints:
 - `POST /analysis/<id>/withdraw-consent` and `DELETE /analysis/<id>/evidence` for consent/evidence lifecycle operations
 - `POST /dev/analyze-dataset` for local dataset samples, only when enabled
 - `GET /audio/<filename>?expires=...&signature=...` for signed generated audio artifacts
+- `POST /audio-artifacts/<artifact_id>/signed-url` for local signed audio URL refresh
 
 ## Frontend
 
@@ -43,9 +44,12 @@ Set:
 - Set `SUPABASE_JWT_AUDIENCE` and `SUPABASE_JWT_ISSUER` in production.
 - Set `SUPABASE_SERVICE_ROLE_KEY` only on the backend. Never expose it to the frontend.
 - Set `SMART_CRICKET_AUDIO_SIGNING_SECRET` to a high-entropy secret that is not the Supabase service-role key.
+- Set `SMART_CRICKET_TTS_PROVIDER=text_only`, `local`, or `google`. Use `local` only for development/test. Use `google` with Application Default Credentials for production voice synthesis.
+- Set `SMART_CRICKET_TTS_AUDIO_FORMAT=mp3` for browser-friendly Google output unless you intentionally choose `wav`.
+- Set `SMART_CRICKET_AUDIO_STORAGE_BACKEND=supabase` and `SMART_CRICKET_AUDIO_SUPABASE_BUCKET=smart-cricket-audio` for staging/production audio artifacts. Keep the bucket private.
 - Set `SMART_CRICKET_EVIDENCE_STORAGE_BACKEND=supabase`, `SMART_CRICKET_EVIDENCE_SUPABASE_BUCKET`, and private bucket policies before enabling model-improvement participation.
 - Use `python scripts/review_feedback_candidates.py list --include-access` only from a trusted backend/maintainer environment. Supabase reviewer access is generated as a short-lived signed URL and requires backend-only Supabase credentials.
-- Schedule `python scripts/cleanup_audio.py` for generated audio cleanup.
+- Schedule `python scripts/cleanup_audio.py` for generated audio cleanup. Use `python scripts/cleanup_audio.py --dry-run` first.
 - Schedule `python scripts/cleanup_evidence.py --execute` for expired or deletion-pending retained evidence after protected evidence storage is enabled.
 - Set a narrow `SMART_CRICKET_CORS_ORIGINS` value.
 - Use protected object storage and a cleanup policy for generated audio and any retained model-improvement evidence.
@@ -58,7 +62,16 @@ Set:
 
 `/health` is lightweight liveness. It answers only whether the API process is alive and must stay cheap enough for platform health checks.
 
-`/ready` is dependency readiness. In staging and production it includes artifact checks plus production configuration validation for auth, persistence, evidence storage, audio signing, rate limiting, CORS, upload limits, and inference timeouts.
+`/ready` is dependency readiness. In staging and production it includes artifact checks plus production configuration validation for auth, persistence, evidence storage, TTS, audio signing/storage, rate limiting, CORS, upload limits, and inference timeouts.
+
+For a quick release-candidate configuration check:
+
+```bash
+python scripts/verify_release_candidate.py
+python scripts/verify_release_candidate.py --json
+```
+
+This check does not upload a real cricket video and does not prove live Google TTS or Supabase Storage playback. Missing live credentials are reported explicitly rather than called passing.
 
 Run a deployed smoke check without a cricket fixture:
 

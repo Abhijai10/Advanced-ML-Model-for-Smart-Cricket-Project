@@ -8,7 +8,7 @@ It should not be described as fully production-ready yet. The remaining blockers
 
 - Supabase project selection, secrets, and server-side persistence need real deployment credentials.
 - Real-world model readiness requires a larger, player-held-out dataset and coach validation.
-- Production TTS should be connected to a real provider if spoken narration is required outside macOS/local demos.
+- Live Google Cloud TTS and private Supabase audio storage need staging credentials and smoke verification.
 - Browser end-to-end tests should run in CI after the deployed API/frontend URLs exist.
 - Real-video Phase 12 validation still requires a legally usable batting-video fixture. Mocked API tests are not evidence of real inference quality.
 
@@ -20,13 +20,14 @@ It should not be described as fully production-ready yet. The remaining blockers
 - Video duration and resolution limits are environment configurable.
 - Readiness is separate from liveness via `GET /ready`.
 - `GET /health` is lightweight process liveness only; `GET /ready` performs dependency checks.
-- Readiness checks checkpoint, scaler, schemas, technique templates, pose model, temp storage, auth configuration, production persistence, signing secret, evidence storage, and rate-limit backend when those are required.
+- Readiness checks checkpoint, scaler, schemas, technique templates, pose model, temp storage, auth configuration, production persistence, TTS configuration, audio signing/storage, evidence storage, and rate-limit backend when those are required.
 - `GET /capabilities` exposes non-secret frontend capability flags for auth, feedback, model-improvement participation, evidence retention, TTS mode, upload size, recording duration, and accepted video extensions.
 - Request IDs are attached to responses and error payloads.
 - Analysis requests can require Supabase JWTs by setting `SMART_CRICKET_REQUIRE_AUTH=true`. Legacy HS256 verification uses `SUPABASE_JWT_SECRET`; modern asymmetric Supabase tokens use `SUPABASE_URL` for JWKS plus `SUPABASE_JWT_AUDIENCE` and `SUPABASE_JWT_ISSUER`.
 - Local auth tests cover HS256, RS256, ES256, malformed signatures, empty/invalid JWKS responses, route-level JWKS outage behavior, and key-cache refresh on unknown `kid`. Live Supabase issuer/audience/key-rotation verification remains an external deployment gate.
 - Rate limiting now uses an explicit adapter contract with authenticated user keys when auth has resolved and IP keys otherwise. The memory backend protects single-process deployments and local demos; production readiness rejects memory mode and expects Redis or a verified gateway/WAF. Trusted proxy parsing uses the configured proxy-hop count instead of blindly trusting the first `X-Forwarded-For` value.
-- Voice artifacts are unique per request and exposed through signed `/audio/<filename>` links. Production/staging require `SMART_CRICKET_AUDIO_SIGNING_SECRET`; the local fallback is test/development only.
+- Voice artifacts use a provider-neutral TTS boundary with explicit text-only fallback, local development TTS, and a Google Cloud TTS adapter. Production/staging must not rely on local development TTS.
+- Audio artifacts record provider, MIME type, extension, expiry, byte count, checksum, and storage backend. Local development artifacts use signed `/audio/<filename>` links; production can use a private Supabase Storage bucket with server-generated signed URLs.
 - UI duration uses backend timing from source video timestamps when available.
 - Frontend sends Supabase access tokens when a user is signed in.
 - Frontend no longer writes model results into Supabase directly; authenticated history writes are local-only until server-side persistence is connected.
@@ -67,6 +68,16 @@ Important variables:
 - `SMART_CRICKET_MAX_VIDEO_PIXELS`
 - `SMART_CRICKET_AUDIO_OUTPUT_DIR`
 - `SMART_CRICKET_AUDIO_SIGNING_SECRET`
+- `SMART_CRICKET_AUDIO_STORAGE_BACKEND`
+- `SMART_CRICKET_AUDIO_SUPABASE_BUCKET`
+- `SMART_CRICKET_TTS_ENABLED`
+- `SMART_CRICKET_TTS_PROVIDER`
+- `SMART_CRICKET_TTS_LANGUAGE_CODE`
+- `SMART_CRICKET_TTS_VOICE`
+- `SMART_CRICKET_TTS_AUDIO_FORMAT`
+- `SMART_CRICKET_TTS_REQUEST_TIMEOUT_SECONDS`
+- `SMART_CRICKET_TTS_MAX_TEXT_CHARACTERS`
+- `SMART_CRICKET_TTS_RETRY_COUNT`
 - `SMART_CRICKET_EVIDENCE_STORAGE_BACKEND`
 - `SMART_CRICKET_EVIDENCE_SUPABASE_BUCKET`
 - `SMART_CRICKET_ALLOW_MODEL_IMPROVEMENT_PARTICIPATION`
@@ -124,7 +135,7 @@ The feedback endpoint is safe for a controlled beta only when persistence is con
 
 ## Privacy, Retention, and Storage
 
-Production must define retention periods for uploaded clips, generated audio, feedback records, and derived pose/features. Audio is currently served through signed local `/audio/<filename>?expires=...&signature=...` links with cleanup support; protected object storage is still required before production use. Users need deletion/export flows, consent withdrawal behavior, and a documented incident-response path.
+Production must define retention periods for uploaded clips, generated audio, feedback records, and derived pose/features. Audio is now represented as protected artifacts with MIME/extension validation, signed local development access, optional private Supabase Storage access, and cleanup support. Live Supabase audio upload/signed playback/delete verification is still required before production use. Users need deletion/export flows, consent withdrawal behavior, and a documented incident-response path.
 
 The current implementation supports a protected local development evidence provider and a Supabase Storage adapter interface with mocked/code tests. Evidence deletion is provider-aware based on stored metadata, and expired/deletion-pending evidence can be retried with:
 
