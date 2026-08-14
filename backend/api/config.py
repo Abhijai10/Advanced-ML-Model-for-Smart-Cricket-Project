@@ -84,6 +84,16 @@ class APISettings:
     audio_url_ttl_seconds: int = _int_env("SMART_CRICKET_AUDIO_URL_TTL_SECONDS", 900)
     audio_max_url_ttl_seconds: int = _int_env("SMART_CRICKET_AUDIO_MAX_URL_TTL_SECONDS", 3600)
     audio_retention_seconds: int = _int_env("SMART_CRICKET_AUDIO_RETENTION_SECONDS", 3600)
+    audio_storage_backend: str = os.getenv("SMART_CRICKET_AUDIO_STORAGE_BACKEND", "local")
+    audio_supabase_bucket: str | None = os.getenv("SMART_CRICKET_AUDIO_SUPABASE_BUCKET") or None
+    tts_enabled: bool = _bool_env("SMART_CRICKET_TTS_ENABLED", True)
+    tts_provider: str = os.getenv("SMART_CRICKET_TTS_PROVIDER", "local")
+    tts_language_code: str = os.getenv("SMART_CRICKET_TTS_LANGUAGE_CODE", "en-IN")
+    tts_voice: str | None = os.getenv("SMART_CRICKET_TTS_VOICE") or None
+    tts_audio_format: str = os.getenv("SMART_CRICKET_TTS_AUDIO_FORMAT", "mp3")
+    tts_request_timeout_seconds: int = _int_env("SMART_CRICKET_TTS_REQUEST_TIMEOUT_SECONDS", 5)
+    tts_max_text_characters: int = _int_env("SMART_CRICKET_TTS_MAX_TEXT_CHARACTERS", 500)
+    tts_retry_count: int = _int_env("SMART_CRICKET_TTS_RETRY_COUNT", 1)
     jwks_timeout_seconds: int = _int_env("SMART_CRICKET_JWKS_TIMEOUT_SECONDS", 5)
     jwks_cache_ttl_seconds: int = _int_env("SMART_CRICKET_JWKS_CACHE_TTL_SECONDS", 600)
     rate_limit_backend: str = os.getenv("SMART_CRICKET_RATE_LIMIT_BACKEND", "memory")
@@ -157,6 +167,24 @@ def validate_runtime_settings(settings: APISettings) -> list[ConfigValidationIss
         add("invalid_video_duration", "SMART_CRICKET_MAX_VIDEO_DURATION_SECONDS must be between 1 and 120.")
     if settings.audio_url_ttl_seconds < 1 or settings.audio_max_url_ttl_seconds < settings.audio_url_ttl_seconds:
         add("invalid_audio_ttl", "Audio URL TTL values must be positive and max TTL must be at least the default TTL.")
+    if settings.audio_storage_backend.strip().lower() not in {"local", "supabase"}:
+        add("invalid_audio_storage_backend", "SMART_CRICKET_AUDIO_STORAGE_BACKEND must be local or supabase.")
+    if settings.audio_storage_backend.strip().lower() == "supabase":
+        if not settings.audio_supabase_bucket:
+            add("audio_bucket_missing", "SMART_CRICKET_AUDIO_SUPABASE_BUCKET is required for Supabase audio storage.")
+        if not settings.supabase_url or not settings.supabase_service_role_key:
+            add("audio_storage_credentials_missing", "Supabase URL and service-role key are required for Supabase audio storage.")
+    tts_provider = settings.tts_provider.strip().lower()
+    if tts_provider not in {"local", "development", "macos", "google", "text", "text_only", "none", "disabled"}:
+        add("invalid_tts_provider", "SMART_CRICKET_TTS_PROVIDER must be local, google, or text_only.")
+    if settings.tts_audio_format.strip().lower() not in {"mp3", "wav", "linear16"}:
+        add("invalid_tts_audio_format", "SMART_CRICKET_TTS_AUDIO_FORMAT must be mp3, wav, or linear16.")
+    if settings.tts_request_timeout_seconds < 1 or settings.tts_request_timeout_seconds > 30:
+        add("invalid_tts_timeout", "SMART_CRICKET_TTS_REQUEST_TIMEOUT_SECONDS must be between 1 and 30.")
+    if settings.tts_max_text_characters < 1 or settings.tts_max_text_characters > 5000:
+        add("invalid_tts_text_length", "SMART_CRICKET_TTS_MAX_TEXT_CHARACTERS must be between 1 and 5000.")
+    if settings.tts_retry_count < 0 or settings.tts_retry_count > 2:
+        add("invalid_tts_retry_count", "SMART_CRICKET_TTS_RETRY_COUNT must be between 0 and 2.")
     if settings.evidence_retention_days < 1 or settings.evidence_retention_days > 365:
         add("invalid_evidence_retention", "SMART_CRICKET_EVIDENCE_RETENTION_DAYS must be between 1 and 365.")
 
@@ -188,6 +216,19 @@ def validate_runtime_settings(settings: APISettings) -> list[ConfigValidationIss
             add("audio_secret_weak", "SMART_CRICKET_AUDIO_SIGNING_SECRET must be at least 32 characters.")
         if settings.audio_signing_secret and settings.audio_signing_secret == settings.supabase_service_role_key:
             add("audio_secret_reuses_service_key", "Audio signing secret must not reuse the Supabase service-role key.")
+        if settings.audio_storage_backend.strip().lower() == "local":
+            add("local_audio_storage_in_production", "Staging/production should use Supabase private audio storage.")
+        if settings.tts_enabled:
+            if tts_provider in {"local", "development", "macos"}:
+                add("development_tts_in_production", "Staging/production TTS must use google or text_only, not local development TTS.")
+            if tts_provider == "google":
+                try:
+                    import google.auth  # type: ignore[import-not-found]
+                    from google.cloud import texttospeech  # type: ignore[import-not-found]
+
+                    google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+                except Exception:
+                    add("google_tts_unverified", "Google TTS selected but dependency or Application Default Credentials are unavailable.")
         backend = settings.rate_limit_backend.strip().lower()
         if backend == "memory":
             add("memory_rate_limit_in_production", "Staging/production must use redis or gateway rate limiting.")

@@ -58,6 +58,9 @@ class ConfigReadinessTests(unittest.TestCase):
                 jwt_issuer="https://project.supabase.co/auth/v1",
                 supabase_service_role_key="service-secret",
                 audio_signing_secret="a" * 40,
+                audio_storage_backend="supabase",
+                audio_supabase_bucket="smart-cricket-audio",
+                tts_provider="text_only",
                 rate_limit_backend="gateway",
             ),
         )

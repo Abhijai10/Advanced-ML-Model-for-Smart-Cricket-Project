@@ -64,7 +64,8 @@ def capabilities() -> dict:
         "model_improvement_enabled": SETTINGS.allow_model_improvement_participation,
         "evidence_retention_enabled": SETTINGS.allow_model_improvement_participation
         and SETTINGS.evidence_storage_backend.strip().lower() in {"local", "supabase"},
-        "tts_provider": "signed_audio" if SETTINGS.audio_signing_secret or SETTINGS.environment in {"development", "test"} else "text_only",
+        "tts_provider": SETTINGS.tts_provider.strip().lower() if SETTINGS.tts_enabled else "text_only",
+        "audio_storage_backend": SETTINGS.audio_storage_backend.strip().lower(),
         "max_upload_bytes": SETTINGS.max_upload_bytes,
         "max_recording_duration_seconds": SETTINGS.max_video_duration_seconds,
         "accepted_video_extensions": [".avi", ".mkv", ".mov", ".mp4", ".webm"],

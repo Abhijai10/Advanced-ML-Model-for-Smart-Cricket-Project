@@ -19,7 +19,7 @@ from backend.api.config import SETTINGS
 from backend.api.evidence import EvidenceOutcome, evidence_is_reviewable
 from backend.api.persistence import PersistenceResult
 from backend.api.services import AnalysisTimeoutError, AuthContext, _FEEDBACK_RATE_LIMIT_BUCKETS, _RATE_LIMIT_BUCKETS, enforce_auth
-from ml.src.voice.tts_service import VoiceOutput
+from backend.api.tts import TTSResult
 
 
 def _fake_analysis(video_path: Path) -> dict:
@@ -63,20 +63,13 @@ def _fake_low_quality_analysis(video_path: Path) -> dict:
     return payload
 
 
-def _fake_voice(spoken_feedback: str, **kwargs) -> VoiceOutput:
-    path = Path(tempfile.gettempdir()) / kwargs["output_path"].name
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(b"RIFF0000WAVE")
-    return VoiceOutput(
-        spoken_feedback=spoken_feedback,
+def _fake_tts(spoken_feedback: str, **kwargs) -> TTSResult:
+    return TTSResult(
+        status="success",
         provider="test_tts",
-        audio_path=str(path),
-        audio_format="wav",
-        audio_bytes=path.stat().st_size,
-        playable=True,
-        generated_at="2026-08-04T00:00:00Z",
-        voice_name=None,
-        speech_rate=175,
+        audio_bytes=b"RIFF0000WAVEfmt ",
+        mime_type="audio/wav",
+        extension=".wav",
     )
 
 
@@ -116,8 +109,8 @@ class SmartCricketAPITests(unittest.TestCase):
 
     def _post_video(self, filename: str, content: bytes, media_type: str = "video/mp4"):
         with patch("backend.api.services._run_raw_video_with_timeout", side_effect=_fake_analysis), patch(
-            "backend.api.services.synthesize_spoken_feedback",
-            side_effect=_fake_voice,
+            "backend.api.services.synthesize_with_config",
+            side_effect=_fake_tts,
         ):
             return self.client.post(
                 "/analyze",
@@ -162,8 +155,8 @@ class SmartCricketAPITests(unittest.TestCase):
     def test_low_quality_result_is_marked_insufficient_quality(self) -> None:
         content = self._make_video("low-quality.mp4", "blue")
         with patch("backend.api.services._run_raw_video_with_timeout", side_effect=_fake_low_quality_analysis), patch(
-            "backend.api.services.synthesize_spoken_feedback",
-            side_effect=_fake_voice,
+            "backend.api.services.synthesize_with_config",
+            side_effect=_fake_tts,
         ):
             response = self.client.post(
                 "/analyze",
@@ -220,8 +213,8 @@ class SmartCricketAPITests(unittest.TestCase):
     def test_tts_failure_degrades_to_text_only_analysis(self) -> None:
         content = self._make_video("tts-failure.mp4", "blue")
         with patch("backend.api.services._run_raw_video_with_timeout", side_effect=_fake_analysis), patch(
-            "backend.api.services.synthesize_spoken_feedback",
-            side_effect=RuntimeError("tts down"),
+            "backend.api.services.synthesize_with_config",
+            return_value=TTSResult(status="failed", provider="google", error_code="tts_provider_unavailable"),
         ):
             response = self.client.post(
                 "/analyze",
@@ -232,7 +225,7 @@ class SmartCricketAPITests(unittest.TestCase):
         payload = response.json()
         self.assertFalse(payload["voice_output"]["available"])
         self.assertEqual(payload["voice_output"]["audio_url"], None)
-        self.assertEqual(payload["api_metadata"]["voice_error"], "RuntimeError")
+        self.assertEqual(payload["api_metadata"]["voice_error"], "tts_provider_unavailable")
 
     def test_analysis_persistence_metadata_is_safe_when_unconfigured(self) -> None:
         content = self._make_video("history.mp4", "blue")
@@ -553,8 +546,8 @@ class SmartCricketAPITests(unittest.TestCase):
         content = self._make_video("retain-failed.mp4", "blue")
         enabled_settings = replace(SETTINGS, allow_model_improvement_participation=True)
         with patch("backend.api.services.SETTINGS", enabled_settings), patch("backend.api.services._run_raw_video_with_timeout", side_effect=_fake_analysis), patch(
-            "backend.api.services.synthesize_spoken_feedback",
-            side_effect=_fake_voice,
+            "backend.api.services.synthesize_with_config",
+            side_effect=_fake_tts,
         ), patch(
             "backend.api.services.get_evidence_provider"
         ) as provider_factory, patch("backend.api.services.persist_analysis_session") as persist_mock:
@@ -577,8 +570,8 @@ class SmartCricketAPITests(unittest.TestCase):
         app.dependency_overrides[enforce_auth] = lambda: AuthContext(user_id="00000000-0000-0000-0000-000000000001", authorization_present=True)
         content = self._make_video("retain-disabled.mp4", "blue")
         with patch("backend.api.services._run_raw_video_with_timeout", side_effect=_fake_analysis), patch(
-            "backend.api.services.synthesize_spoken_feedback",
-            side_effect=_fake_voice,
+            "backend.api.services.synthesize_with_config",
+            side_effect=_fake_tts,
         ), patch("backend.api.services.get_evidence_provider") as provider_factory:
             response = self.client.post(
                 "/analyze",
@@ -610,8 +603,8 @@ class SmartCricketAPITests(unittest.TestCase):
         provider.delete = Mock(return_value=EvidenceOutcome(False, "deleted", "local_development", "user/session/object.mp4"))
         enabled_settings = replace(SETTINGS, allow_model_improvement_participation=True)
         with patch("backend.api.services.SETTINGS", enabled_settings), patch("backend.api.services._run_raw_video_with_timeout", side_effect=_fake_analysis), patch(
-            "backend.api.services.synthesize_spoken_feedback",
-            side_effect=_fake_voice,
+            "backend.api.services.synthesize_with_config",
+            side_effect=_fake_tts,
         ), patch("backend.api.services.get_evidence_provider", return_value=provider), patch(
             "backend.api.services.persist_analysis_session",
             return_value=PersistenceResult(stored=False, status="temporary_failure", error_code="persistence_failed"),

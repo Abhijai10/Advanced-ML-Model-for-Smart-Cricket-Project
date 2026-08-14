@@ -31,10 +31,8 @@ from ml.src.inference.inference_config import (
 )
 from ml.src.inference.raw_video_pipeline import analyze_raw_video
 from ml.src.preprocessing.extract_pose import POSE_LANDMARKER_MODEL_ASSET_PATH
-from ml.src.voice.tts_service import build_frontend_audio_ready_response, synthesize_spoken_feedback
-from ml.src.voice.voice_config import AUDIO_OUTPUT_DIR
 
-from .audio import sign_audio_url
+from .audio import store_audio_artifact
 from .config import SETTINGS, production_config_report
 from .evidence import EvidenceOutcome, get_evidence_provider
 from .inference_worker import InferenceWorkerFailedError, InferenceWorkerTimeoutError, run_raw_video_in_process, terminate_active_workers
@@ -43,6 +41,7 @@ from .persistence import persist_analysis_session
 from .provenance import build_provenance
 from .rate_limit import MemoryRateLimiter, RedisRateLimiter, memory_buckets, request_rate_key
 from .services_version import PHASE13_VERSION
+from .tts import synthesize_with_config
 
 
 ALLOWED_VIDEO_EXTENSIONS = {".avi", ".mkv", ".mov", ".mp4", ".webm"}
@@ -240,45 +239,59 @@ def _attach_voice_and_metadata(
     analysis_mode: str,
     request_id: str,
     clip_hash: str | None = None,
+    user_id: str | None = None,
+    analysis_session_id: str | None = None,
 ) -> dict[str, Any]:
     result["analysis_quality"] = _analysis_quality(result)
     provenance = build_provenance()
     result.setdefault("debug_metadata", {})["model_version"] = provenance["model_version"]
     result.setdefault("debug_metadata", {})["feature_contract_version"] = provenance["feature_contract_version"]
     result["model_provenance"] = provenance
-    audio_name = f"{request_id}-{uuid4().hex}.wav"
+    voice_error = None
     try:
-        voice_output = synthesize_spoken_feedback(
-            result["spoken_feedback"],
-            output_path=AUDIO_OUTPUT_DIR / audio_name,
+        tts_result = synthesize_with_config(result["spoken_feedback"], request_id=request_id)
+    except Exception:
+        METRICS.increment("smart_cricket_tts_failure", provider="boundary", code="tts_request_failed")
+        tts_result = None
+        voice_error = "tts_request_failed"
+    if tts_result and tts_result.available:
+        stored = store_audio_artifact(
+            tts_result.audio_bytes,
+            provider=tts_result.provider,
+            mime_type=tts_result.mime_type,
+            extension=tts_result.extension,
+            request_id=request_id,
+            user_id=user_id,
+            analysis_session_id=analysis_session_id,
         )
-        voice_ready = build_frontend_audio_ready_response(
-            analysis_response=result,
-            voice_output=voice_output,
-        )
-        voice_error = None
-    except Exception as exc:
-        voice_error = type(exc).__name__
-        METRICS.increment("smart_cricket_tts_failure", provider=voice_error)
-        voice_ready = {
-            "audio": {
-                "available": False,
-                "provider": "unavailable",
-                "audio_path": "",
-                "audio_filename": None,
-                "audio_format": "none",
-                "audio_bytes": 0,
-                "is_spoken_tts": False,
-                "degraded_to_text_only": True,
+        if stored.ok and stored.artifact:
+            artifact = stored.artifact
+            is_audio_cue = bool(tts_result.metadata.get("is_audio_cue"))
+            voice_ready = {
+                "audio": {
+                    "available": True,
+                    "provider": artifact.provider,
+                    "audio_path": "",
+                    "audio_url": artifact.audio_url,
+                    "audio_filename": artifact.artifact_id if artifact.storage_backend == "local" else None,
+                    "audio_format": artifact.extension,
+                    "audio_mime_type": artifact.mime_type,
+                    "audio_bytes": artifact.byte_count,
+                    "artifact": artifact.public_dict(),
+                    "artifact_id": artifact.artifact_id,
+                    "is_spoken_tts": not is_audio_cue,
+                    "degraded_to_text_only": False,
+                }
             }
-        }
-    result["voice_output"] = voice_ready["audio"]
-    if result["voice_output"].get("audio_path"):
-        audio_filename = Path(result["voice_output"]["audio_path"]).name
-        result["voice_output"]["audio_url"] = sign_audio_url(audio_filename)
-        result["voice_output"]["audio_path"] = ""
+        else:
+            voice_error = stored.error_code or "audio_storage_failed"
+            voice_ready = _text_only_voice_output(provider=tts_result.provider, error_code=voice_error)
+    elif tts_result:
+        voice_error = tts_result.error_code or "tts_unavailable"
+        voice_ready = _text_only_voice_output(provider=tts_result.provider, error_code=voice_error)
     else:
-        result["voice_output"]["audio_url"] = None
+        voice_ready = _text_only_voice_output(provider="text_only", error_code=voice_error or "tts_request_failed")
+    result["voice_output"] = voice_ready["audio"]
     result["timing"] = _segment_timing(result)
     result["api_metadata"] = {
         "phase": "Phase 13",
@@ -302,6 +315,26 @@ def _attach_voice_and_metadata(
         ),
     }
     return result
+
+
+def _text_only_voice_output(*, provider: str, error_code: str) -> dict[str, dict[str, Any]]:
+    return {
+        "audio": {
+            "available": False,
+            "provider": provider or "text_only",
+            "audio_path": "",
+            "audio_url": None,
+            "audio_filename": None,
+            "audio_format": "none",
+            "audio_mime_type": None,
+            "audio_bytes": 0,
+            "artifact": None,
+            "artifact_id": None,
+            "is_spoken_tts": False,
+            "degraded_to_text_only": True,
+            "error_code": error_code,
+        }
+    }
 
 
 def _analysis_quality(result: dict[str, Any]) -> dict[str, Any]:
@@ -450,6 +483,8 @@ def analyze_uploaded_video_with_retention(
                 analysis_mode="raw_video_upload",
                 request_id=request_id,
                 clip_hash=clip_hash,
+                user_id=auth.user_id,
+                analysis_session_id=analysis_session_id,
             )
             result["api_metadata"]["evidence_retention"] = {
                 "requested": retain_evidence,
@@ -533,6 +568,16 @@ def api_readiness() -> dict[str, Any]:
         _audio_config_ready(),
         "SMART_CRICKET_AUDIO_SIGNING_SECRET configured or local development/test mode",
     )
+    record(
+        "tts_configuration",
+        _tts_config_ready(),
+        _tts_config_detail(),
+    )
+    record(
+        "audio_storage_configuration",
+        _audio_storage_config_ready(),
+        _audio_storage_config_detail(),
+    )
     if SETTINGS.environment in {"staging", "production"}:
         config_report = production_config_report(SETTINGS)
         record(
@@ -585,6 +630,43 @@ def _audio_config_ready() -> bool:
     if SETTINGS.audio_signing_secret and len(SETTINGS.audio_signing_secret) >= 32:
         return True
     return SETTINGS.environment in {"development", "test"}
+
+
+def _tts_config_ready() -> bool:
+    provider = SETTINGS.tts_provider.strip().lower()
+    if not SETTINGS.tts_enabled or provider in {"text", "text_only", "none", "disabled"}:
+        return True
+    if SETTINGS.tts_audio_format.strip().lower() not in {"mp3", "wav", "linear16"}:
+        return False
+    if SETTINGS.tts_request_timeout_seconds < 1 or SETTINGS.tts_request_timeout_seconds > 30:
+        return False
+    if SETTINGS.tts_max_text_characters < 1 or SETTINGS.tts_max_text_characters > 5000:
+        return False
+    if SETTINGS.environment in {"staging", "production"} and provider in {"local", "development", "macos"}:
+        return False
+    return provider in {"local", "development", "macos", "google"}
+
+
+def _tts_config_detail() -> str:
+    if not SETTINGS.tts_enabled:
+        return "TTS disabled; text-only feedback enabled"
+    return f"TTS provider={SETTINGS.tts_provider.strip().lower()} format={SETTINGS.tts_audio_format.strip().lower()}"
+
+
+def _audio_storage_config_ready() -> bool:
+    backend = SETTINGS.audio_storage_backend.strip().lower()
+    if backend == "local":
+        return SETTINGS.environment in {"development", "test"}
+    if backend == "supabase":
+        return bool(SETTINGS.supabase_url and SETTINGS.supabase_service_role_key and SETTINGS.audio_supabase_bucket)
+    return False
+
+
+def _audio_storage_config_detail() -> str:
+    backend = SETTINGS.audio_storage_backend.strip().lower()
+    if backend == "supabase":
+        return "private Supabase audio bucket configured" if _audio_storage_config_ready() else "Supabase audio storage requires URL, service key, and bucket"
+    return "local audio storage for development/test"
 
 
 def enforce_rate_limit(request: Request) -> None:

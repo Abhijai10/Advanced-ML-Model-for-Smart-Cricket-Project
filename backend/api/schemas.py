@@ -34,6 +34,7 @@ class CapabilitiesResponse(BaseModel):
     model_improvement_enabled: bool
     evidence_retention_enabled: bool
     tts_provider: str
+    audio_storage_backend: str
     max_upload_bytes: int
     max_recording_duration_seconds: int
     accepted_video_extensions: list[str]
