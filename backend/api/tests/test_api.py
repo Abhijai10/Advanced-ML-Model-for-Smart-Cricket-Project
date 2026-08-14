@@ -115,7 +115,7 @@ class SmartCricketAPITests(unittest.TestCase):
         return path.read_bytes()
 
     def _post_video(self, filename: str, content: bytes, media_type: str = "video/mp4"):
-        with patch("backend.api.services.analyze_raw_video", side_effect=_fake_analysis), patch(
+        with patch("backend.api.services._run_raw_video_with_timeout", side_effect=_fake_analysis), patch(
             "backend.api.services.synthesize_spoken_feedback",
             side_effect=_fake_voice,
         ):
@@ -161,7 +161,7 @@ class SmartCricketAPITests(unittest.TestCase):
 
     def test_low_quality_result_is_marked_insufficient_quality(self) -> None:
         content = self._make_video("low-quality.mp4", "blue")
-        with patch("backend.api.services.analyze_raw_video", side_effect=_fake_low_quality_analysis), patch(
+        with patch("backend.api.services._run_raw_video_with_timeout", side_effect=_fake_low_quality_analysis), patch(
             "backend.api.services.synthesize_spoken_feedback",
             side_effect=_fake_voice,
         ):
@@ -219,7 +219,7 @@ class SmartCricketAPITests(unittest.TestCase):
 
     def test_tts_failure_degrades_to_text_only_analysis(self) -> None:
         content = self._make_video("tts-failure.mp4", "blue")
-        with patch("backend.api.services.analyze_raw_video", side_effect=_fake_analysis), patch(
+        with patch("backend.api.services._run_raw_video_with_timeout", side_effect=_fake_analysis), patch(
             "backend.api.services.synthesize_spoken_feedback",
             side_effect=RuntimeError("tts down"),
         ):
@@ -552,7 +552,7 @@ class SmartCricketAPITests(unittest.TestCase):
         app.dependency_overrides[enforce_auth] = lambda: AuthContext(user_id="00000000-0000-0000-0000-000000000001", authorization_present=True)
         content = self._make_video("retain-failed.mp4", "blue")
         enabled_settings = replace(SETTINGS, allow_model_improvement_participation=True)
-        with patch("backend.api.services.SETTINGS", enabled_settings), patch("backend.api.services.analyze_raw_video", side_effect=_fake_analysis), patch(
+        with patch("backend.api.services.SETTINGS", enabled_settings), patch("backend.api.services._run_raw_video_with_timeout", side_effect=_fake_analysis), patch(
             "backend.api.services.synthesize_spoken_feedback",
             side_effect=_fake_voice,
         ), patch(
@@ -576,7 +576,7 @@ class SmartCricketAPITests(unittest.TestCase):
     def test_analyze_retention_request_is_disabled_when_model_improvement_off(self) -> None:
         app.dependency_overrides[enforce_auth] = lambda: AuthContext(user_id="00000000-0000-0000-0000-000000000001", authorization_present=True)
         content = self._make_video("retain-disabled.mp4", "blue")
-        with patch("backend.api.services.analyze_raw_video", side_effect=_fake_analysis), patch(
+        with patch("backend.api.services._run_raw_video_with_timeout", side_effect=_fake_analysis), patch(
             "backend.api.services.synthesize_spoken_feedback",
             side_effect=_fake_voice,
         ), patch("backend.api.services.get_evidence_provider") as provider_factory:
@@ -609,7 +609,7 @@ class SmartCricketAPITests(unittest.TestCase):
         )
         provider.delete = Mock(return_value=EvidenceOutcome(False, "deleted", "local_development", "user/session/object.mp4"))
         enabled_settings = replace(SETTINGS, allow_model_improvement_participation=True)
-        with patch("backend.api.services.SETTINGS", enabled_settings), patch("backend.api.services.analyze_raw_video", side_effect=_fake_analysis), patch(
+        with patch("backend.api.services.SETTINGS", enabled_settings), patch("backend.api.services._run_raw_video_with_timeout", side_effect=_fake_analysis), patch(
             "backend.api.services.synthesize_spoken_feedback",
             side_effect=_fake_voice,
         ), patch("backend.api.services.get_evidence_provider", return_value=provider), patch(

@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import base64
+import threading
 import hashlib
 import hmac
 import json
 import shutil
 import tempfile
 import time
-import threading
 import urllib.request
-import concurrent.futures
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -36,8 +35,10 @@ from ml.src.voice.tts_service import build_frontend_audio_ready_response, synthe
 from ml.src.voice.voice_config import AUDIO_OUTPUT_DIR
 
 from .audio import sign_audio_url
-from .config import SETTINGS
+from .config import SETTINGS, production_config_report
 from .evidence import EvidenceOutcome, get_evidence_provider
+from .inference_worker import InferenceWorkerFailedError, InferenceWorkerTimeoutError, run_raw_video_in_process, terminate_active_workers
+from .observability import METRICS
 from .persistence import persist_analysis_session
 from .provenance import build_provenance
 from .rate_limit import MemoryRateLimiter, RedisRateLimiter, memory_buckets, request_rate_key
@@ -71,6 +72,21 @@ class AnalysisTimeoutError(RuntimeError):
     """Raised when bounded inference execution exceeds the configured limit."""
 
     error_code = "analysis_timeout"
+
+    def __init__(self, message: str, *, worker_pid: int | None = None) -> None:
+        super().__init__(message)
+        self.worker_pid = worker_pid
+
+
+class AnalysisWorkerError(RuntimeError):
+    """Raised when the isolated inference worker fails or crashes."""
+
+    error_code = "inference_worker_failed"
+
+    def __init__(self, message: str, *, worker_pid: int | None = None, detail_code: str | None = None) -> None:
+        super().__init__(message)
+        self.worker_pid = worker_pid
+        self.detail_code = detail_code or self.error_code
 
 
 class JWKSUnavailableError(RuntimeError):
@@ -179,18 +195,19 @@ def _cleanup_temp_path(path: Path) -> None:
 
 
 def _run_raw_video_with_timeout(temp_path: Path) -> dict[str, Any]:
-    """Run raw-video inference with bounded caller wait and clear timeout status."""
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-    future = executor.submit(analyze_raw_video, temp_path)
+    """Run raw-video inference in a hard-stoppable process worker."""
     try:
-        return future.result(timeout=SETTINGS.analysis_execution_timeout_seconds)
-    except concurrent.futures.TimeoutError as exc:
-        future.cancel()
-        executor.shutdown(wait=False, cancel_futures=True)
-        raise AnalysisTimeoutError("Analysis took too long and was stopped. Try a shorter, clearer clip.") from exc
-    finally:
-        if future.done():
-            executor.shutdown(wait=True, cancel_futures=True)
+        return run_raw_video_in_process(
+            temp_path,
+            timeout_seconds=SETTINGS.analysis_execution_timeout_seconds,
+            worker=analyze_raw_video,
+        )
+    except InferenceWorkerTimeoutError as exc:
+        METRICS.increment("smart_cricket_analysis_timeout")
+        raise AnalysisTimeoutError(str(exc), worker_pid=exc.worker_pid) from exc
+    except InferenceWorkerFailedError as exc:
+        METRICS.increment("smart_cricket_worker_crash", detail_code=exc.detail_code)
+        raise AnalysisWorkerError(str(exc), worker_pid=exc.worker_pid, detail_code=exc.detail_code) from exc
 
 
 def _segment_timing(result: dict[str, Any]) -> dict[str, Any]:
@@ -242,6 +259,7 @@ def _attach_voice_and_metadata(
         voice_error = None
     except Exception as exc:
         voice_error = type(exc).__name__
+        METRICS.increment("smart_cricket_tts_failure", provider=voice_error)
         voice_ready = {
             "audio": {
                 "available": False,
@@ -321,8 +339,12 @@ def _analysis_quality(result: dict[str, Any]) -> dict[str, Any]:
 
 def analyze_uploaded_video(file: UploadFile, *, request_id: str) -> dict[str, Any]:
     """Analyze one uploaded cricket video from its actual bytes."""
+    queue_started = time.perf_counter()
     if not _ANALYSIS_SEMAPHORE.acquire(timeout=SETTINGS.analysis_queue_timeout_seconds):
+        METRICS.increment("smart_cricket_analysis_overload")
         raise AnalysisOverloadError("The analysis queue is busy. Wait a moment and try again.")
+    METRICS.observe("smart_cricket_analysis_queue_wait", time.perf_counter() - queue_started)
+    analysis_started = time.perf_counter()
     try:
         filename = _validate_video_upload(file)
         temp_path, upload_bytes, clip_hash, video_probe = _save_upload_to_temp(file, filename)
@@ -331,7 +353,7 @@ def analyze_uploaded_video(file: UploadFile, *, request_id: str) -> dict[str, An
                 raw_result = _run_raw_video_with_timeout(temp_path)
                 raw_result.setdefault("debug_metadata", {})["upload_video_probe"] = video_probe
             except Exception as exc:
-                if isinstance(exc, AnalysisTimeoutError):
+                if isinstance(exc, (AnalysisTimeoutError, AnalysisWorkerError)):
                     raise
                 raise APIValidationError(
                     (
@@ -351,6 +373,7 @@ def analyze_uploaded_video(file: UploadFile, *, request_id: str) -> dict[str, An
         finally:
             _cleanup_temp_path(temp_path)
     finally:
+        METRICS.observe("smart_cricket_analysis_latency", time.perf_counter() - analysis_started)
         _ANALYSIS_SEMAPHORE.release()
 
 
@@ -362,8 +385,12 @@ def analyze_uploaded_video_with_retention(
     retain_evidence: bool = False,
 ) -> tuple[dict[str, Any], EvidenceOutcome | None]:
     """Analyze an upload and optionally retain consented raw evidence before temp cleanup."""
+    queue_started = time.perf_counter()
     if not _ANALYSIS_SEMAPHORE.acquire(timeout=SETTINGS.analysis_queue_timeout_seconds):
+        METRICS.increment("smart_cricket_analysis_overload")
         raise AnalysisOverloadError("The analysis queue is busy. Wait a moment and try again.")
+    METRICS.observe("smart_cricket_analysis_queue_wait", time.perf_counter() - queue_started)
+    analysis_started = time.perf_counter()
     try:
         filename = _validate_video_upload(file)
         temp_path, upload_bytes, clip_hash, video_probe = _save_upload_to_temp(file, filename)
@@ -374,7 +401,7 @@ def analyze_uploaded_video_with_retention(
                 raw_result = _run_raw_video_with_timeout(temp_path)
                 raw_result.setdefault("debug_metadata", {})["upload_video_probe"] = video_probe
             except Exception as exc:
-                if isinstance(exc, AnalysisTimeoutError):
+                if isinstance(exc, (AnalysisTimeoutError, AnalysisWorkerError)):
                     raise
                 raise APIValidationError(
                     (
@@ -414,6 +441,8 @@ def analyze_uploaded_video_with_retention(
                         media_type=media_type,
                         retention_days=SETTINGS.evidence_retention_days,
                     )
+            if evidence_outcome and not evidence_outcome.retained and evidence_outcome.status not in {"disabled", "not_requested"}:
+                METRICS.increment("smart_cricket_evidence_retention_failure", status=evidence_outcome.status)
             result = _attach_voice_and_metadata(
                 raw_result,
                 filename=filename,
@@ -435,6 +464,7 @@ def analyze_uploaded_video_with_retention(
         finally:
             _cleanup_temp_path(temp_path)
     finally:
+        METRICS.observe("smart_cricket_analysis_latency", time.perf_counter() - analysis_started)
         _ANALYSIS_SEMAPHORE.release()
 
 
@@ -503,11 +533,19 @@ def api_readiness() -> dict[str, Any]:
         _audio_config_ready(),
         "SMART_CRICKET_AUDIO_SIGNING_SECRET configured or local development/test mode",
     )
-    if SETTINGS.environment == "production":
+    if SETTINGS.environment in {"staging", "production"}:
+        config_report = production_config_report(SETTINGS)
+        record(
+            "production_configuration",
+            bool(config_report["ok"]),
+            "staging/production runtime configuration passed validation"
+            if config_report["ok"]
+            else json.dumps(config_report["issues"], sort_keys=True),
+        )
         record(
             "persistence_configuration",
             bool(SETTINGS.supabase_url and SETTINGS.supabase_service_role_key),
-            "production requires Supabase URL and service-role key for server persistence",
+            "staging/production requires Supabase URL and service-role key for server persistence",
         )
         if SETTINGS.allow_model_improvement_participation:
             record(
@@ -532,7 +570,7 @@ def api_readiness() -> dict[str, Any]:
 def _auth_config_ready() -> bool:
     if not SETTINGS.require_auth:
         return True
-    if SETTINGS.environment == "production" and (not SETTINGS.jwt_audience or not SETTINGS.jwt_issuer):
+    if SETTINGS.environment in {"staging", "production"} and (not SETTINGS.jwt_audience or not SETTINGS.jwt_issuer):
         return False
     return bool(SETTINGS.supabase_jwt_secret or SETTINGS.supabase_url)
 
@@ -822,6 +860,7 @@ def persist_verified_analysis_for_auth_user(
         evidence_outcome=evidence_outcome,
     )
     if evidence_outcome and evidence_outcome.retained and not outcome.stored and evidence_outcome.object_path:
+        METRICS.increment("smart_cricket_persistence_failure", status=outcome.status)
         delete_outcome = get_evidence_provider().delete(evidence_outcome.object_path)
         evidence_meta = api_metadata.setdefault("evidence_retention", {})
         evidence_meta["retained"] = False

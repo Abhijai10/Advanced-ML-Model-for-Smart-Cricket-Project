@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from urllib.parse import urlparse
+
+
+VALID_ENVIRONMENTS = {"development", "test", "staging", "production"}
 
 
 def _csv_env(name: str, default: tuple[str, ...]) -> tuple[str, ...]:
@@ -84,6 +88,131 @@ class APISettings:
     jwks_cache_ttl_seconds: int = _int_env("SMART_CRICKET_JWKS_CACHE_TTL_SECONDS", 600)
     rate_limit_backend: str = os.getenv("SMART_CRICKET_RATE_LIMIT_BACKEND", "memory")
     redis_url: str | None = os.getenv("SMART_CRICKET_REDIS_URL") or None
+    sentry_dsn: str | None = os.getenv("SMART_CRICKET_SENTRY_DSN") or None
+    deployment_base_url: str | None = os.getenv("SMART_CRICKET_DEPLOYMENT_BASE_URL") or None
+
+    def __post_init__(self) -> None:
+        if self.environment not in VALID_ENVIRONMENTS:
+            raise ValueError(f"SMART_CRICKET_ENV must be one of {sorted(VALID_ENVIRONMENTS)}.")
+
+
+@dataclass(frozen=True)
+class ConfigValidationIssue:
+    """One safe configuration validation issue."""
+
+    code: str
+    detail: str
+    severity: str = "error"
+
+
+class ProductionConfigurationError(RuntimeError):
+    """Raised when staging/production configuration is unsafe."""
+
+    error_code = "production_configuration_invalid"
+
+    def __init__(self, issues: list[ConfigValidationIssue]) -> None:
+        super().__init__("Smart Cricket production configuration is invalid.")
+        self.issues = issues
+
+
+def normalize_origins(origins: tuple[str, ...]) -> tuple[str, ...]:
+    """Normalize configured CORS origins without weakening exact matching."""
+
+    normalized: list[str] = []
+    for origin in origins:
+        item = origin.strip()
+        if not item:
+            continue
+        if item == "*":
+            normalized.append(item)
+            continue
+        parsed = urlparse(item)
+        if parsed.scheme and parsed.netloc:
+            normalized.append(f"{parsed.scheme}://{parsed.netloc}")
+        else:
+            normalized.append(item.rstrip("/"))
+    return tuple(dict.fromkeys(normalized))
+
+
+def validate_runtime_settings(settings: APISettings) -> list[ConfigValidationIssue]:
+    """Return safe, non-secret runtime configuration issues."""
+
+    issues: list[ConfigValidationIssue] = []
+    strict = settings.environment in {"staging", "production"}
+
+    def add(code: str, detail: str) -> None:
+        issues.append(ConfigValidationIssue(code=code, detail=detail))
+
+    if settings.environment not in VALID_ENVIRONMENTS:
+        add("invalid_environment", "SMART_CRICKET_ENV must be development, test, staging, or production.")
+    if settings.max_concurrent_analyses < 1 or settings.max_concurrent_analyses > 16:
+        add("invalid_worker_limit", "SMART_CRICKET_MAX_CONCURRENT_ANALYSES must be between 1 and 16.")
+    if settings.analysis_queue_timeout_seconds < 1 or settings.analysis_queue_timeout_seconds > 60:
+        add("invalid_queue_timeout", "SMART_CRICKET_ANALYSIS_QUEUE_TIMEOUT_SECONDS must be between 1 and 60.")
+    if settings.analysis_execution_timeout_seconds < 1 or settings.analysis_execution_timeout_seconds > 600:
+        add("invalid_execution_timeout", "SMART_CRICKET_ANALYSIS_EXECUTION_TIMEOUT_SECONDS must be between 1 and 600.")
+    if settings.max_upload_bytes < 1024 or settings.max_upload_bytes > 1024 * 1024 * 1024:
+        add("invalid_upload_limit", "SMART_CRICKET_MAX_UPLOAD_BYTES must be between 1 KiB and 1 GiB.")
+    if settings.max_video_duration_seconds < 1 or settings.max_video_duration_seconds > 120:
+        add("invalid_video_duration", "SMART_CRICKET_MAX_VIDEO_DURATION_SECONDS must be between 1 and 120.")
+    if settings.audio_url_ttl_seconds < 1 or settings.audio_max_url_ttl_seconds < settings.audio_url_ttl_seconds:
+        add("invalid_audio_ttl", "Audio URL TTL values must be positive and max TTL must be at least the default TTL.")
+    if settings.evidence_retention_days < 1 or settings.evidence_retention_days > 365:
+        add("invalid_evidence_retention", "SMART_CRICKET_EVIDENCE_RETENTION_DAYS must be between 1 and 365.")
+
+    origins = normalize_origins(settings.allowed_origins)
+    if strict and "*" in origins:
+        add("wildcard_cors_origin", "Staging/production must not allow wildcard CORS origins.")
+    if strict and settings.require_auth:
+        if not settings.supabase_url:
+            add("auth_supabase_url_missing", "SUPABASE_URL is required when auth is enabled.")
+        if not settings.jwt_audience:
+            add("auth_audience_missing", "SUPABASE_JWT_AUDIENCE is required when auth is enabled.")
+        if not settings.jwt_issuer:
+            add("auth_issuer_missing", "SUPABASE_JWT_ISSUER is required when auth is enabled.")
+        if not (settings.supabase_jwt_secret or settings.supabase_url):
+            add("auth_verifier_missing", "A Supabase JWT secret or JWKS-capable Supabase URL is required.")
+    if strict and settings.require_feedback_persistence:
+        if not settings.supabase_url or not settings.supabase_service_role_key:
+            add("persistence_credentials_missing", "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for trusted persistence.")
+    if strict and settings.allow_model_improvement_participation:
+        backend = settings.evidence_storage_backend.strip().lower()
+        if backend != "supabase":
+            add("evidence_backend_not_supabase", "Staging/production model improvement requires Supabase evidence storage.")
+        if not settings.evidence_supabase_bucket:
+            add("evidence_bucket_missing", "SMART_CRICKET_EVIDENCE_SUPABASE_BUCKET is required when model improvement is enabled.")
+        if not settings.supabase_url or not settings.supabase_service_role_key:
+            add("evidence_credentials_missing", "Supabase URL and service-role key are required for Supabase evidence storage.")
+    if strict:
+        if not settings.audio_signing_secret or len(settings.audio_signing_secret) < 32:
+            add("audio_secret_weak", "SMART_CRICKET_AUDIO_SIGNING_SECRET must be at least 32 characters.")
+        if settings.audio_signing_secret and settings.audio_signing_secret == settings.supabase_service_role_key:
+            add("audio_secret_reuses_service_key", "Audio signing secret must not reuse the Supabase service-role key.")
+        backend = settings.rate_limit_backend.strip().lower()
+        if backend == "memory":
+            add("memory_rate_limit_in_production", "Staging/production must use redis or gateway rate limiting.")
+        elif backend == "redis" and not settings.redis_url:
+            add("redis_url_missing", "SMART_CRICKET_REDIS_URL is required for redis rate limiting.")
+        elif backend not in {"redis", "gateway"}:
+            add("invalid_rate_limit_backend", "Rate-limit backend must be redis or gateway in staging/production.")
+
+    return issues
+
+
+def production_config_report(settings: APISettings) -> dict[str, object]:
+    """Return a readiness-safe configuration validation report."""
+
+    issues = validate_runtime_settings(settings)
+    return {
+        "ok": not issues,
+        "issues": [issue.__dict__ for issue in issues],
+    }
+
+
+def validate_production_settings(settings: APISettings) -> None:
+    issues = validate_runtime_settings(settings)
+    if issues:
+        raise ProductionConfigurationError(issues)
 
 
 SETTINGS = APISettings()

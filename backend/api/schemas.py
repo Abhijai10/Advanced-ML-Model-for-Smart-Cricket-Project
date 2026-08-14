@@ -37,6 +37,7 @@ class CapabilitiesResponse(BaseModel):
     max_upload_bytes: int
     max_recording_duration_seconds: int
     accepted_video_extensions: list[str]
+    api_version: str
 
 
 class AnalyzeResponse(BaseModel):

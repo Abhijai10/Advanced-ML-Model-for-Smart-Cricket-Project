@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi.responses import PlainTextResponse
 
 from .config import SETTINGS
 from .evidence import delete_evidence_for_record
+from .observability import METRICS
 from .persistence import (
     build_product_feedback_record,
     build_feedback_record,
@@ -20,6 +22,7 @@ from .schemas import AnalyzeResponse, CapabilitiesResponse, EvidenceDeletionResp
 from .services import (
     AnalysisOverloadError,
     AnalysisTimeoutError,
+    AnalysisWorkerError,
     APIValidationError,
     AuthContext,
     analyze_dataset_sample,
@@ -29,6 +32,7 @@ from .services import (
     enforce_auth,
     enforce_feedback_rate_limit,
     enforce_rate_limit,
+    PHASE13_VERSION,
     persist_verified_analysis_for_auth_user,
 )
 
@@ -64,7 +68,15 @@ def capabilities() -> dict:
         "max_upload_bytes": SETTINGS.max_upload_bytes,
         "max_recording_duration_seconds": SETTINGS.max_video_duration_seconds,
         "accepted_video_extensions": [".avi", ".mkv", ".mov", ".mp4", ".webm"],
+        "api_version": PHASE13_VERSION,
     }
+
+
+@router.get("/metrics", response_class=PlainTextResponse)
+def metrics() -> str:
+    """Return local Prometheus-compatible metrics."""
+
+    return METRICS.render_prometheus()
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
@@ -112,7 +124,18 @@ def analyze(
                 "request_id": request.state.request_id,
             },
         ) from exc
+    except AnalysisWorkerError as exc:
+        raise HTTPException(
+            status_code=503,
+            headers={"Retry-After": "10"},
+            detail={
+                "detail": "Smart Cricket inference worker failed safely. Try again with a clearer, shorter clip.",
+                "error_code": exc.error_code,
+                "request_id": request.state.request_id,
+            },
+        ) from exc
     except APIValidationError as exc:
+        METRICS.increment("smart_cricket_upload_rejection", error_code=exc.error_code)
         raise HTTPException(
             status_code=422,
             detail={
@@ -144,6 +167,7 @@ def submit_feedback(
 ) -> dict:
     """Accept controlled-beta feedback without treating it as ground truth."""
     if not is_persistence_configured():
+        METRICS.increment("smart_cricket_feedback_failure", error_code="persistence_not_configured")
         raise HTTPException(
             status_code=503,
             detail={
@@ -235,6 +259,7 @@ def submit_feedback(
             "message": _feedback_duplicate_message(row),
         }
     if not outcome.stored:
+        METRICS.increment("smart_cricket_feedback_failure", error_code=outcome.error_code or outcome.status)
         raise HTTPException(
             status_code=503 if outcome.status in {"persistence_not_configured", "temporary_failure"} else 502,
             detail={
@@ -267,6 +292,7 @@ def submit_product_feedback(
 ) -> dict:
     """Accept general product feedback that can never enter model training."""
     if not is_persistence_configured():
+        METRICS.increment("smart_cricket_feedback_failure", error_code="persistence_not_configured")
         raise HTTPException(
             status_code=503,
             detail={
@@ -278,6 +304,7 @@ def submit_product_feedback(
     row = build_product_feedback_record(payload=payload, user_id=auth.user_id, request_id=request.state.request_id)
     outcome = persist_product_feedback_record(row)
     if not outcome.stored:
+        METRICS.increment("smart_cricket_feedback_failure", error_code=outcome.error_code or outcome.status)
         raise HTTPException(
             status_code=503 if outcome.status in {"persistence_not_configured", "temporary_failure"} else 502,
             detail={

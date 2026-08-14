@@ -37,8 +37,8 @@ Set:
 
 ## Production Checklist
 
+- Set `SMART_CRICKET_ENV=staging` for staging and `SMART_CRICKET_ENV=production` for production. Invalid values fail fast.
 - Set `SMART_CRICKET_REQUIRE_AUTH=true`.
-- Set `SMART_CRICKET_ENV=production`.
 - Set `SUPABASE_JWT_SECRET` for legacy HS256 projects, or set `SUPABASE_URL` plus issuer/audience values so the verifier can use Supabase JWKS for asymmetric signing keys.
 - Set `SUPABASE_JWT_AUDIENCE` and `SUPABASE_JWT_ISSUER` in production.
 - Set `SUPABASE_SERVICE_ROLE_KEY` only on the backend. Never expose it to the frontend.
@@ -53,3 +53,48 @@ Set:
 - Production multi-instance deployments should set `SMART_CRICKET_RATE_LIMIT_BACKEND=redis` with `SMART_CRICKET_REDIS_URL`, or `SMART_CRICKET_RATE_LIMIT_BACKEND=gateway` when a verified external gateway/WAF owns rate limiting. Do not use the memory backend for public production.
 - Keep trusted analysis history server-side. Browser roles must not receive `INSERT` or `UPDATE` grants on `analysis_sessions`.
 - Run the container smoke from CI locally before production: build image, start container, call `/health`, call `/ready`, inspect logs, shut down cleanly.
+
+## Health, Readiness, and Deployment Smoke
+
+`/health` is lightweight liveness. It answers only whether the API process is alive and must stay cheap enough for platform health checks.
+
+`/ready` is dependency readiness. In staging and production it includes artifact checks plus production configuration validation for auth, persistence, evidence storage, audio signing, rate limiting, CORS, upload limits, and inference timeouts.
+
+Run a deployed smoke check without a cricket fixture:
+
+```bash
+python scripts/smoke_deployment.py https://your-api.example.com
+python scripts/smoke_deployment.py https://your-api.example.com --json
+```
+
+Expected passing checks:
+
+- `/health` returns `200`
+- `/ready` returns `200`
+- `/capabilities` returns safe public metadata
+- `POST /analyze` without a file returns a safe validation error, not a traceback
+- version metadata is present
+
+## Docker Runtime
+
+The API image is Docker-first and expects a managed HTTPS reverse proxy or platform TLS in front of it. The container:
+
+- runs as the non-root `smartcricket` user;
+- uses production Python dependencies from `pyproject.toml`;
+- copies only backend code and required ML artifacts;
+- downloads the MediaPipe pose landmarker with a pinned SHA-256 checksum;
+- uses `/tmp/smart-cricket-audio` for generated audio;
+- exposes `/health` as its Docker healthcheck;
+- declares `SIGTERM` as the stop signal so FastAPI shutdown can terminate active inference workers.
+
+Provider examples such as Render, Railway, Fly.io, or Cloud Run should use the same contract: Docker image, environment secrets, managed TLS, `/health` liveness, `/ready` readiness, and external persistence/storage services.
+
+## Controlled Concurrency Smoke
+
+After staging has a safe short MP4 fixture, run:
+
+```bash
+python scripts/concurrency_smoke.py https://your-api.example.com ./path/to/non-sensitive-short.mp4 --workers 3
+```
+
+This is not a production load test. It only checks that simultaneous analysis requests produce a bounded mix of success and overload/busy responses instead of unbounded worker creation.
