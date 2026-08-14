@@ -37,7 +37,12 @@ export type AnalysisResponse = {
     audio_url?: string | null;
     audio_filename?: string | null;
     audio_format: string;
+    audio_mime_type?: string | null;
     audio_bytes: number;
+    artifact_id?: string | null;
+    artifact?: Record<string, unknown> | null;
+    error_code?: string | null;
+    degraded_to_text_only?: boolean;
     is_spoken_tts?: boolean;
   };
   api_metadata: Record<string, unknown>;
@@ -49,6 +54,7 @@ export type Capabilities = {
   model_improvement_enabled: boolean;
   evidence_retention_enabled: boolean;
   tts_provider: string;
+  audio_storage_backend: string;
   max_upload_bytes: number;
   max_recording_duration_seconds: number;
   accepted_video_extensions: string[];

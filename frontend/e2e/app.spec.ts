@@ -49,6 +49,7 @@ test("demo upload review, mocked analysis, and feedback flow", async ({ page }) 
         model_improvement_enabled: false,
         evidence_retention_enabled: false,
         tts_provider: "signed_audio",
+        audio_storage_backend: "local",
         max_upload_bytes: 262144000,
         max_recording_duration_seconds: 20,
         accepted_video_extensions: [".mp4", ".mov", ".webm"],
@@ -88,7 +89,7 @@ test("demo upload review, mocked analysis, and feedback flow", async ({ page }) 
 
   await page.getByRole("button", { name: /analyze clip/i }).click();
   await expect(page.getByText(/cover drive/i).first()).toBeVisible();
-  await expect(page.getByText(/audio unavailable/i)).toBeVisible();
+  await expect(page.getByText(/audio feedback isn't available/i)).toBeVisible();
 
   await page.getByRole("radio", { name: "incorrect" }).check();
   await page.getByLabel(/correct shot/i).selectOption("pull_shot");

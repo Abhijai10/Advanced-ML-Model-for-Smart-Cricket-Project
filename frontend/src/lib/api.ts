@@ -14,6 +14,16 @@ export async function getCapabilities(): Promise<Capabilities> {
   return (await response.json()) as Capabilities;
 }
 
+export async function refreshAudioUrl(artifactId: string): Promise<{ audio_url: string; expires_at: string }> {
+  const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}/audio-artifacts/${encodeURIComponent(artifactId)}/signed-url`, {
+    method: "POST",
+  });
+  if (!response.ok) {
+    throw new Error("Audio link could not be refreshed.");
+  }
+  return (await response.json()) as { audio_url: string; expires_at: string };
+}
+
 export async function analyzeVideo(
   blob: Blob,
   filename: string,

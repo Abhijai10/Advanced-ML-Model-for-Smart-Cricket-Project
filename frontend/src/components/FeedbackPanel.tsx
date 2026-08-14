@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Send, Volume2 } from "lucide-react";
 import { shotName } from "../lib/history";
-import { resolveApiUrl, submitAnalysisFeedback } from "../lib/api";
+import { refreshAudioUrl, resolveApiUrl, submitAnalysisFeedback } from "../lib/api";
 import type { AnalysisResponse, Capabilities, EvidenceRetentionState, FeedbackPayload } from "../types";
 import { AnimatedContent, CountUp, MagicBento } from "./reactbits/ReactBits";
 
@@ -25,6 +25,9 @@ export function FeedbackPanel({ result, accessToken, capabilities }: FeedbackPan
   const [storageMessage, setStorageMessage] = useState("");
   const [storageStatus, setStorageStatus] = useState("");
   const [submitError, setSubmitError] = useState("");
+  const [audioState, setAudioState] = useState<"idle" | "loading" | "ready" | "expired" | "unavailable">("idle");
+  const [currentAudioUrl, setCurrentAudioUrl] = useState("");
+  const [audioRefreshError, setAudioRefreshError] = useState("");
   const activeSubmitKeyRef = useRef("");
   const resultKey = result
     ? (typeof result.api_metadata.analysis_session_id === "string" ? result.api_metadata.analysis_session_id : "") ||
@@ -43,8 +46,12 @@ export function FeedbackPanel({ result, accessToken, capabilities }: FeedbackPan
     setStorageMessage("");
     setStorageStatus("");
     setSubmitError("");
+    const nextAudioUrl = result?.voice_output.audio_url ? resolveApiUrl(result.voice_output.audio_url) : "";
+    setCurrentAudioUrl(nextAudioUrl);
+    setAudioState(nextAudioUrl ? "ready" : "unavailable");
+    setAudioRefreshError("");
     activeSubmitKeyRef.current = resultKey;
-  }, [resultKey]);
+  }, [result, resultKey]);
 
   if (!result) {
     return (
@@ -59,7 +66,9 @@ export function FeedbackPanel({ result, accessToken, capabilities }: FeedbackPan
 
   const activeResult = result;
   const probabilityEntries = Object.entries(activeResult.prediction.class_probabilities ?? {});
-  const audioUrl = activeResult.voice_output.audio_url ? resolveApiUrl(activeResult.voice_output.audio_url) : "";
+  const canRefreshAudio =
+    Boolean(activeResult.voice_output.artifact_id) &&
+    activeResult.voice_output.artifact?.storage_backend === "local";
   const duration = activeResult.timing?.duration_seconds;
   const qualityStatus = activeResult.analysis_quality?.status ?? "ok";
   const qualityLabel =
@@ -124,6 +133,21 @@ export function FeedbackPanel({ result, accessToken, capabilities }: FeedbackPan
     }
   }
 
+  async function refreshAudio() {
+    const artifactId = activeResult.voice_output.artifact_id;
+    if (!artifactId) return;
+    setAudioState("loading");
+    setAudioRefreshError("");
+    try {
+      const refreshed = await refreshAudioUrl(artifactId);
+      setCurrentAudioUrl(resolveApiUrl(refreshed.audio_url));
+      setAudioState("ready");
+    } catch (err) {
+      setAudioState("expired");
+      setAudioRefreshError(err instanceof Error ? err.message : "Audio link could not be refreshed.");
+    }
+  }
+
   return (
     <AnimatedContent className="feedback-panel" aria-label="Analysis feedback">
       <div className="result-topline">
@@ -179,12 +203,34 @@ export function FeedbackPanel({ result, accessToken, capabilities }: FeedbackPan
           <h3>{activeResult.voice_output.is_spoken_tts === false ? "Audio cue" : "Spoken feedback"}</h3>
         </div>
         <p>{activeResult.spoken_feedback}</p>
-        {audioUrl ? (
-          <audio controls src={audioUrl}>
+        {activeResult.voice_output.available && currentAudioUrl && audioState !== "expired" ? (
+          <audio
+            controls
+            preload="none"
+            src={currentAudioUrl}
+            aria-label="Listen to coaching feedback"
+            onLoadStart={() => setAudioState("loading")}
+            onCanPlay={() => setAudioState("ready")}
+            onError={() => setAudioState("expired")}
+          >
             Your browser does not support audio playback.
           </audio>
+        ) : audioState === "loading" ? (
+          <span className="audio-fallback">Loading audio feedback...</span>
+        ) : audioState === "expired" ? (
+          <span className="audio-fallback">
+            Audio link expired.
+            {canRefreshAudio ? (
+              <button type="button" className="text-button" onClick={refreshAudio}>
+                Refresh audio
+              </button>
+            ) : null}
+            {audioRefreshError ? <small>{audioRefreshError}</small> : null}
+          </span>
         ) : (
-          <span className="audio-fallback">Audio unavailable. Text feedback remains available.</span>
+          <span className="audio-fallback">
+            Audio feedback isn't available for this analysis. The full coaching feedback is shown below.
+          </span>
         )}
       </section>
 

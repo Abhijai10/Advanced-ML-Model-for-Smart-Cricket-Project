@@ -66,6 +66,7 @@ function App() {
           model_improvement_enabled: false,
           evidence_retention_enabled: false,
           tts_provider: "unknown",
+          audio_storage_backend: "unknown",
           max_upload_bytes: 250 * 1024 * 1024,
           max_recording_duration_seconds: 20,
           accepted_video_extensions: [".mp4", ".mov", ".webm"],

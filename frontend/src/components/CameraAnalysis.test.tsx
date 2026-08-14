@@ -47,6 +47,7 @@ const capabilities: Capabilities = {
   model_improvement_enabled: true,
   evidence_retention_enabled: true,
   tts_provider: "signed_audio",
+  audio_storage_backend: "local",
   max_upload_bytes: 250 * 1024 * 1024,
   max_recording_duration_seconds: 20,
   accepted_video_extensions: [".mp4", ".mov", ".webm"],

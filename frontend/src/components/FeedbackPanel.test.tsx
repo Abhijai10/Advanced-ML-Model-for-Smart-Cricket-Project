@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FeedbackPanel } from "./FeedbackPanel";
@@ -15,6 +15,10 @@ const mocks = vi.hoisted(() => ({
     request_id: "request-1",
     message: "Feedback saved and queued for human review.",
   })),
+  refreshAudioUrl: vi.fn(async () => ({
+    audio_url: "/audio/refreshed.wav?expires=9999999999&signature=ok",
+    expires_at: "2999-01-01T00:00:00Z",
+  })),
 }));
 
 vi.mock("../lib/api", async () => {
@@ -22,6 +26,7 @@ vi.mock("../lib/api", async () => {
   return {
     ...actual,
     submitAnalysisFeedback: mocks.submitAnalysisFeedback,
+    refreshAudioUrl: mocks.refreshAudioUrl,
   };
 });
 
@@ -76,6 +81,7 @@ const capabilities: Capabilities = {
   model_improvement_enabled: true,
   evidence_retention_enabled: true,
   tts_provider: "signed_audio",
+  audio_storage_backend: "local",
   max_upload_bytes: 250 * 1024 * 1024,
   max_recording_duration_seconds: 20,
   accepted_video_extensions: [".mp4", ".mov", ".webm"],
@@ -84,6 +90,7 @@ const capabilities: Capabilities = {
 describe("FeedbackPanel", () => {
   beforeEach(() => {
     mocks.submitAnalysisFeedback.mockClear();
+    mocks.refreshAudioUrl.mockClear();
   });
 
   it("renders result details and submits safe feedback payload", async () => {
@@ -91,7 +98,7 @@ describe("FeedbackPanel", () => {
     render(<FeedbackPanel result={result} accessToken="token" capabilities={capabilities} />);
 
     expect(screen.getAllByText(/cover drive/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/audio unavailable/i)).toBeInTheDocument();
+    expect(screen.getByText(/audio feedback isn't available/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole("radio", { name: "incorrect" }));
     await user.selectOptions(screen.getByLabelText(/correct shot/i), "pull_shot");
@@ -160,6 +167,71 @@ describe("FeedbackPanel", () => {
       expect.objectContaining({ consent_to_model_improvement: false }),
       "token",
     );
+  });
+
+  it("shows accessible audio controls when audio is available", () => {
+    const withAudio = {
+      ...result,
+      voice_output: {
+        ...result.voice_output,
+        available: true,
+        provider: "google",
+        audio_url: "/audio/request.wav?expires=9999999999&signature=ok",
+        audio_format: "wav",
+        audio_mime_type: "audio/wav",
+        audio_bytes: 16,
+        is_spoken_tts: true,
+      },
+    };
+    render(<FeedbackPanel result={withAudio} accessToken="token" capabilities={capabilities} />);
+
+    const player = screen.getByLabelText(/listen to coaching feedback/i);
+    expect(player).toBeInTheDocument();
+    expect(player).toHaveAttribute("preload", "none");
+    expect(screen.getAllByText("Keep the head still.").length).toBeGreaterThan(0);
+  });
+
+  it("keeps text feedback visible when provider fails", () => {
+    const failedAudio = {
+      ...result,
+      voice_output: {
+        ...result.voice_output,
+        available: false,
+        provider: "google",
+        error_code: "tts_provider_unavailable",
+        degraded_to_text_only: true,
+      },
+    };
+    render(<FeedbackPanel result={failedAudio} accessToken="token" capabilities={capabilities} />);
+
+    expect(screen.getByText(/audio feedback isn't available/i)).toBeInTheDocument();
+    expect(screen.getAllByText("Keep the head still.").length).toBeGreaterThan(0);
+  });
+
+  it("shows expired audio state and refreshes local signed links", async () => {
+    const withRefreshableAudio = {
+      ...result,
+      voice_output: {
+        ...result.voice_output,
+        available: true,
+        provider: "test_tts",
+        audio_url: "/audio/request.wav?expires=1&signature=old",
+        audio_format: "wav",
+        audio_mime_type: "audio/wav",
+        audio_bytes: 16,
+        artifact_id: "request.wav",
+        artifact: { storage_backend: "local" },
+      },
+    };
+    render(<FeedbackPanel result={withRefreshableAudio} accessToken="token" capabilities={capabilities} />);
+
+    fireEvent.error(screen.getByLabelText(/listen to coaching feedback/i));
+    expect(screen.getByText(/audio link expired/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /refresh audio/i }));
+
+    await waitFor(() => expect(mocks.refreshAudioUrl).toHaveBeenCalledWith("request.wav"));
+    expect(await screen.findByLabelText(/listen to coaching feedback/i)).toBeInTheDocument();
   });
 
   it("resets feedback state when a new analysis arrives", async () => {
