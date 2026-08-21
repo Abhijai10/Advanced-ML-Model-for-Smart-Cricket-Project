@@ -108,11 +108,17 @@ CLAUDE.md
 *.mov
 *.avi
 *.mkv
+ml/artifacts/phase14/audio_output/*.wav
+!ml/artifacts/phase14/audio_output/sample_spoken_feedback.wav
 
 # =========================
 # 💻 System & Editor Files
 # =========================
 .DS_Store
+._*
 .vscode/
 .idea/
 .pytest_cache/
+
+# Supabase local CLI state
+supabase/.temp/
