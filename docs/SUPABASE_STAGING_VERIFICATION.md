@@ -18,6 +18,24 @@ Optional but needed for deeper checks:
 
 Keep service-role credentials backend-only. The script does not print secret values.
 
+For user-isolation checks, the two access tokens must be current Supabase Auth
+access tokens and their authenticated user IDs must match the corresponding
+`SMART_CRICKET_STAGING_TEST_USER_*_ID` variables. A `401` for both users means
+the tokens were rejected before RLS was evaluated.
+
+Refresh a token for each dedicated staging user immediately before verification:
+
+```bash
+curl --fail-with-body -sS "$SUPABASE_URL/auth/v1/token?grant_type=password" \
+  -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"staging-user@example.com","password":"replace-with-that-user-password"}'
+```
+
+Set `SMART_CRICKET_STAGING_TEST_USER_A_TOKEN` or
+`SMART_CRICKET_STAGING_TEST_USER_B_TOKEN` to the returned `access_token`. Do
+not store staging-user passwords in the repository.
+
 ## Commands
 
 Dry run:

@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import certifi
 import json
 import os
+import ssl
 import sys
 import urllib.error
 import urllib.parse
@@ -60,6 +62,10 @@ class SupabaseVerifier:
         self.created_product_feedback_id: str | None = None
         self.created_object_path: str | None = None
         self.cleanup_warnings: list[str] = []
+        # The macOS Python trust store can differ from the one used by curl and
+        # requests. Certifi provides the current public CA bundle while keeping
+        # hostname and certificate validation enabled.
+        self._ssl_context = ssl.create_default_context(cafile=certifi.where())
 
     def run(self) -> list[Check]:
         checks = [
@@ -81,7 +87,7 @@ class SupabaseVerifier:
         storage = self._request("GET", "/storage/v1/bucket", service=True)
         if rest[0] < 500 and storage[0] < 500:
             return Check("Connectivity", "PASS", "REST and Storage APIs responded")
-        return Check("Connectivity", "FAIL", f"REST HTTP {rest[0]}, Storage HTTP {storage[0]}")
+        return Check("Connectivity", "FAIL", f"REST {self._response_summary(*rest)}, Storage {self._response_summary(*storage)}")
 
     def _schema(self) -> Check:
         if not self._has_service_config():
@@ -90,7 +96,7 @@ class SupabaseVerifier:
         for table in REQUIRED_TABLES:
             status, _payload = self._request("GET", f"/rest/v1/{table}?select=*&limit=1", service=True)
             if status >= 400:
-                missing.append(f"{table}:HTTP{status}")
+                missing.append(f"{table}:{self._response_summary(status, _payload)}")
         if missing:
             return Check("Schema", "FAIL", ", ".join(missing))
         return Check("Schema", "PASS", "required tables are reachable through REST")
@@ -126,16 +132,29 @@ class SupabaseVerifier:
         }
         status, payload = self._request("POST", "/rest/v1/analysis_sessions", row, service=True, prefer="return=representation")
         if status not in {200, 201}:
-            return Check("Trusted insert", "FAIL", f"insert HTTP {status}")
+            return Check("Trusted insert", "FAIL", f"insert {self._response_summary(status, payload)}")
         self.created_analysis_id = analysis_id
         read_status, read_payload = self._request("GET", f"/rest/v1/analysis_sessions?id=eq.{analysis_id}&select=*", service=True)
         if read_status == 200 and isinstance(read_payload, list) and read_payload:
             return Check("Trusted insert", "PASS", "inserted and read back marked analysis")
-        return Check("Trusted insert", "FAIL", f"readback HTTP {read_status}")
+        return Check("Trusted insert", "FAIL", f"readback {self._response_summary(read_status, read_payload)}")
 
     def _user_isolation(self) -> Check:
         if not (self.config.publishable_key and self.config.user_a_token and self.config.user_b_token and self.created_analysis_id):
             return Check("User isolation", "SKIPPED_EXTERNAL_CREDENTIAL", "requires publishable key, two user tokens, and trusted insert")
+        for label, expected_user_id, token in (
+            ("User A", self.config.user_a_id, self.config.user_a_token),
+            ("User B", self.config.user_b_id, self.config.user_b_token),
+        ):
+            status, payload = self._request("GET", "/auth/v1/user", bearer=token, apikey=self.config.publishable_key)
+            if status != 200:
+                return Check(
+                    "User isolation",
+                    "FAIL",
+                    f"{label} token rejected: {self._response_summary(status, payload)}. Generate a fresh access token.",
+                )
+            if not isinstance(payload, dict) or payload.get("id") != expected_user_id:
+                return Check("User isolation", "FAIL", f"{label} token user does not match its configured test user ID")
         own_status, own_payload = self._request(
             "GET",
             f"/rest/v1/analysis_sessions?id=eq.{self.created_analysis_id}&select=*",
@@ -186,7 +205,7 @@ class SupabaseVerifier:
         }
         status, payload = self._request("POST", "/rest/v1/analysis_feedback", row, service=True, prefer="return=representation")
         if status not in {200, 201}:
-            return Check("Feedback", "FAIL", f"insert HTTP {status}")
+            return Check("Feedback", "FAIL", f"insert {self._response_summary(status, payload)}")
         if isinstance(payload, list) and payload and isinstance(payload[0], dict):
             self.created_feedback_id = str(payload[0].get("id") or "")
         return Check("Feedback", "PASS", "metadata-only feedback inserted")
@@ -207,7 +226,7 @@ class SupabaseVerifier:
         }
         status, payload = self._request("POST", "/rest/v1/product_feedback", row, service=True, prefer="return=representation")
         if status not in {200, 201}:
-            return Check("Product feedback", "FAIL", f"insert HTTP {status}")
+            return Check("Product feedback", "FAIL", f"insert {self._response_summary(status, payload)}")
         if isinstance(payload, list) and payload and isinstance(payload[0], dict):
             self.created_product_feedback_id = str(payload[0].get("id") or "")
         return Check("Product feedback", "PASS", "product feedback inserted")
@@ -219,11 +238,21 @@ class SupabaseVerifier:
             return Check("Storage upload", "DRY_RUN", "would upload/sign/download/delete generated test bytes")
         object_path = f"{MARKER}/{self.run_id}.txt"
         self.created_object_path = object_path
-        upload_status, _ = self._storage_request("POST", f"/storage/v1/object/{self.config.evidence_bucket}/{object_path}", b"staging-verification")
+        upload_status, upload_payload = self._storage_request(
+            "POST", f"/storage/v1/object/{self.config.evidence_bucket}/{object_path}", b"staging-verification"
+        )
         sign_status, signed = self._request("POST", f"/storage/v1/object/sign/{self.config.evidence_bucket}/{object_path}", {"expiresIn": 60}, service=True)
-        delete_status, _ = self._request("DELETE", f"/storage/v1/object/{self.config.evidence_bucket}/{object_path}", service=True)
+        delete_status, delete_payload = self._request(
+            "DELETE", f"/storage/v1/object/{self.config.evidence_bucket}/{object_path}", service=True
+        )
         ok = upload_status in {200, 201} and sign_status in {200, 201} and delete_status in {200, 204}
-        return Check("Storage upload", "PASS" if ok else "FAIL", f"upload={upload_status} sign={sign_status} delete={delete_status}")
+        return Check(
+            "Storage upload",
+            "PASS" if ok else "FAIL",
+            f"upload={self._response_summary(upload_status, upload_payload)} "
+            f"sign={self._response_summary(sign_status, signed)} "
+            f"delete={self._response_summary(delete_status, delete_payload)}",
+        )
 
     def _cleanup(self) -> Check:
         if self.dry_run:
@@ -237,11 +266,13 @@ class SupabaseVerifier:
                 continue
             status, _ = self._request("DELETE", f"/rest/v1/{table}?id=eq.{record_id}", service=True)
             if status not in {200, 204}:
-                self.cleanup_warnings.append(f"{table}:{record_id}:HTTP{status}")
+                self.cleanup_warnings.append(f"{table}:{record_id}:{self._response_summary(status, _)}")
         if self.created_object_path and self.config.evidence_bucket:
-            status, _ = self._request("DELETE", f"/storage/v1/object/{self.config.evidence_bucket}/{self.created_object_path}", service=True)
-            if status not in {200, 204, 404}:
-                self.cleanup_warnings.append(f"storage:{self.created_object_path}:HTTP{status}")
+            status, payload = self._request(
+                "DELETE", f"/storage/v1/object/{self.config.evidence_bucket}/{self.created_object_path}", service=True
+            )
+            if status not in {200, 204, 404} and not self._is_missing_storage_object(payload):
+                self.cleanup_warnings.append(f"storage:{self.created_object_path}:{self._response_summary(status, payload)}")
         if self.cleanup_warnings:
             return Check("Cleanup", "FAIL", "; ".join(self.cleanup_warnings))
         return Check("Cleanup", "PASS", "created records/objects removed or none created")
@@ -275,13 +306,15 @@ class SupabaseVerifier:
             headers["content-type"] = "application/json"
         request = urllib.request.Request(f"{self.config.supabase_url.rstrip('/')}{path}", data=data, headers=headers, method=method)
         try:
-            with urllib.request.urlopen(request, timeout=20) as response:
+            with urllib.request.urlopen(request, timeout=20, context=self._ssl_context) as response:
                 body = response.read().decode("utf-8") or "null"
                 return int(response.status), json.loads(body)
         except urllib.error.HTTPError as exc:
-            return int(exc.code), {"error": "http_error"}
-        except Exception:
-            return 599, {"error": "request_failed"}
+            return int(exc.code), self._http_error_payload(exc)
+        except urllib.error.URLError as exc:
+            return 599, {"error": "network_error", "detail": str(exc.reason)}
+        except Exception as exc:
+            return 599, {"error": "request_failed", "detail": f"{type(exc).__name__}: {exc}"}
 
     def _storage_request(self, method: str, path: str, payload: bytes) -> tuple[int, object]:
         assert self.config.supabase_url
@@ -292,16 +325,53 @@ class SupabaseVerifier:
         }
         request = urllib.request.Request(f"{self.config.supabase_url.rstrip('/')}{path}", data=payload, headers=headers, method=method)
         try:
-            with urllib.request.urlopen(request, timeout=20) as response:
+            with urllib.request.urlopen(request, timeout=20, context=self._ssl_context) as response:
                 body = response.read().decode("utf-8") or "null"
                 try:
                     return int(response.status), json.loads(body)
                 except json.JSONDecodeError:
                     return int(response.status), {}
         except urllib.error.HTTPError as exc:
-            return int(exc.code), {"error": "http_error"}
-        except Exception:
-            return 599, {"error": "request_failed"}
+            return int(exc.code), self._http_error_payload(exc)
+        except urllib.error.URLError as exc:
+            return 599, {"error": "network_error", "detail": str(exc.reason)}
+        except Exception as exc:
+            return 599, {"error": "request_failed", "detail": f"{type(exc).__name__}: {exc}"}
+
+    @staticmethod
+    def _response_summary(status: int, payload: object) -> str:
+        summary = f"HTTP {status}"
+        if status < 400 or not isinstance(payload, dict):
+            return summary
+        detail = payload.get("detail")
+        if isinstance(detail, str) and detail:
+            return f"{summary} ({detail})"
+        return summary
+
+    @staticmethod
+    def _http_error_payload(exc: urllib.error.HTTPError) -> dict[str, str]:
+        body = exc.read().decode("utf-8", errors="replace").strip()
+        if not body:
+            return {"error": "http_error"}
+        try:
+            parsed = json.loads(body)
+        except json.JSONDecodeError:
+            return {"error": "http_error", "detail": body[:500]}
+        if not isinstance(parsed, dict):
+            return {"error": "http_error", "detail": body[:500]}
+        detail_parts = [
+            str(parsed[field])
+            for field in ("statusCode", "error", "code", "message", "details", "hint")
+            if parsed.get(field)
+        ]
+        return {"error": "http_error", "detail": "; ".join(detail_parts)[:500]} if detail_parts else {"error": "http_error"}
+
+    @staticmethod
+    def _is_missing_storage_object(payload: object) -> bool:
+        if not isinstance(payload, dict):
+            return False
+        detail = payload.get("detail")
+        return isinstance(detail, str) and "NoSuchKey" in detail and "Object not found" in detail
 
 
 def main() -> int:
