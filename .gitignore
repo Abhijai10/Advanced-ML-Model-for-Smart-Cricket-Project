@@ -122,3 +122,9 @@ ml/artifacts/phase14/audio_output/*.wav
 
 # Supabase local CLI state
 supabase/.temp/
+
+
+# Local database backups
+backup_*.sql
+smart_cricket_backup.sql
+
