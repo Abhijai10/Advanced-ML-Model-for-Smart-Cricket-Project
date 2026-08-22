@@ -128,3 +128,14 @@ supabase/.temp/
 backup_*.sql
 smart_cricket_backup.sql
 
+# ML environment
+ml/venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Temporary ML data only
+ml/data/raw_videos/
+ml/data/samples/
