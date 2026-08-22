@@ -10,11 +10,20 @@ from __future__ import annotations
 from pathlib import Path
 
 
-MIGRATION = Path("supabase/migrations/20260804080002_secure_trusted_analysis_and_feedback.sql")
-LIFECYCLE_MIGRATION = Path("supabase/migrations/20260812135543_product_feedback_and_evidence_lifecycle.sql")
-PRODUCT_FEEDBACK_REPAIR_MIGRATION = Path("supabase/migrations/20260821210959_repair_missing_product_feedback_schema.sql")
-ANALYSIS_SESSIONS_REPAIR_MIGRATION = Path("supabase/migrations/20260821211608_repair_missing_analysis_sessions_columns.sql")
-ANALYSIS_FEEDBACK_REPAIR_MIGRATION = Path("supabase/migrations/20260821212427_repair_missing_analysis_feedback_columns.sql")
+MIGRATIONS_DIR = Path("supabase/migrations")
+
+
+def _migration_with_prefix(prefix: str) -> Path:
+    matches = sorted(path for path in MIGRATIONS_DIR.glob(f"*_{prefix}.sql") if not path.name.startswith("._"))
+    assert len(matches) == 1, f"expected one migration ending in {prefix!r}, found {matches}"
+    return matches[0]
+
+
+MIGRATION = _migration_with_prefix("secure_trusted_analysis_and_feedback")
+LIFECYCLE_MIGRATION = _migration_with_prefix("product_feedback_and_evidence_lifecycle")
+PRODUCT_FEEDBACK_REPAIR_MIGRATION = _migration_with_prefix("repair_missing_product_feedback_schema")
+ANALYSIS_SESSIONS_REPAIR_MIGRATION = _migration_with_prefix("repair_missing_analysis_sessions_columns")
+ANALYSIS_FEEDBACK_REPAIR_MIGRATION = _migration_with_prefix("repair_missing_analysis_feedback_columns")
 
 
 def test_trusted_analysis_history_is_server_written_only() -> None:

@@ -12,9 +12,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from ml.src.inference.raw_video_pipeline import analyze_raw_video
-
-
 WorkerCallable = Callable[[Path], dict[str, Any]]
 
 _ACTIVE_WORKERS: set[int] = set()
@@ -120,10 +117,16 @@ def _pid_alive(pid: int) -> bool:
     return True
 
 
-def _worker_entry(input_path: str, result_queue: mp.Queue, worker: WorkerCallable) -> None:
+def _worker_entry(input_path: str, result_queue: mp.Queue, worker: WorkerCallable | None) -> None:
     started = time.perf_counter()
     worker_pid = os.getpid()
     try:
+        if worker is None:
+            # Keep test/control workers lightweight and import the ML stack only
+            # inside the production inference child.
+            from ml.src.inference.raw_video_pipeline import analyze_raw_video
+
+            worker = analyze_raw_video
         result = worker(Path(input_path))
         envelope = WorkerEnvelope(
             status="success",
@@ -132,9 +135,10 @@ def _worker_entry(input_path: str, result_queue: mp.Queue, worker: WorkerCallabl
             worker_pid=worker_pid,
         )
     except Exception as exc:
+        error_code = getattr(exc, "error_code", "inference_failed")
         envelope = WorkerEnvelope(
             status="error",
-            error_code="raw_video_analysis_failed",
+            error_code=error_code,
             error_message=f"{type(exc).__name__}: {exc}",
             timing={"duration_seconds": round(time.perf_counter() - started, 3)},
             worker_pid=worker_pid,
@@ -146,7 +150,7 @@ def run_raw_video_in_process(
     input_path: Path,
     *,
     timeout_seconds: int,
-    worker: WorkerCallable = analyze_raw_video,
+    worker: WorkerCallable | None = None,
 ) -> dict[str, Any]:
     """Run raw-video inference in a spawned child process with hard timeout."""
 
@@ -176,7 +180,7 @@ def run_raw_video_in_process(
             raise InferenceWorkerFailedError(
                 "Inference worker exited without returning a result.",
                 worker_pid=process.pid,
-                detail_code=f"worker_exit_{process.exitcode}",
+                detail_code=("mediapipe_init_failed" if process.exitcode in {-6, 134} else f"worker_exit_{process.exitcode}"),
             ) from exc
         if not isinstance(envelope, dict) or envelope.get("status") not in {"success", "error"}:
             raise InferenceWorkerFailedError("Inference worker returned an invalid result envelope.", worker_pid=process.pid)

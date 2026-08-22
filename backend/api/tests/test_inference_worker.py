@@ -33,6 +33,14 @@ def _exception_worker(path: Path) -> dict:
     raise RuntimeError("controlled failure")
 
 
+class _CategorizedFailure(RuntimeError):
+    error_code = "feature_extraction_failed"
+
+
+def _categorized_failure_worker(path: Path) -> dict:
+    raise _CategorizedFailure("no pose")
+
+
 def _pid_alive(pid: int) -> bool:
     try:
         os.kill(pid, 0)
@@ -78,10 +86,16 @@ class InferenceWorkerTests(unittest.TestCase):
         path = self._fixture()
         with self.assertRaises(InferenceWorkerFailedError) as ctx:
             run_raw_video_in_process(path, timeout_seconds=5, worker=_exception_worker)
-        self.assertEqual(ctx.exception.detail_code, "raw_video_analysis_failed")
+        self.assertEqual(ctx.exception.detail_code, "inference_failed")
         self.assertIn("controlled failure", str(ctx.exception))
         self.assertNotIn("Traceback", str(ctx.exception))
         self.assertEqual(active_worker_pids(), ())
+
+    def test_worker_preserves_safe_failure_category(self) -> None:
+        path = self._fixture()
+        with self.assertRaises(InferenceWorkerFailedError) as ctx:
+            run_raw_video_in_process(path, timeout_seconds=5, worker=_categorized_failure_worker)
+        self.assertEqual(ctx.exception.detail_code, "feature_extraction_failed")
 
     def test_repeated_timeouts_do_not_accumulate_workers(self) -> None:
         path = self._fixture()

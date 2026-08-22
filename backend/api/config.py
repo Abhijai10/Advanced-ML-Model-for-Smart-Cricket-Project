@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 
 
 VALID_ENVIRONMENTS = {"development", "test", "staging", "production"}
+VALID_MEDIAPIPE_DELEGATES = {"auto", "cpu", "gpu"}
 
 
 def _csv_env(name: str, default: tuple[str, ...]) -> tuple[str, ...]:
@@ -69,6 +70,7 @@ class APISettings:
     max_concurrent_analyses: int = _int_env("SMART_CRICKET_MAX_CONCURRENT_ANALYSES", 1)
     analysis_queue_timeout_seconds: int = _int_env("SMART_CRICKET_ANALYSIS_QUEUE_TIMEOUT_SECONDS", 3)
     analysis_execution_timeout_seconds: int = _int_env("SMART_CRICKET_ANALYSIS_EXECUTION_TIMEOUT_SECONDS", 45)
+    mediapipe_delegate: str = _str_env("SMART_CRICKET_MEDIAPIPE_DELEGATE", "auto")
     max_upload_bytes: int = _int_env("SMART_CRICKET_MAX_UPLOAD_BYTES", 250 * 1024 * 1024)
     max_video_duration_seconds: int = _int_env("SMART_CRICKET_MAX_VIDEO_DURATION_SECONDS", 20)
     max_video_pixels: int = _int_env("SMART_CRICKET_MAX_VIDEO_PIXELS", 1920 * 1080)
@@ -161,6 +163,8 @@ def validate_runtime_settings(settings: APISettings) -> list[ConfigValidationIss
         add("invalid_queue_timeout", "SMART_CRICKET_ANALYSIS_QUEUE_TIMEOUT_SECONDS must be between 1 and 60.")
     if settings.analysis_execution_timeout_seconds < 1 or settings.analysis_execution_timeout_seconds > 600:
         add("invalid_execution_timeout", "SMART_CRICKET_ANALYSIS_EXECUTION_TIMEOUT_SECONDS must be between 1 and 600.")
+    if settings.mediapipe_delegate not in VALID_MEDIAPIPE_DELEGATES:
+        add("invalid_mediapipe_delegate", "SMART_CRICKET_MEDIAPIPE_DELEGATE must be auto, cpu, or gpu.")
     if settings.max_upload_bytes < 1024 or settings.max_upload_bytes > 1024 * 1024 * 1024:
         add("invalid_upload_limit", "SMART_CRICKET_MAX_UPLOAD_BYTES must be between 1 KiB and 1 GiB.")
     if settings.max_video_duration_seconds < 1 or settings.max_video_duration_seconds > 120:

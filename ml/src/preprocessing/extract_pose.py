@@ -1,6 +1,9 @@
 import argparse
+import hashlib
 import json
 import logging
+import os
+import platform
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -15,6 +18,7 @@ DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "ml" / "data" / "processed" / "pose_json"
 POSE_LANDMARKER_MODEL_ASSET_PATH = (
     PROJECT_ROOT / "ml" / "models" / "pose_landmarker_full.task"
 )
+POSE_LANDMARKER_MODEL_SHA256 = "5134a3aad27a58b93da0088d431f366da362b44e3ccfbe3462b3827a839011b1"
 POSE_CONNECTIONS = [
     (0, 1), (1, 2), (2, 3), (3, 7),
     (0, 4), (4, 5), (5, 6), (6, 8),
@@ -29,6 +33,49 @@ POSE_CONNECTIONS = [
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 LOGGER = logging.getLogger(__name__)
+
+
+class MediaPipeInitializationError(RuntimeError):
+    """Raised when the MediaPipe Tasks pose runtime cannot start safely."""
+
+    error_code = "mediapipe_init_failed"
+
+
+class FeatureExtractionError(RuntimeError):
+    """Raised when a readable video cannot be converted into pose landmarks."""
+
+    error_code = "feature_extraction_failed"
+
+
+def resolve_mediapipe_delegate(delegate: str | None = None) -> mp_python.BaseOptions.Delegate | None:
+    """Resolve the supported delegate setting with a stable macOS auto default."""
+
+    value = (delegate or os.getenv("SMART_CRICKET_MEDIAPIPE_DELEGATE", "auto")).strip().lower()
+    if value == "auto" and platform.system() != "Darwin":
+        return None
+    if value == "auto":
+        # MediaPipe Metal aborts on the RGB ImageFrame path used by video uploads.
+        # CPU/XNNPACK is the verified macOS path; explicit gpu remains available.
+        return mp_python.BaseOptions.Delegate.CPU
+    if value == "cpu":
+        return mp_python.BaseOptions.Delegate.CPU
+    if value == "gpu":
+        return mp_python.BaseOptions.Delegate.GPU
+    raise ValueError("SMART_CRICKET_MEDIAPIPE_DELEGATE must be auto, cpu, or gpu.")
+
+
+def pose_model_status() -> dict[str, Any]:
+    """Return non-secret pose-model integrity details for diagnostics."""
+
+    if not POSE_LANDMARKER_MODEL_ASSET_PATH.is_file():
+        return {"exists": False, "path": str(POSE_LANDMARKER_MODEL_ASSET_PATH), "sha256": None, "matches_expected": False}
+    digest = hashlib.sha256(POSE_LANDMARKER_MODEL_ASSET_PATH.read_bytes()).hexdigest()
+    return {
+        "exists": True,
+        "path": str(POSE_LANDMARKER_MODEL_ASSET_PATH),
+        "sha256": digest,
+        "matches_expected": digest == POSE_LANDMARKER_MODEL_SHA256,
+    }
 
 
 def build_output_path(input_video_path: Path, output_dir: Path) -> Path:
@@ -47,7 +94,7 @@ def landmark_to_dict(landmark: Any) -> Dict[str, float]:
     }
 
 
-def create_pose_landmarker() -> vision.PoseLandmarker:
+def create_pose_landmarker(delegate: str | None = None) -> vision.PoseLandmarker:
     """Create a Pose Landmarker instance using the MediaPipe Tasks API."""
     if not POSE_LANDMARKER_MODEL_ASSET_PATH.exists():
         raise FileNotFoundError(
@@ -56,17 +103,25 @@ def create_pose_landmarker() -> vision.PoseLandmarker:
             "(for example, pose_landmarker_full.task)."
         )
 
-    options = vision.PoseLandmarkerOptions(
-        base_options=mp_python.BaseOptions(
-            model_asset_path=str(POSE_LANDMARKER_MODEL_ASSET_PATH)
-        ),
-        running_mode=vision.RunningMode.VIDEO,
-        num_poses=1,
-        min_pose_detection_confidence=0.5,
-        min_pose_presence_confidence=0.5,
-        min_tracking_confidence=0.5,
-    )
-    return vision.PoseLandmarker.create_from_options(options)
+    resolved_delegate = resolve_mediapipe_delegate(delegate)
+    try:
+        base_options_kwargs: dict[str, Any] = {"model_asset_path": str(POSE_LANDMARKER_MODEL_ASSET_PATH)}
+        if resolved_delegate is not None:
+            base_options_kwargs["delegate"] = resolved_delegate
+        options = vision.PoseLandmarkerOptions(
+            base_options=mp_python.BaseOptions(**base_options_kwargs),
+            running_mode=vision.RunningMode.VIDEO,
+            num_poses=1,
+            min_pose_detection_confidence=0.5,
+            min_pose_presence_confidence=0.5,
+            min_tracking_confidence=0.5,
+        )
+        return vision.PoseLandmarker.create_from_options(options)
+    except Exception as exc:
+        requested = (delegate or os.getenv("SMART_CRICKET_MEDIAPIPE_DELEGATE", "auto")).strip().lower()
+        raise MediaPipeInitializationError(
+            f"MediaPipe pose runtime could not initialize with delegate={requested}."
+        ) from exc
 
 
 def draw_pose_overlay(frame: Any, landmarks: List[Dict[str, float]]) -> Any:
@@ -125,7 +180,11 @@ def extract_pose_from_video(
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
     duration = (total_frames / fps) if fps > 0 else 0.0
 
-    pose_landmarker = create_pose_landmarker()
+    try:
+        pose_landmarker = create_pose_landmarker()
+    except MediaPipeInitializationError:
+        cap.release()
+        raise
 
     frames: List[Dict[str, Any]] = []
     detected_frames = 0
@@ -145,10 +204,16 @@ def extract_pose_from_video(
                 frame_index += 1
                 continue
 
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            try:
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            except cv2.error as exc:
+                raise FeatureExtractionError("OpenCV could not convert a video frame for pose extraction.") from exc
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
             timestamp_ms = int((frame_index / fps) * 1000) if fps > 0 else frame_index * 33
-            results = pose_landmarker.detect_for_video(mp_image, timestamp_ms)
+            try:
+                results = pose_landmarker.detect_for_video(mp_image, timestamp_ms)
+            except Exception as exc:
+                raise FeatureExtractionError("MediaPipe failed while extracting pose landmarks from the video.") from exc
 
             if results.pose_landmarks:
                 landmarks = [

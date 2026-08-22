@@ -7,6 +7,7 @@ import threading
 import hashlib
 import hmac
 import json
+import logging
 import shutil
 import tempfile
 import time
@@ -29,7 +30,6 @@ from ml.src.inference.inference_config import (
     PHASE12_VERSION,
     PHASE8_BEST_MODEL_DIR,
 )
-from ml.src.inference.raw_video_pipeline import analyze_raw_video
 from ml.src.preprocessing.extract_pose import POSE_LANDMARKER_MODEL_ASSET_PATH
 
 from .audio import store_audio_artifact
@@ -51,6 +51,7 @@ _MEMORY_RATE_LIMITER = MemoryRateLimiter(_RATE_LIMIT_BUCKETS)
 _MEMORY_FEEDBACK_RATE_LIMITER = MemoryRateLimiter(_FEEDBACK_RATE_LIMIT_BUCKETS)
 _ANALYSIS_SEMAPHORE = threading.BoundedSemaphore(max(1, SETTINGS.max_concurrent_analyses))
 _JWKS_CACHE: dict[str, Any] = {"loaded_at": 0.0, "keys": []}
+LOGGER = logging.getLogger(__name__)
 
 
 class APIValidationError(ValueError):
@@ -199,13 +200,17 @@ def _run_raw_video_with_timeout(temp_path: Path) -> dict[str, Any]:
         return run_raw_video_in_process(
             temp_path,
             timeout_seconds=SETTINGS.analysis_execution_timeout_seconds,
-            worker=analyze_raw_video,
         )
     except InferenceWorkerTimeoutError as exc:
         METRICS.increment("smart_cricket_analysis_timeout")
         raise AnalysisTimeoutError(str(exc), worker_pid=exc.worker_pid) from exc
     except InferenceWorkerFailedError as exc:
         METRICS.increment("smart_cricket_worker_crash", detail_code=exc.detail_code)
+        LOGGER.exception(
+            "Raw-video inference worker failed (category=%s, pid=%s).",
+            exc.detail_code,
+            exc.worker_pid,
+        )
         raise AnalysisWorkerError(str(exc), worker_pid=exc.worker_pid, detail_code=exc.detail_code) from exc
 
 

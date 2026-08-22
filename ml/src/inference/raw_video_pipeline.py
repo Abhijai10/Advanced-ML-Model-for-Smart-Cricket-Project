@@ -20,7 +20,7 @@ from features.temporal_frame_features import compute_temporal_frame_features, fe
 from inference.analysis_pipeline import analyze_sequence  # noqa: E402
 from preprocessing.align_pose_orientation import align_frame_landmarks  # noqa: E402
 from preprocessing.clean_pose_data import should_remove_frame  # noqa: E402
-from preprocessing.extract_pose import extract_pose_from_video  # noqa: E402
+from preprocessing.extract_pose import FeatureExtractionError, MediaPipeInitializationError, extract_pose_from_video  # noqa: E402
 from preprocessing.normalize_pose_data import normalize_frame_landmarks  # noqa: E402
 from preprocessing.prepare_sequences import resample_frames  # noqa: E402
 
@@ -28,6 +28,18 @@ from preprocessing.prepare_sequences import resample_frames  # noqa: E402
 SEQUENCE_LENGTH = 60
 FEATURE_DIM = 32
 VISIBILITY_THRESHOLD = 0.3
+
+
+class ModelLoadError(RuntimeError):
+    """Raised when a required trained-model artifact cannot be loaded."""
+
+    error_code = "model_load_failed"
+
+
+class InferenceExecutionError(RuntimeError):
+    """Raised when scoring/model inference fails after feature extraction."""
+
+    error_code = "inference_failed"
 
 
 def _clean_frames(frames: list[Any]) -> list[dict[str, Any]]:
@@ -102,15 +114,22 @@ def _frames_to_feature_sequence(frames: list[dict[str, Any]]) -> np.ndarray:
 
 def build_sequence_from_raw_video(video_path: Path) -> tuple[np.ndarray, dict[str, Any]]:
     """Extract a finalized 60x32 temporal feature sequence from one raw video."""
-    pose_payload = extract_pose_from_video(video_path, frame_skip=1, visualize=False)
+    try:
+        pose_payload = extract_pose_from_video(video_path, frame_skip=1, visualize=False)
+    except MediaPipeInitializationError:
+        raise
+    except FeatureExtractionError:
+        raise
+    except Exception as exc:
+        raise FeatureExtractionError("Pose extraction could not process the uploaded video.") from exc
     metadata = dict(pose_payload.get("video_metadata", {}))
     frames = pose_payload.get("frames", [])
     if not isinstance(frames, list) or not frames:
-        raise ValueError("No frames were extracted from the uploaded video.")
+        raise FeatureExtractionError("No frames were extracted from the uploaded video.")
 
     cleaned = _clean_frames(frames)
     if not cleaned:
-        raise ValueError("No usable pose frames remained after cleaning.")
+        raise FeatureExtractionError("No usable pose frames remained after cleaning.")
 
     normalized, normalize_warnings = _normalize_frames(cleaned)
     aligned, align_warnings = _align_frames(normalized)
@@ -143,7 +162,12 @@ def build_sequence_from_raw_video(video_path: Path) -> tuple[np.ndarray, dict[st
 def analyze_raw_video(video_path: Path) -> dict[str, Any]:
     """Analyze one uploaded raw video and return the standard analysis payload."""
     sequence, source_metadata = build_sequence_from_raw_video(video_path)
-    result = analyze_sequence(sequence, source_metadata).to_dict()
+    try:
+        result = analyze_sequence(sequence, source_metadata).to_dict()
+    except FileNotFoundError as exc:
+        raise ModelLoadError("A required Smart Cricket model artifact is unavailable.") from exc
+    except Exception as exc:
+        raise InferenceExecutionError("Smart Cricket model inference could not complete.") from exc
     result["debug_metadata"]["pipeline_mode"] = "raw_video_upload"
     result["debug_metadata"]["pipeline_note"] = (
         "Raw video was converted through pose extraction, cleaning, normalization, "

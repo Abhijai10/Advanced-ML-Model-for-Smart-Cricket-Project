@@ -18,7 +18,7 @@ from backend.api.app import app
 from backend.api.config import SETTINGS
 from backend.api.evidence import EvidenceOutcome, evidence_is_reviewable
 from backend.api.persistence import PersistenceResult
-from backend.api.services import AnalysisTimeoutError, AuthContext, _FEEDBACK_RATE_LIMIT_BUCKETS, _RATE_LIMIT_BUCKETS, enforce_auth
+from backend.api.services import AnalysisTimeoutError, AnalysisWorkerError, AuthContext, _FEEDBACK_RATE_LIMIT_BUCKETS, _RATE_LIMIT_BUCKETS, enforce_auth
 from backend.api.tts import TTSResult
 
 
@@ -255,6 +255,9 @@ class SmartCricketAPITests(unittest.TestCase):
         self.assertEqual(payload["debug_metadata"]["model_version"], provenance["model_version"])
 
     def test_feedback_without_persistence_config_is_not_reported_saved(self) -> None:
+        app.dependency_overrides[enforce_auth] = lambda: AuthContext(
+            user_id="00000000-0000-0000-0000-000000000001", authorization_present=True
+        )
         response = self.client.post(
             "/feedback",
             json={
@@ -272,6 +275,9 @@ class SmartCricketAPITests(unittest.TestCase):
         self.assertEqual(response.json()["detail"]["error_code"], "persistence_not_configured")
 
     def test_feedback_rejects_forged_trusted_fields(self) -> None:
+        app.dependency_overrides[enforce_auth] = lambda: AuthContext(
+            user_id="00000000-0000-0000-0000-000000000001", authorization_present=True
+        )
         response = self.client.post(
             "/feedback",
             json={
@@ -287,6 +293,9 @@ class SmartCricketAPITests(unittest.TestCase):
         self.assertEqual(response.status_code, 422)
 
     def test_feedback_rejects_invalid_corrected_label(self) -> None:
+        app.dependency_overrides[enforce_auth] = lambda: AuthContext(
+            user_id="00000000-0000-0000-0000-000000000001", authorization_present=True
+        )
         response = self.client.post(
             "/feedback",
             json={
@@ -641,7 +650,26 @@ class SmartCricketAPITests(unittest.TestCase):
         self.assertEqual(response.json()["detail"]["error_code"], "analysis_timeout")
         self.assertIn("retry-after", {key.lower(): value for key, value in response.headers.items()})
 
+    def test_worker_failure_returns_safe_category(self) -> None:
+        content = self._make_video("worker-failure.mp4", "blue")
+        with patch(
+            "backend.api.services._run_raw_video_with_timeout",
+            side_effect=AnalysisWorkerError("native failure", detail_code="mediapipe_init_failed"),
+        ):
+            response = self.client.post(
+                "/analyze",
+                files={"file": ("worker-failure.mp4", content, "video/mp4")},
+            )
+        self.assertEqual(response.status_code, 503)
+        detail = response.json()["detail"]
+        self.assertEqual(detail["error_code"], "inference_worker_failed")
+        self.assertEqual(detail["failure_category"], "MEDIAPIPE_INIT_FAILED")
+        self.assertNotIn("native failure", str(detail))
+
     def test_general_product_feedback_never_enters_training_queue(self) -> None:
+        app.dependency_overrides[enforce_auth] = lambda: AuthContext(
+            user_id="00000000-0000-0000-0000-000000000001", authorization_present=True
+        )
         captured: dict[str, dict] = {}
 
         def capture_feedback(row: dict) -> PersistenceResult:

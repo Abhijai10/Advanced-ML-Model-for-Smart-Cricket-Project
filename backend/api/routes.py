@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import PlainTextResponse
 
@@ -38,6 +40,7 @@ from .services import (
 
 
 router = APIRouter()
+LOGGER = logging.getLogger(__name__)
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -132,6 +135,7 @@ def analyze(
             detail={
                 "detail": "Smart Cricket inference worker failed safely. Try again with a clearer, shorter clip.",
                 "error_code": exc.error_code,
+                "failure_category": exc.detail_code.upper(),
                 "request_id": request.state.request_id,
             },
         ) from exc
@@ -147,6 +151,7 @@ def analyze(
             },
         ) from exc
     except Exception as exc:
+        LOGGER.exception("Unexpected analysis route failure (request_id=%s).", request.state.request_id)
         raise HTTPException(
             status_code=500,
             detail={
