@@ -10,7 +10,7 @@ It should not be described as fully production-ready yet. The remaining blockers
 - Real-world model readiness requires a larger, player-held-out dataset and coach validation.
 - Live Google Cloud TTS and private Supabase audio storage need staging credentials and smoke verification.
 - Browser end-to-end tests should run in CI after the deployed API/frontend URLs exist.
-- Real-video Phase 12 validation still requires a legally usable batting-video fixture. Mocked API tests are not evidence of real inference quality.
+- The repository's short cricket clip now completes the raw-video pipeline and `/analyze` worker path on macOS CPU. Broader, consented player-held-out validation remains required before making model-quality claims.
 
 ## Implemented Hardening
 

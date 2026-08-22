@@ -13,9 +13,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg libgl1 libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml ./
+COPY pyproject.toml backend/requirements.txt ml/requirements.txt ./
 RUN python -m pip install --upgrade pip \
-    && python -m pip install .
+    && python -m pip install -r backend/requirements.txt -r ml/requirements.txt
 
 COPY backend ./backend
 COPY ml/src ./ml/src

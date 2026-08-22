@@ -93,7 +93,7 @@ Expected passing checks:
 The API image is Docker-first and expects a managed HTTPS reverse proxy or platform TLS in front of it. The container:
 
 - runs as the non-root `smartcricket` user;
-- uses production Python dependencies from `pyproject.toml`;
+- installs split runtime dependencies from `backend/requirements.txt` and `ml/requirements.txt`;
 - copies only backend code and required ML artifacts;
 - downloads the MediaPipe pose landmarker with a pinned SHA-256 checksum;
 - uses `/tmp/smart-cricket-audio` for generated audio;
@@ -101,6 +101,21 @@ The API image is Docker-first and expects a managed HTTPS reverse proxy or platf
 - declares `SIGTERM` as the stop signal so FastAPI shutdown can terminate active inference workers.
 
 Provider examples such as Render, Railway, Fly.io, or Cloud Run should use the same contract: Docker image, environment secrets, managed TLS, `/health` liveness, `/ready` readiness, and external persistence/storage services.
+
+## MediaPipe Runtime
+
+Run the non-secret dependency and artifact check after installing both requirements files:
+
+```bash
+python -m backend.api.diagnostics
+```
+
+`SMART_CRICKET_MEDIAPIPE_DELEGATE` accepts `auto`, `cpu`, or `gpu`. On macOS,
+`auto` selects CPU/XNNPACK because the Metal delegate fatally aborts on the RGB
+`ImageFrame` path used for uploaded videos. CPU was verified end-to-end with
+the repository's 5.62-second cricket clip. Keep `gpu` for isolated platform
+experiments only; the API worker boundary converts a native worker failure into
+a safe `503` response rather than crashing the API process.
 
 ## Controlled Concurrency Smoke
 
