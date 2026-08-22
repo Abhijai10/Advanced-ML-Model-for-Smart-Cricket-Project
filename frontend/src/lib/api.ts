@@ -22,6 +22,20 @@ export type AnalysisJob = {
   detail: string | null;
 };
 
+export type AnalysisJobEvent = {
+  type: 'queued' | 'processing' | 'progress' | 'completed' | 'failed';
+  job_id: string;
+  progress: number;
+  result?: {
+    predicted_shot: string;
+    confidence: number;
+    feedback: string;
+    landmarks: { x: number; y: number; visibility: number }[];
+  };
+  error?: string;
+  error_code?: string;
+};
+
 export class ApiError extends Error {
   constructor(message: string, readonly code?: string) {
     super(message);
@@ -29,6 +43,10 @@ export class ApiError extends Error {
 }
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
+
+function websocketBaseUrl(): string {
+  return API_BASE_URL.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+}
 
 export async function analyzeVideo(file: Blob, filename: string, accessToken?: string): Promise<AnalysisResponse> {
   const payload = new FormData();
@@ -66,6 +84,18 @@ export async function createAnalysisJob(file: Blob, filename: string, accessToke
 
 export function getAnalysisJob(jobId: string, accessToken?: string): Promise<AnalysisJob> {
   return apiJson(`/analysis/jobs/${encodeURIComponent(jobId)}`, { method: 'GET' }, accessToken);
+}
+
+export function openAnalysisJobWebSocket(
+  jobId: string,
+  accessToken?: string,
+): WebSocket {
+  const url = `${websocketBaseUrl()}/ws/analysis/${encodeURIComponent(jobId)}`;
+  // Prefer the bearer subprotocol so JWTs stay out of query strings/logs.
+  if (accessToken) {
+    return new WebSocket(url, ['bearer', accessToken]);
+  }
+  return new WebSocket(url);
 }
 
 export function getAnalytics<T>(path: string, accessToken?: string): Promise<T> {

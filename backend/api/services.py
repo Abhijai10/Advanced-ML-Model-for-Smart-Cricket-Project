@@ -9,6 +9,7 @@ import hmac
 import json
 import logging
 import shutil
+import subprocess
 import tempfile
 import time
 import urllib.request
@@ -132,34 +133,128 @@ def _looks_like_video(path: Path, suffix: str) -> bool:
     return False
 
 
-def _inspect_video_container(path: Path) -> dict[str, Any]:
+def _validate_video_probe(probe: dict[str, Any]) -> dict[str, Any]:
+    fps = float(probe.get("fps") or 0.0)
+    frame_count = int(probe.get("frame_count") or 0)
+    width = int(probe.get("width") or 0)
+    height = int(probe.get("height") or 0)
+    duration = float(probe.get("duration_seconds") or 0.0)
+    if duration <= 0 and fps > 0 and frame_count > 0:
+        duration = frame_count / fps
+    if width <= 0 or height <= 0 or (frame_count <= 0 and duration <= 0):
+        raise APIValidationError("Uploaded video has no readable frames.", "invalid_video_container")
+    if duration > SETTINGS.max_video_duration_seconds:
+        raise APIValidationError(
+            f"Uploaded video is too long. Limit clips to {SETTINGS.max_video_duration_seconds} seconds.",
+            "video_too_long",
+        )
+    if width * height > SETTINGS.max_video_pixels:
+        raise APIValidationError("Uploaded video resolution exceeds the configured limit.", "video_too_large")
+    if frame_count <= 0 and duration > 0 and fps > 0:
+        frame_count = max(1, int(round(duration * fps)))
+    return {
+        "fps": fps,
+        "frame_count": frame_count,
+        "width": width,
+        "height": height,
+        "duration_seconds": duration,
+    }
+
+
+def _inspect_video_container_cv2(path: Path) -> dict[str, Any]:
     cap = cv2.VideoCapture(str(path))
     try:
         if not cap.isOpened():
             raise APIValidationError("Uploaded file is not a readable video container.", "invalid_video_container")
-        fps = float(cap.get(cv2.CAP_PROP_FPS) or 0.0)
-        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
-        duration = (frame_count / fps) if fps > 0 else 0.0
-        if width <= 0 or height <= 0 or frame_count <= 0:
-            raise APIValidationError("Uploaded video has no readable frames.", "invalid_video_container")
-        if duration > SETTINGS.max_video_duration_seconds:
-            raise APIValidationError(
-                f"Uploaded video is too long. Limit clips to {SETTINGS.max_video_duration_seconds} seconds.",
-                "video_too_long",
-            )
-        if width * height > SETTINGS.max_video_pixels:
-            raise APIValidationError("Uploaded video resolution exceeds the configured limit.", "video_too_large")
-        return {
-            "fps": fps,
-            "frame_count": frame_count,
-            "width": width,
-            "height": height,
-            "duration_seconds": duration,
-        }
+        return _validate_video_probe(
+            {
+                "fps": float(cap.get(cv2.CAP_PROP_FPS) or 0.0),
+                "frame_count": int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0),
+                "width": int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 0),
+                "height": int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0),
+            }
+        )
     finally:
         cap.release()
+
+
+def _inspect_video_container_ffprobe(path: Path) -> dict[str, Any]:
+    """Probe uploaded clips when OpenCV bindings are incomplete or unavailable."""
+    if shutil.which("ffprobe") is None:
+        raise RuntimeError(
+            "OpenCV VideoCapture is unavailable and ffprobe was not found. "
+            "Reinstall opencv-contrib-python==4.10.0.84 from backend/requirements.txt "
+            "(do not mix opencv-python / opencv-python-headless with opencv-contrib-python)."
+        )
+    completed = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=width,height,nb_frames,avg_frame_rate,r_frame_rate:format=duration",
+            "-of",
+            "json",
+            str(path),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    if completed.returncode != 0:
+        raise APIValidationError("Uploaded file is not a readable video container.", "invalid_video_container")
+    try:
+        payload = json.loads(completed.stdout or "{}")
+    except json.JSONDecodeError as exc:
+        raise APIValidationError("Uploaded file is not a readable video container.", "invalid_video_container") from exc
+    streams = payload.get("streams") or []
+    if not streams:
+        raise APIValidationError("Uploaded video has no readable frames.", "invalid_video_container")
+    stream = streams[0]
+    rate = str(stream.get("avg_frame_rate") or stream.get("r_frame_rate") or "0/1")
+    fps = 0.0
+    if "/" in rate:
+        numerator, denominator = rate.split("/", 1)
+        try:
+            denom = float(denominator)
+            fps = (float(numerator) / denom) if denom else 0.0
+        except ValueError:
+            fps = 0.0
+    else:
+        try:
+            fps = float(rate)
+        except ValueError:
+            fps = 0.0
+    try:
+        frame_count = int(stream.get("nb_frames") or 0)
+    except (TypeError, ValueError):
+        frame_count = 0
+    try:
+        duration = float((payload.get("format") or {}).get("duration") or 0.0)
+    except (TypeError, ValueError):
+        duration = 0.0
+    return _validate_video_probe(
+        {
+            "fps": fps,
+            "frame_count": frame_count,
+            "width": stream.get("width") or 0,
+            "height": stream.get("height") or 0,
+            "duration_seconds": duration,
+        }
+    )
+
+
+def _inspect_video_container(path: Path) -> dict[str, Any]:
+    """Inspect an uploaded clip with OpenCV, falling back to ffprobe if bindings are broken."""
+    if hasattr(cv2, "VideoCapture"):
+        return _inspect_video_container_cv2(path)
+    LOGGER.warning(
+        "OpenCV import is incomplete (cv2.VideoCapture missing); using ffprobe for upload inspection."
+    )
+    return _inspect_video_container_ffprobe(path)
 
 
 def _save_upload_to_temp(file: UploadFile, filename: str) -> tuple[Path, int, str, dict[str, Any]]:
@@ -995,6 +1090,35 @@ def enforce_auth(request: Request, authorization: str | None = Header(default=No
     )
     request.state.auth = context
     return context
+
+
+def authenticate_websocket_token(token: str | None) -> AuthContext:
+    """Authenticate a browser WebSocket token using the same JWT checks as HTTP."""
+    if not SETTINGS.require_auth:
+        return AuthContext(authorization_present=bool(token))
+    if not SETTINGS.supabase_jwt_secret and not SETTINGS.supabase_url:
+        raise APIValidationError("API authentication is enabled but not configured.", "auth_not_configured")
+    if not token:
+        raise APIValidationError("Authentication is required for analysis.", "missing_auth")
+    try:
+        header = json.loads(_base64url_decode(token.split(".", 1)[0]))
+        if header.get("alg") == "HS256":
+            if not SETTINGS.supabase_jwt_secret:
+                raise APIValidationError("HS256 token verification is not configured.", "invalid_token")
+            claims = _verify_hs256_jwt(token, SETTINGS.supabase_jwt_secret)
+        else:
+            claims = _verify_asymmetric_jwt(token)
+    except APIValidationError:
+        raise
+    except JWKSUnavailableError:
+        raise
+    except Exception as exc:
+        raise APIValidationError("Invalid authorization token.", "invalid_token") from exc
+    return AuthContext(
+        user_id=str(claims.get("sub")) if claims.get("sub") else None,
+        claims=claims,
+        authorization_present=True,
+    )
 
 
 def persist_verified_analysis_for_auth_user(

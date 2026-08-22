@@ -1,4 +1,4 @@
-"""In-process HTTP analysis job queue (no WebSockets)."""
+"""In-process analysis job queue with HTTP and WebSocket-compatible events."""
 
 from __future__ import annotations
 
@@ -30,6 +30,7 @@ from .services import (
 
 LOGGER = logging.getLogger(__name__)
 _JOBS_LOCK = threading.Lock()
+_JOBS_UPDATED = threading.Condition(_JOBS_LOCK)
 _JOBS: dict[str, "AnalysisJob"] = {}
 _PENDING_COUNT = 0
 
@@ -61,12 +62,34 @@ class AnalysisJob:
     detail: str | None = None
     owner_user_id: str | None = None
     _thread: threading.Thread | None = field(default=None, repr=False)
+    revision: int = 0
 
 
 def _set_job_fields(job: AnalysisJob, **kwargs: Any) -> None:
-    for key, value in kwargs.items():
-        setattr(job, key, value)
-    job.updated_at = _utc_now()
+    with _JOBS_UPDATED:
+        for key, value in kwargs.items():
+            setattr(job, key, value)
+        job.updated_at = _utc_now()
+        job.revision += 1
+        _JOBS_UPDATED.notify_all()
+
+
+def _job_payload(job: AnalysisJob) -> dict[str, Any]:
+    return {
+        "job_id": job.job_id,
+        "status": job.status,
+        "created_at": job.created_at,
+        "updated_at": job.updated_at,
+        "progress": job.progress,
+        "error_code": job.error_code,
+        "detail": job.detail,
+        "result": job.result,
+        "revision": job.revision,
+    }
+
+
+def _visible_to(job: AnalysisJob, auth: AuthContext) -> bool:
+    return not job.owner_user_id or bool(auth.user_id and job.owner_user_id == auth.user_id)
 
 
 def _count_active_or_pending() -> int:
@@ -106,9 +129,10 @@ def enqueue_analysis_job(
         content_type=getattr(file, "content_type", None),
         owner_user_id=auth.user_id,
     )
-    with _JOBS_LOCK:
+    with _JOBS_UPDATED:
         _JOBS[job_id] = job
         _PENDING_COUNT = _count_active_or_pending()
+        _JOBS_UPDATED.notify_all()
 
     worker = threading.Thread(target=_run_job, args=(job_id,), name=f"analysis-job-{job_id[:8]}", daemon=True)
     job._thread = worker
@@ -122,21 +146,30 @@ def get_analysis_job(job_id: str, *, auth: AuthContext) -> dict[str, Any] | None
         job = _JOBS.get(job_id)
         if job is None:
             return None
-        if job.owner_user_id and auth.user_id and job.owner_user_id != auth.user_id:
+        if not _visible_to(job, auth):
             return None
-        if job.owner_user_id and not auth.user_id:
-            return None
-        payload = {
-            "job_id": job.job_id,
-            "status": job.status,
-            "created_at": job.created_at,
-            "updated_at": job.updated_at,
-            "progress": job.progress,
-            "error_code": job.error_code,
-            "detail": job.detail,
-            "result": job.result,
-        }
+        payload = _job_payload(job)
     return payload
+
+
+def wait_for_job_update(
+    job_id: str,
+    *,
+    auth: AuthContext,
+    after_revision: int,
+    timeout_seconds: float = 20.0,
+) -> dict[str, Any] | None:
+    """Block until an owned job changes, for the WebSocket event adapter."""
+    with _JOBS_UPDATED:
+        job = _JOBS.get(job_id)
+        if job is None or not _visible_to(job, auth):
+            return None
+        if job.revision <= after_revision and job.status not in {"completed", "failed"}:
+            _JOBS_UPDATED.wait(timeout=max(0.1, timeout_seconds))
+        job = _JOBS.get(job_id)
+        if job is None or not _visible_to(job, auth):
+            return None
+        return _job_payload(job)
 
 
 def _run_job(job_id: str) -> None:
@@ -201,7 +234,7 @@ def _run_job(job_id: str) -> None:
 def _prune_jobs(*, max_age_seconds: int = 3600) -> None:
     """Drop completed/failed jobs older than the retention window."""
     cutoff = time.time() - max_age_seconds
-    with _JOBS_LOCK:
+    with _JOBS_UPDATED:
         stale = []
         for job_id, job in _JOBS.items():
             if job.status not in {"completed", "failed"}:
@@ -214,9 +247,12 @@ def _prune_jobs(*, max_age_seconds: int = 3600) -> None:
                 stale.append(job_id)
         for job_id in stale:
             _JOBS.pop(job_id, None)
+        if stale:
+            _JOBS_UPDATED.notify_all()
 
 
 def reset_jobs_for_tests() -> None:
     """Clear in-memory jobs between unit tests."""
-    with _JOBS_LOCK:
+    with _JOBS_UPDATED:
         _JOBS.clear()
+        _JOBS_UPDATED.notify_all()

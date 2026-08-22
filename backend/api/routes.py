@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import PlainTextResponse
 
 from .config import SETTINGS
@@ -39,10 +40,12 @@ from .services import (
     AnalysisWorkerError,
     APIValidationError,
     AuthContext,
+    JWKSUnavailableError,
     analyze_dataset_sample,
     analyze_uploaded_video_with_retention,
     api_health,
     api_readiness,
+    authenticate_websocket_token,
     enforce_auth,
     enforce_feedback_rate_limit,
     enforce_rate_limit,
@@ -50,7 +53,7 @@ from .services import (
     persist_verified_analysis_for_auth_user,
 )
 from .analytics import build_user_analytics
-from .jobs import enqueue_analysis_job, get_analysis_job
+from .jobs import enqueue_analysis_job, get_analysis_job, wait_for_job_update
 
 
 router = APIRouter()
@@ -247,6 +250,114 @@ def read_analysis_job(
             },
         )
     return payload
+
+
+def _websocket_token(websocket: WebSocket) -> str | None:
+    """Read a JWT from the browser WebSocket subprotocol without URL exposure."""
+    protocols = [item.strip() for item in websocket.headers.get("sec-websocket-protocol", "").split(",") if item.strip()]
+    try:
+        token = protocols[protocols.index("bearer") + 1]
+    except (ValueError, IndexError):
+        return None
+    return token or None
+
+
+async def _reject_websocket(websocket: WebSocket, code: int) -> None:
+    """Reject a connecting WebSocket without leaking job existence details."""
+    try:
+        await websocket.close(code=code)
+    except Exception:
+        LOGGER.debug("WebSocket reject close failed (code=%s).", code, exc_info=True)
+
+
+def _analysis_job_event(payload: dict, *, event_type: str | None = None) -> dict:
+    event = {
+        "type": event_type or payload["status"],
+        "job_id": payload["job_id"],
+        "progress": int(payload.get("progress") or 0),
+    }
+    if payload["status"] == "completed":
+        result = payload.get("result") or {}
+        event["result"] = {
+            "predicted_shot": result.get("predicted_shot"),
+            "confidence": result.get("shot_confidence"),
+            "feedback": result.get("detailed_feedback") or result.get("spoken_feedback") or "",
+            "landmarks": result.get("landmarks") or [],
+        }
+    elif payload["status"] == "failed":
+        event["error"] = payload.get("detail") or "Smart Cricket analysis failed."
+        event["error_code"] = payload.get("error_code")
+    return event
+
+
+def _analysis_job_events(payload: dict, *, previous: dict | None = None) -> list[dict]:
+    """Emit stable queued/processing/progress/completed/failed events from job revisions."""
+    status = payload["status"]
+    progress = int(payload.get("progress") or 0)
+    events: list[dict] = []
+    if previous is None or previous.get("status") != status:
+        events.append(_analysis_job_event(payload, event_type=status))
+        if status == "processing" and progress > 0:
+            events.append(_analysis_job_event(payload, event_type="progress"))
+    elif previous.get("progress") != progress:
+        events.append(_analysis_job_event(payload, event_type="progress"))
+    return events
+
+
+@router.websocket("/ws/analysis/{job_id}")
+async def stream_analysis_job(websocket: WebSocket, job_id: str) -> None:
+    """Stream in-process job transitions while retaining HTTP polling as fallback."""
+    token = _websocket_token(websocket)
+    try:
+        auth = authenticate_websocket_token(token)
+    except APIValidationError:
+        await _reject_websocket(websocket, 4401)
+        return
+    except JWKSUnavailableError:
+        await _reject_websocket(websocket, 1013)
+        return
+    except Exception:
+        LOGGER.exception("Unexpected WebSocket authentication failure.")
+        await _reject_websocket(websocket, 1011)
+        return
+
+    # Ownership isolation: missing or foreign jobs both look like 4404.
+    payload = get_analysis_job(job_id, auth=auth)
+    if payload is None:
+        await _reject_websocket(websocket, 4404)
+        return
+
+    await websocket.accept(subprotocol="bearer" if token else None)
+    revision = -1
+    previous: dict | None = None
+    try:
+        while True:
+            if payload["revision"] != revision:
+                for event in _analysis_job_events(payload, previous=previous):
+                    await websocket.send_json(event)
+                previous = payload
+                revision = payload["revision"]
+                if payload["status"] in {"completed", "failed"}:
+                    await websocket.close(code=1000)
+                    return
+            payload = await asyncio.to_thread(
+                wait_for_job_update,
+                job_id,
+                auth=auth,
+                after_revision=revision,
+                timeout_seconds=20.0,
+            )
+            if payload is None:
+                await websocket.close(code=4404)
+                return
+    except WebSocketDisconnect:
+        return
+    except Exception:
+        LOGGER.exception("Unexpected analysis WebSocket stream failure (job_id=%s).", job_id)
+        try:
+            await websocket.close(code=1011)
+        except Exception:
+            return
 
 
 @router.get("/analytics", response_model=AnalyticsResponse)
