@@ -1,0 +1,420 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── VIOLET THEME (default) ─── */
+:root,
+[data-theme="violet"] {
+  --background: #0D0D14;
+  --foreground: #F0EEFF;
+  --primary: #7C3AED;
+  --primary-foreground: #FFFFFF;
+  --secondary: #1E1B2E;
+  --secondary-foreground: #C4B5FD;
+  --accent: #A78BFA;
+  --accent-foreground: #0D0D14;
+  --muted: #1E1B2E;
+  --muted-foreground: #6B6880;
+  --card: #16161F;
+  --card-foreground: #F0EEFF;
+  --border: #2A2740;
+  --input: #1E1B2E;
+  --ring: #7C3AED;
+  --radius: 12px;
+  --font-sans: 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  --theme-glow: rgba(124, 58, 237, 0.15);
+  --theme-glow-strong: rgba(124, 58, 237, 0.3);
+  --glass-bg: rgba(22, 22, 31, 0.7);
+  --glass-border: rgba(167, 139, 250, 0.15);
+
+  /* legacy aliases */
+  --violet-glow: rgba(124, 58, 237, 0.15);
+  --violet-glow-strong: rgba(124, 58, 237, 0.3);
+}
+
+/* ─── CYBER THEME (black + turquoise/neon) ─── */
+[data-theme="cyber"] {
+  --background: #050508;
+  --foreground: #E8FFFE;
+  --primary: #00D4C8;
+  --primary-foreground: #050508;
+  --secondary: #0A1A1A;
+  --secondary-foreground: #7FFFD4;
+  --accent: #00FFEE;
+  --accent-foreground: #050508;
+  --muted: #0A1A1A;
+  --muted-foreground: #3D6B68;
+  --card: #080D0D;
+  --card-foreground: #E8FFFE;
+  --border: #0F2E2B;
+  --input: #0A1A1A;
+  --ring: #00D4C8;
+  --radius: 12px;
+  --font-sans: 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  --theme-glow: rgba(0, 212, 200, 0.15);
+  --theme-glow-strong: rgba(0, 212, 200, 0.35);
+  --glass-bg: rgba(8, 13, 13, 0.75);
+  --glass-border: rgba(0, 255, 238, 0.12);
+
+  /* legacy aliases */
+  --violet-glow: rgba(0, 212, 200, 0.15);
+  --violet-glow-strong: rgba(0, 212, 200, 0.35);
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  h1, h2, h3, h4, h5, h6, p {
+    margin: 0;
+  }
+}
+
+@layer utilities {
+  .font-mono-data {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+  }
+
+  .glass-card-solid {
+    background: var(--card);
+    border: 1px solid var(--border);
+  }
+
+  /* ─── Violet theme glow utilities ─── */
+  .violet-glow {
+    box-shadow: 0 0 30px var(--theme-glow), 0 0 60px rgba(124, 58, 237, 0.08);
+  }
+
+  .violet-glow-strong {
+    box-shadow: 0 0 40px var(--theme-glow-strong), 0 0 80px rgba(124, 58, 237, 0.15);
+  }
+
+  /* ─── Universal primary glow (works for both themes) ─── */
+  .primary-glow {
+    box-shadow: 0 0 30px var(--theme-glow), 0 0 60px var(--theme-glow);
+  }
+
+  .primary-glow-strong {
+    box-shadow: 0 0 40px var(--theme-glow-strong), 0 0 80px var(--theme-glow);
+  }
+
+  /* ─── Cyber neon glow (extra for cyber theme) ─── */
+  [data-theme="cyber"] .primary-glow {
+    box-shadow: 0 0 20px rgba(0, 212, 200, 0.4), 0 0 60px rgba(0, 212, 200, 0.15), 0 0 100px rgba(0, 255, 238, 0.08);
+  }
+
+  [data-theme="cyber"] .primary-glow-strong {
+    box-shadow: 0 0 30px rgba(0, 212, 200, 0.6), 0 0 80px rgba(0, 212, 200, 0.25), 0 0 120px rgba(0, 255, 238, 0.12);
+  }
+
+  [data-theme="cyber"] .violet-glow {
+    box-shadow: 0 0 20px rgba(0, 212, 200, 0.4), 0 0 60px rgba(0, 212, 200, 0.15);
+  }
+
+  /* ─── Text gradients ─── */
+  .text-gradient-violet {
+    background: linear-gradient(135deg, #A78BFA 0%, #7C3AED 50%, #C4B5FD 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-primary {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--primary) 60%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  [data-theme="cyber"] .text-gradient-primary {
+    background: linear-gradient(135deg, #00FFEE 0%, #00D4C8 50%, #7FFFD4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .bg-grid-pattern {
+    background-image:
+      linear-gradient(rgba(124, 58, 237, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124, 58, 237, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  [data-theme="cyber"] .bg-grid-pattern {
+    background-image:
+      linear-gradient(rgba(0, 212, 200, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 212, 200, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  .bg-cricket-pattern {
+    background-image: radial-gradient(circle at 20% 50%, rgba(124, 58, 237, 0.12) 0%, transparent 50%),
+                      radial-gradient(circle at 80% 20%, rgba(167, 139, 250, 0.08) 0%, transparent 40%),
+                      radial-gradient(circle at 60% 80%, rgba(91, 33, 182, 0.1) 0%, transparent 45%);
+  }
+
+  [data-theme="cyber"] .bg-cricket-pattern {
+    background-image: radial-gradient(circle at 20% 50%, rgba(0, 212, 200, 0.1) 0%, transparent 50%),
+                      radial-gradient(circle at 80% 20%, rgba(0, 255, 238, 0.06) 0%, transparent 40%),
+                      radial-gradient(circle at 60% 80%, rgba(0, 180, 170, 0.08) 0%, transparent 45%);
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 2px;
+  }
+
+  .camera-scanline {
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(124, 58, 237, 0.03) 2px,
+      rgba(124, 58, 237, 0.03) 4px
+    );
+  }
+
+  [data-theme="cyber"] .camera-scanline {
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 212, 200, 0.04) 2px,
+      rgba(0, 212, 200, 0.04) 4px
+    );
+  }
+
+  .pulse-ring {
+    animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+  }
+
+  @keyframes pulse-ring {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.5); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(124, 58, 237, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(124, 58, 237, 0); }
+  }
+
+  .shot-flash {
+    animation: shot-flash 0.4s ease-out;
+  }
+
+  @keyframes shot-flash {
+    0% { background-color: rgba(124, 58, 237, 0.3); }
+    100% { background-color: transparent; }
+  }
+
+  .fade-in-up {
+    animation: fade-in-up 0.4s ease-out forwards;
+  }
+
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .sidebar-transition {
+    transition: width 300ms ease, min-width 300ms ease;
+  }
+
+  .recording-dot {
+    animation: recording-blink 1.2s ease-in-out infinite;
+  }
+
+  @keyframes recording-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+  }
+
+  .accuracy-bar {
+    transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--ring) 100%);
+    color: var(--primary-foreground);
+    border: none;
+    transition: all 150ms ease;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.9;
+    box-shadow: 0 0 20px var(--theme-glow-strong);
+    transform: translateY(-1px);
+  }
+
+  [data-theme="cyber"] .btn-primary {
+    background: linear-gradient(135deg, #00D4C8 0%, #00FFEE 100%);
+    color: #050508;
+    box-shadow: 0 0 15px rgba(0, 212, 200, 0.3);
+  }
+
+  [data-theme="cyber"] .btn-primary:hover {
+    box-shadow: 0 0 30px rgba(0, 212, 200, 0.6), 0 0 60px rgba(0, 255, 238, 0.2);
+    transform: translateY(-1px);
+  }
+
+  .btn-primary:active {
+    transform: scale(0.97) translateY(0);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .input-field {
+    background: var(--input);
+    border: 1px solid var(--border);
+    color: var(--foreground);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 14px;
+    width: 100%;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+    outline: none;
+  }
+
+  .input-field:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--theme-glow);
+  }
+
+  .input-field::placeholder {
+    color: var(--muted-foreground);
+  }
+
+  .nav-item-active {
+    background: rgba(124, 58, 237, 0.15);
+    color: var(--accent);
+    border-right: 2px solid var(--primary);
+  }
+
+  [data-theme="cyber"] .nav-item-active {
+    background: rgba(0, 212, 200, 0.1);
+    color: var(--accent);
+    border-right: 2px solid var(--primary);
+    box-shadow: inset 0 0 20px rgba(0, 212, 200, 0.05);
+  }
+
+  .nav-item-inactive {
+    color: var(--muted-foreground);
+  }
+
+  .nav-item-inactive:hover {
+    background: rgba(124, 58, 237, 0.08);
+    color: var(--foreground);
+  }
+
+  [data-theme="cyber"] .nav-item-inactive:hover {
+    background: rgba(0, 212, 200, 0.06);
+    color: var(--foreground);
+  }
+
+  .card-hover {
+    transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+  }
+
+  .card-hover:hover {
+    transform: translateY(-2px);
+    border-color: rgba(124, 58, 237, 0.3);
+    box-shadow: 0 8px 32px rgba(124, 58, 237, 0.12);
+  }
+
+  [data-theme="cyber"] .card-hover:hover {
+    border-color: rgba(0, 212, 200, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 212, 200, 0.12), 0 0 20px rgba(0, 255, 238, 0.05);
+  }
+
+  .shot-badge-cover {
+    background: rgba(124, 58, 237, 0.2);
+    color: #C4B5FD;
+    border: 1px solid rgba(124, 58, 237, 0.3);
+  }
+
+  .shot-badge-defensive {
+    background: rgba(16, 185, 129, 0.15);
+    color: #6EE7B7;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+  }
+
+  .shot-badge-pull {
+    background: rgba(245, 158, 11, 0.15);
+    color: #FCD34D;
+    border: 1px solid rgba(245, 158, 11, 0.25);
+  }
+
+  .shot-badge-sweep {
+    background: rgba(239, 68, 68, 0.15);
+    color: #FCA5A5;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+  }
+
+  .status-recording {
+    background: rgba(239, 68, 68, 0.15);
+    color: #FCA5A5;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+  }
+
+  .status-idle {
+    background: rgba(107, 104, 128, 0.2);
+    color: var(--muted-foreground);
+    border: 1px solid var(--border);
+  }
+
+  .status-processing {
+    background: rgba(245, 158, 11, 0.15);
+    color: #FCD34D;
+    border: 1px solid rgba(245, 158, 11, 0.25);
+  }
+
+  /* ─── Cyber theme neon border glow on cards ─── */
+  [data-theme="cyber"] .glass-card-solid {
+    box-shadow: 0 0 0 1px rgba(0, 212, 200, 0.05);
+  }
+
+  [data-theme="cyber"] .glass-card {
+    border-color: rgba(0, 255, 238, 0.1);
+    box-shadow: 0 0 20px rgba(0, 212, 200, 0.05);
+  }
+}

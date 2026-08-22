@@ -1,82 +1,37 @@
-import type { AnalysisResponse, Capabilities, FeedbackPayload, FeedbackResponse } from "../types";
+export type AnalysisResponse = {
+  predicted_shot: string;
+  shot_confidence: number;
+  technique_match_score: number;
+  detected_issues: Record<string, unknown>[];
+  coaching_tips: string[];
+  detailed_feedback: string;
+  spoken_feedback: string;
+  timing?: { duration_seconds?: number | null };
+  segmentation: { start_frame?: number | null; end_frame?: number | null };
+  voice_output?: { status?: string; url?: string | null; mime_type?: string | null };
+  api_metadata?: { analysis_session_id?: string; analysis_persistence?: { stored?: boolean } };
+};
 
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://127.0.0.1:8000";
-
-export function resolveApiUrl(path: string): string {
-  return `${apiBaseUrl.replace(/\/$/, "")}${path}`;
-}
-
-export async function getCapabilities(): Promise<Capabilities> {
-  const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}/capabilities`);
-  if (!response.ok) {
-    throw new Error("Product capabilities could not be loaded.");
+export class ApiError extends Error {
+  constructor(message: string, readonly code?: string) {
+    super(message);
   }
-  return (await response.json()) as Capabilities;
 }
 
-export async function refreshAudioUrl(artifactId: string): Promise<{ audio_url: string; expires_at: string }> {
-  const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}/audio-artifacts/${encodeURIComponent(artifactId)}/signed-url`, {
-    method: "POST",
-  });
-  if (!response.ok) {
-    throw new Error("Audio link could not be refreshed.");
-  }
-  return (await response.json()) as { audio_url: string; expires_at: string };
-}
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
 
-export async function analyzeVideo(
-  blob: Blob,
-  filename: string,
-  accessToken?: string,
-  retainEvidence = false,
-): Promise<AnalysisResponse> {
-  const formData = new FormData();
-  formData.append("file", blob, filename);
-  formData.append("retain_evidence", retainEvidence ? "true" : "false");
-
-  const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}/analyze`, {
-    method: "POST",
-    body: formData,
+export async function analyzeVideo(file: Blob, filename: string, accessToken?: string): Promise<AnalysisResponse> {
+  const payload = new FormData();
+  payload.append('file', file, filename);
+  const response = await fetch(`${API_BASE_URL}/analyze`, {
+    method: 'POST',
+    body: payload,
     headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
   });
-
+  const body = await response.json().catch(() => null) as AnalysisResponse | { detail?: { detail?: string; error_code?: string } } | null;
   if (!response.ok) {
-    let message = "Analysis failed. Check the camera view and try again.";
-    try {
-      const payload = await response.json();
-      message = payload?.detail?.detail ?? payload?.detail ?? message;
-    } catch {
-      // Keep the friendly fallback.
-    }
-    throw new Error(String(message));
+    const detail = body && 'detail' in body && typeof body.detail === 'object' ? body.detail : undefined;
+    throw new ApiError(detail?.detail || 'Analysis could not be completed.', detail?.error_code);
   }
-
-  return (await response.json()) as AnalysisResponse;
-}
-
-export async function submitAnalysisFeedback(
-  payload: FeedbackPayload,
-  accessToken?: string,
-): Promise<FeedbackResponse> {
-  const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}/feedback`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-    headers: {
-      "content-type": "application/json",
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-    },
-  });
-
-  if (!response.ok) {
-    let message = "Feedback could not be submitted.";
-    try {
-      const body = await response.json();
-      message = body?.detail?.detail ?? body?.detail ?? message;
-    } catch {
-      // Keep the friendly fallback.
-    }
-    throw new Error(String(message));
-  }
-
-  return (await response.json()) as FeedbackResponse;
+  return body as AnalysisResponse;
 }
