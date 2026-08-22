@@ -10,6 +10,16 @@ export type AnalysisResponse = {
   segmentation: { start_frame?: number | null; end_frame?: number | null };
   voice_output?: { status?: string; url?: string | null; mime_type?: string | null };
   api_metadata?: { analysis_session_id?: string; analysis_persistence?: { stored?: boolean } };
+  landmarks?: { x: number; y: number; visibility: number }[];
+};
+
+export type AnalysisJob = {
+  job_id: string;
+  status: 'queued' | 'processing' | 'completed' | 'failed';
+  progress: number;
+  result: AnalysisResponse | null;
+  error_code: string | null;
+  detail: string | null;
 };
 
 export class ApiError extends Error {
@@ -34,4 +44,30 @@ export async function analyzeVideo(file: Blob, filename: string, accessToken?: s
     throw new ApiError(detail?.detail || 'Analysis could not be completed.', detail?.error_code);
   }
   return body as AnalysisResponse;
+}
+
+async function apiJson<T>(path: string, options: RequestInit, accessToken?: string): Promise<T> {
+  const headers = new Headers(options.headers);
+  if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
+  const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+  const body = await response.json().catch(() => null) as T | { detail?: { detail?: string; error_code?: string } } | null;
+  if (!response.ok) {
+    const detail = body && typeof body === 'object' && 'detail' in body && typeof body.detail === 'object' ? body.detail : undefined;
+    throw new ApiError(detail?.detail || 'Analysis could not be completed.', detail?.error_code);
+  }
+  return body as T;
+}
+
+export async function createAnalysisJob(file: Blob, filename: string, accessToken?: string): Promise<Pick<AnalysisJob, 'job_id' | 'status'>> {
+  const payload = new FormData();
+  payload.append('file', file, filename);
+  return apiJson('/analysis/jobs', { method: 'POST', body: payload }, accessToken);
+}
+
+export function getAnalysisJob(jobId: string, accessToken?: string): Promise<AnalysisJob> {
+  return apiJson(`/analysis/jobs/${encodeURIComponent(jobId)}`, { method: 'GET' }, accessToken);
+}
+
+export function getAnalytics<T>(path: string, accessToken?: string): Promise<T> {
+  return apiJson<T>(`/analytics/${path.replace(/^\//, '')}`, { method: 'GET' }, accessToken);
 }

@@ -52,6 +52,10 @@ class APISettings:
             "http://localhost:5174",
             "http://127.0.0.1:5173",
             "http://127.0.0.1:5174",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:4028",
+            "http://127.0.0.1:4028",
         ),
     )
     dev_dataset_endpoints: bool = _bool_env("SMART_CRICKET_ENABLE_DEV_DATASET_ENDPOINTS", False)
@@ -70,6 +74,9 @@ class APISettings:
     max_concurrent_analyses: int = _int_env("SMART_CRICKET_MAX_CONCURRENT_ANALYSES", 1)
     analysis_queue_timeout_seconds: int = _int_env("SMART_CRICKET_ANALYSIS_QUEUE_TIMEOUT_SECONDS", 3)
     analysis_execution_timeout_seconds: int = _int_env("SMART_CRICKET_ANALYSIS_EXECUTION_TIMEOUT_SECONDS", 45)
+    analysis_job_wait_timeout_seconds: int = _int_env("SMART_CRICKET_ANALYSIS_JOB_WAIT_TIMEOUT_SECONDS", 180)
+    max_pending_analysis_jobs: int = _int_env("SMART_CRICKET_MAX_PENDING_ANALYSIS_JOBS", 8)
+    enable_pose_output: bool = _bool_env("SMART_CRICKET_ENABLE_POSE_OUTPUT", False)
     mediapipe_delegate: str = _str_env("SMART_CRICKET_MEDIAPIPE_DELEGATE", "auto")
     max_upload_bytes: int = _int_env("SMART_CRICKET_MAX_UPLOAD_BYTES", 250 * 1024 * 1024)
     max_video_duration_seconds: int = _int_env("SMART_CRICKET_MAX_VIDEO_DURATION_SECONDS", 20)

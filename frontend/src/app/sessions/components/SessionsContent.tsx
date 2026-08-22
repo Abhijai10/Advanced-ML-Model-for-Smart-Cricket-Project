@@ -184,9 +184,9 @@ function SessionRow({
             <div className="h-2 bg-muted rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full accuracy-bar ${
-                  session.accuracy >= 75
+                  session.accuracy !== null && session.accuracy >= 75
                     ? 'bg-emerald-500'
-                    : session.accuracy >= 60
+                    : session.accuracy !== null && session.accuracy >= 60
                     ? 'bg-yellow-500' :'bg-red-500'
                 }`}
                 style={{ width: `${session.accuracy || 0}%` }}

@@ -17,78 +17,10 @@ interface Session {
   trendValue: string;
 }
 
-// BACKEND INTEGRATION POINT: Replace with Supabase query: sessions.select('*').eq('player_id', user.id).order('created_at', { ascending: false }).limit(4)
-const RECENT_SESSIONS: Session[] = [
-  {
-    id: 'session-034',
-    date: 'Today · 07:42',
-    duration: '38 min',
-    totalShots: 112,
-    accuracy: 81.3,
-    dominantShot: 'cover_drive',
-    shotBreakdown: [
-      { shot: 'cover_drive', count: 42 },
-      { shot: 'defensive', count: 31 },
-      { shot: 'pull', count: 24 },
-      { shot: 'sweep', count: 15 },
-    ],
-    trend: 'up',
-    trendValue: '+3.1%',
-  },
-  {
-    id: 'session-033',
-    date: 'Yesterday · 18:15',
-    duration: '45 min',
-    totalShots: 138,
-    accuracy: 78.2,
-    dominantShot: 'pull',
-    shotBreakdown: [
-      { shot: 'cover_drive', count: 38 },
-      { shot: 'defensive', count: 29 },
-      { shot: 'pull', count: 47 },
-      { shot: 'sweep', count: 24 },
-    ],
-    trend: 'neutral',
-    trendValue: '−0.4%',
-  },
-  {
-    id: 'session-032',
-    date: '20 Aug · 08:00',
-    duration: '52 min',
-    totalShots: 157,
-    accuracy: 78.6,
-    dominantShot: 'defensive',
-    shotBreakdown: [
-      { shot: 'cover_drive', count: 44 },
-      { shot: 'defensive', count: 55 },
-      { shot: 'pull', count: 33 },
-      { shot: 'sweep', count: 25 },
-    ],
-    trend: 'up',
-    trendValue: '+1.8%',
-  },
-  {
-    id: 'session-031',
-    date: '19 Aug · 17:30',
-    duration: '29 min',
-    totalShots: 84,
-    accuracy: 64.7,
-    dominantShot: 'sweep',
-    shotBreakdown: [
-      { shot: 'cover_drive', count: 22 },
-      { shot: 'defensive', count: 19 },
-      { shot: 'pull', count: 18 },
-      { shot: 'sweep', count: 25 },
-    ],
-    trend: 'down',
-    trendValue: '−6.2%',
-  },
-];
-
-export default function RecentSessionsGrid() {
+export default function RecentSessionsGrid({ sessions = [] }: { sessions?: Session[] }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {RECENT_SESSIONS.map((session) => (
+      {sessions.map((session) => (
         <SessionCard key={session.id} session={session} />
       ))}
     </div>

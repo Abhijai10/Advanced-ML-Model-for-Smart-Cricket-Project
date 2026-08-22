@@ -248,6 +248,13 @@ def _attach_voice_and_metadata(
     analysis_session_id: str | None = None,
 ) -> dict[str, Any]:
     result["analysis_quality"] = _analysis_quality(result)
+    # Pose coordinates are optional UI data. Keep the established API payload
+    # unchanged unless the deployment explicitly enables this exposure.
+    if SETTINGS.enable_pose_output:
+        if "landmarks" not in result or not isinstance(result.get("landmarks"), list):
+            result["landmarks"] = []
+    else:
+        result.pop("landmarks", None)
     provenance = build_provenance()
     result.setdefault("debug_metadata", {})["model_version"] = provenance["model_version"]
     result.setdefault("debug_metadata", {})["feature_contract_version"] = provenance["feature_contract_version"]
@@ -432,80 +439,147 @@ def analyze_uploaded_video_with_retention(
     try:
         filename = _validate_video_upload(file)
         temp_path, upload_bytes, clip_hash, video_probe = _save_upload_to_temp(file, filename)
-        evidence_outcome: EvidenceOutcome | None = None
-        analysis_session_id = str(uuid4())
         try:
-            try:
-                raw_result = _run_raw_video_with_timeout(temp_path)
-                raw_result.setdefault("debug_metadata", {})["upload_video_probe"] = video_probe
-            except Exception as exc:
-                if isinstance(exc, (AnalysisTimeoutError, AnalysisWorkerError)):
-                    raise
-                raise APIValidationError(
-                    (
-                        "The uploaded video could not be converted into a valid Smart Cricket "
-                        "temporal sequence. Record a clear batting motion with the full body visible."
-                    ),
-                    "raw_video_analysis_failed",
-                ) from exc
-            if retain_evidence:
-                if not SETTINGS.allow_model_improvement_participation:
-                    evidence_outcome = EvidenceOutcome(
-                        retained=False,
-                        status="disabled",
-                        provider=SETTINGS.evidence_storage_backend,
-                        error_code="model_improvement_disabled",
-                        metadata={
-                            "storage_provider": SETTINGS.evidence_storage_backend,
-                            "raw_clip_retained": False,
-                            "processed_evidence_retained": False,
-                            "reason": "model_improvement_disabled",
-                        },
-                    )
-                elif not auth.user_id:
-                    evidence_outcome = EvidenceOutcome(
-                        retained=False,
-                        status="failed",
-                        provider=SETTINGS.evidence_storage_backend,
-                        error_code="auth_required_for_evidence_retention",
-                    )
-                else:
-                    media_type = getattr(file, "content_type", None) or "application/octet-stream"
-                    evidence_outcome = get_evidence_provider().retain_raw_clip(
-                        source_path=temp_path,
-                        user_id=auth.user_id,
-                        analysis_session_id=analysis_session_id,
-                        consent_version=SETTINGS.consent_version,
-                        media_type=media_type,
-                        retention_days=SETTINGS.evidence_retention_days,
-                    )
-            if evidence_outcome and not evidence_outcome.retained and evidence_outcome.status not in {"disabled", "not_requested"}:
-                METRICS.increment("smart_cricket_evidence_retention_failure", status=evidence_outcome.status)
-            result = _attach_voice_and_metadata(
-                raw_result,
+            return _analyze_temp_video_with_retention(
+                temp_path=temp_path,
                 filename=filename,
                 upload_bytes=upload_bytes,
-                analysis_mode="raw_video_upload",
-                request_id=request_id,
                 clip_hash=clip_hash,
-                user_id=auth.user_id,
-                analysis_session_id=analysis_session_id,
+                video_probe=video_probe,
+                request_id=request_id,
+                auth=auth,
+                retain_evidence=retain_evidence,
+                content_type=getattr(file, "content_type", None),
             )
-            result["api_metadata"]["evidence_retention"] = {
-                "requested": retain_evidence,
-                "status": evidence_outcome.status if evidence_outcome else "not_requested",
-                "retained": bool(evidence_outcome and evidence_outcome.retained),
-                "provider": evidence_outcome.provider if evidence_outcome else SETTINGS.evidence_storage_backend,
-                "error_code": evidence_outcome.error_code if evidence_outcome else None,
-                "retention_expires_at": (evidence_outcome.metadata or {}).get("retention_expires_at") if evidence_outcome else None,
-            }
-            result["api_metadata"]["planned_analysis_session_id"] = analysis_session_id
-            return result, evidence_outcome
         finally:
             _cleanup_temp_path(temp_path)
     finally:
         METRICS.observe("smart_cricket_analysis_latency", time.perf_counter() - analysis_started)
         _ANALYSIS_SEMAPHORE.release()
+
+
+def analyze_saved_video_with_retention(
+    *,
+    temp_path: Path,
+    filename: str,
+    upload_bytes: int,
+    clip_hash: str,
+    video_probe: dict[str, Any],
+    request_id: str,
+    auth: AuthContext,
+    retain_evidence: bool = False,
+    content_type: str | None = None,
+    wait_for_capacity: bool = False,
+) -> tuple[dict[str, Any], EvidenceOutcome | None]:
+    """Analyze a previously saved temp video (used by async analysis jobs)."""
+    queue_started = time.perf_counter()
+    timeout = None if wait_for_capacity else SETTINGS.analysis_queue_timeout_seconds
+    if wait_for_capacity:
+        acquired = _ANALYSIS_SEMAPHORE.acquire(timeout=SETTINGS.analysis_job_wait_timeout_seconds)
+    else:
+        acquired = _ANALYSIS_SEMAPHORE.acquire(timeout=timeout)
+    if not acquired:
+        METRICS.increment("smart_cricket_analysis_overload")
+        raise AnalysisOverloadError("The analysis queue is busy. Wait a moment and try again.")
+    METRICS.observe("smart_cricket_analysis_queue_wait", time.perf_counter() - queue_started)
+    analysis_started = time.perf_counter()
+    try:
+        return _analyze_temp_video_with_retention(
+            temp_path=temp_path,
+            filename=filename,
+            upload_bytes=upload_bytes,
+            clip_hash=clip_hash,
+            video_probe=video_probe,
+            request_id=request_id,
+            auth=auth,
+            retain_evidence=retain_evidence,
+            content_type=content_type,
+        )
+    finally:
+        METRICS.observe("smart_cricket_analysis_latency", time.perf_counter() - analysis_started)
+        _ANALYSIS_SEMAPHORE.release()
+
+
+def _analyze_temp_video_with_retention(
+    *,
+    temp_path: Path,
+    filename: str,
+    upload_bytes: int,
+    clip_hash: str,
+    video_probe: dict[str, Any],
+    request_id: str,
+    auth: AuthContext,
+    retain_evidence: bool = False,
+    content_type: str | None = None,
+) -> tuple[dict[str, Any], EvidenceOutcome | None]:
+    evidence_outcome: EvidenceOutcome | None = None
+    analysis_session_id = str(uuid4())
+    try:
+        raw_result = _run_raw_video_with_timeout(temp_path)
+        raw_result.setdefault("debug_metadata", {})["upload_video_probe"] = video_probe
+    except Exception as exc:
+        if isinstance(exc, (AnalysisTimeoutError, AnalysisWorkerError)):
+            raise
+        raise APIValidationError(
+            (
+                "The uploaded video could not be converted into a valid Smart Cricket "
+                "temporal sequence. Record a clear batting motion with the full body visible."
+            ),
+            "raw_video_analysis_failed",
+        ) from exc
+    if retain_evidence:
+        if not SETTINGS.allow_model_improvement_participation:
+            evidence_outcome = EvidenceOutcome(
+                retained=False,
+                status="disabled",
+                provider=SETTINGS.evidence_storage_backend,
+                error_code="model_improvement_disabled",
+                metadata={
+                    "storage_provider": SETTINGS.evidence_storage_backend,
+                    "raw_clip_retained": False,
+                    "processed_evidence_retained": False,
+                    "reason": "model_improvement_disabled",
+                },
+            )
+        elif not auth.user_id:
+            evidence_outcome = EvidenceOutcome(
+                retained=False,
+                status="failed",
+                provider=SETTINGS.evidence_storage_backend,
+                error_code="auth_required_for_evidence_retention",
+            )
+        else:
+            media_type = content_type or "application/octet-stream"
+            evidence_outcome = get_evidence_provider().retain_raw_clip(
+                source_path=temp_path,
+                user_id=auth.user_id,
+                analysis_session_id=analysis_session_id,
+                consent_version=SETTINGS.consent_version,
+                media_type=media_type,
+                retention_days=SETTINGS.evidence_retention_days,
+            )
+    if evidence_outcome and not evidence_outcome.retained and evidence_outcome.status not in {"disabled", "not_requested"}:
+        METRICS.increment("smart_cricket_evidence_retention_failure", status=evidence_outcome.status)
+    result = _attach_voice_and_metadata(
+        raw_result,
+        filename=filename,
+        upload_bytes=upload_bytes,
+        analysis_mode="raw_video_upload",
+        request_id=request_id,
+        clip_hash=clip_hash,
+        user_id=auth.user_id,
+        analysis_session_id=analysis_session_id,
+    )
+    result["api_metadata"]["evidence_retention"] = {
+        "requested": retain_evidence,
+        "status": evidence_outcome.status if evidence_outcome else "not_requested",
+        "retained": bool(evidence_outcome and evidence_outcome.retained),
+        "provider": evidence_outcome.provider if evidence_outcome else SETTINGS.evidence_storage_backend,
+        "error_code": evidence_outcome.error_code if evidence_outcome else None,
+        "retention_expires_at": (evidence_outcome.metadata or {}).get("retention_expires_at") if evidence_outcome else None,
+    }
+    result["api_metadata"]["planned_analysis_session_id"] = analysis_session_id
+    return result, evidence_outcome
 
 
 def analyze_dataset_sample(

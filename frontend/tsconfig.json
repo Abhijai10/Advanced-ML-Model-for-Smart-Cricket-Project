@@ -37,6 +37,9 @@
     ".next/next-build/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "legacy-vite",
+    "e2e",
+    "playwright.config.ts"
   ]
 }

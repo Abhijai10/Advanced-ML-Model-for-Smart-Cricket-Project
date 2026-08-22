@@ -7,6 +7,9 @@ import type { DetectedShot } from './LiveAnalysisContent';
 interface CameraFeedProps {
   isRecording: boolean;
   currentShot: DetectedShot | null;
+  landmarks?: { x: number; y: number; visibility: number }[];
+  onRecordingComplete: (clip: Blob, filename: string) => void;
+  onRecordingError: (message: string) => void;
 }
 
 const SHOT_LABEL_MAP: Record<string, string> = {
@@ -23,8 +26,11 @@ const SHOT_COLOR_MAP: Record<string, string> = {
   sweep: 'border-red-400 text-red-300 bg-red-400/10',
 };
 
-export default function CameraFeed({ isRecording, currentShot }: CameraFeedProps) {
+export default function CameraFeed({ isRecording, currentShot, landmarks = [], onRecordingComplete, onRecordingError }: CameraFeedProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [shotFlash, setShotFlash] = useState(false);
@@ -37,7 +43,7 @@ export default function CameraFeed({ isRecording, currentShot }: CameraFeedProps
     }
   }, [currentShot?.id]);
 
-  const startCamera = async () => {
+  const startCamera = async (): Promise<MediaStream | null> => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       if (videoRef.current) {
@@ -45,8 +51,10 @@ export default function CameraFeed({ isRecording, currentShot }: CameraFeedProps
         setCameraActive(true);
         setCameraError(null);
       }
+      return stream;
     } catch {
       setCameraError('Camera access denied. Grant permission to enable live feed.');
+      return null;
     }
   };
 
@@ -60,10 +68,62 @@ export default function CameraFeed({ isRecording, currentShot }: CameraFeedProps
   };
 
   useEffect(() => {
-    if (!isRecording && cameraActive) {
-      // Keep camera on even when not recording — user controls separately
+    const video = videoRef.current;
+    if (!video) return;
+    const stream = video.srcObject as MediaStream | null;
+    if (isRecording && !stream) {
+      void startCamera().then((started) => {
+        if (!started) onRecordingError('Enable the camera before starting a session.');
+      });
+      return;
     }
-  }, [isRecording, cameraActive]);
+    if (isRecording && stream && !recorderRef.current) {
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
+        ? 'video/webm;codecs=vp8,opus'
+        : 'video/webm';
+      const recorder = new MediaRecorder(stream, { mimeType });
+      chunksRef.current = [];
+      recorder.ondataavailable = (event) => { if (event.data.size) chunksRef.current.push(event.data); };
+      recorder.onstop = () => {
+        const clip = new Blob(chunksRef.current, { type: recorder.mimeType || 'video/webm' });
+        recorderRef.current = null;
+        if (clip.size) onRecordingComplete(clip, `smart-cricket-${Date.now()}.webm`);
+      };
+      recorder.onerror = () => onRecordingError('Camera recording could not be started.');
+      recorderRef.current = recorder;
+      recorder.start();
+    } else if (!isRecording) {
+      const recorder = recorderRef.current;
+      if (recorder?.state !== 'inactive') recorder?.stop();
+    }
+  }, [isRecording, cameraActive, onRecordingComplete, onRecordingError]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    if (!canvas || !video || !landmarks.length) return;
+    const width = video.clientWidth;
+    const height = video.clientHeight;
+    if (!width || !height) return;
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    const links = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28]];
+    context.clearRect(0, 0, width, height);
+    context.strokeStyle = 'rgba(147, 197, 253, 0.9)';
+    context.lineWidth = 2;
+    links.forEach(([from, to]) => {
+      const a = landmarks[from]; const b = landmarks[to];
+      if (!a || !b || a.visibility < 0.3 || b.visibility < 0.3) return;
+      context.beginPath(); context.moveTo(a.x * width, a.y * height); context.lineTo(b.x * width, b.y * height); context.stroke();
+    });
+    context.fillStyle = 'rgba(167, 139, 250, 0.95)';
+    landmarks.forEach((point) => {
+      if (point.visibility < 0.3) return;
+      context.beginPath(); context.arc(point.x * width, point.y * height, 3, 0, Math.PI * 2); context.fill();
+    });
+  }, [landmarks, cameraActive]);
 
   return (
     <div className="relative glass-card-solid rounded-2xl overflow-hidden" style={{ minHeight: '420px' }}>
@@ -84,6 +144,7 @@ export default function CameraFeed({ isRecording, currentShot }: CameraFeedProps
         className="w-full h-full object-cover"
         style={{ minHeight: '420px', display: cameraActive ? 'block' : 'none' }}
       />
+      {cameraActive && <canvas ref={canvasRef} className="absolute inset-0 z-20 pointer-events-none w-full h-full" aria-hidden="true" />}
 
       {/* Placeholder when camera off */}
       {!cameraActive && (
@@ -145,7 +206,7 @@ export default function CameraFeed({ isRecording, currentShot }: CameraFeedProps
       )}
 
       {/* Current shot overlay — bottom of feed */}
-      {currentShot && isRecording && (
+      {currentShot && (
         <div className="absolute bottom-4 left-4 right-4 z-30">
           <div
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border backdrop-blur-sm text-sm font-semibold fade-in-up ${

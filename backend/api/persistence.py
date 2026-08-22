@@ -228,6 +228,32 @@ def load_analysis_session(*, analysis_session_id: str, user_id: str) -> Persiste
     return _postgrest_select_one("analysis_sessions", {"id": analysis_session_id, "user_id": user_id})
 
 
+def list_analysis_sessions_for_user(*, user_id: str, limit: int = 200) -> PersistenceResult:
+    """List recent trusted analysis sessions for one authenticated user."""
+    safe_limit = max(1, min(int(limit), 500))
+    return _postgrest_select_many(
+        "analysis_sessions",
+        {
+            "user_id": f"eq.{user_id}",
+            "order": "created_at.desc",
+            "limit": str(safe_limit),
+        },
+    )
+
+
+def list_analysis_feedback_for_user(*, user_id: str, limit: int = 500) -> PersistenceResult:
+    """List explicit user feedback for truthful accuracy aggregates only."""
+    safe_limit = max(1, min(int(limit), 1000))
+    return _postgrest_select_many(
+        "analysis_feedback",
+        {
+            "user_id": f"eq.{user_id}",
+            "order": "created_at.desc",
+            "limit": str(safe_limit),
+        },
+    )
+
+
 def list_evidence_cleanup_candidates(*, now_iso: str, limit: int = 100) -> PersistenceResult:
     """List retained analyses whose evidence should no longer be accessible."""
     return _postgrest_select_many(

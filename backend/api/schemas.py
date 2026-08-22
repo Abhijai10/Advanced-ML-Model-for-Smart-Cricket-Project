@@ -41,6 +41,14 @@ class CapabilitiesResponse(BaseModel):
     api_version: str
 
 
+class PoseLandmark(BaseModel):
+    """Normalized image-space pose landmark for frontend skeleton overlay."""
+
+    x: float
+    y: float
+    visibility: float = 0.0
+
+
 class AnalyzeResponse(BaseModel):
     """Frontend-consumable analysis response."""
 
@@ -59,6 +67,58 @@ class AnalyzeResponse(BaseModel):
     timing: dict[str, Any] = Field(default_factory=dict)
     voice_output: dict[str, Any]
     api_metadata: dict[str, Any]
+    landmarks: list[PoseLandmark] | None = None
+
+
+class AnalysisJobCreateResponse(BaseModel):
+    """Immediate acknowledgement for a queued analysis job."""
+
+    job_id: str
+    status: str = "queued"
+
+
+class AnalysisJobStatusResponse(BaseModel):
+    """Polling response for a queued analysis job."""
+
+    job_id: str
+    status: str
+    created_at: str
+    updated_at: str
+    progress: int = Field(ge=0, le=100)
+    error_code: str | None = None
+    detail: str | None = None
+    result: AnalyzeResponse | None = None
+
+
+class AnalyticsShotFrequency(BaseModel):
+    """Shot frequency aggregates derived from stored predictions."""
+
+    total_shots: int
+    shots_per_session: float | None = None
+    session_count: int
+    shots_over_time: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class CurrentModelOutput(BaseModel):
+    """Latest completed analysis shaped for live/model-output UI cards."""
+
+    predicted_shot: str | None = None
+    confidence: float | None = None
+    technique_match_score: float | None = None
+    timestamp: str | None = None
+    feedback: str | None = None
+    audio: dict[str, Any] | None = None
+    landmarks: list[PoseLandmark] = Field(default_factory=list)
+    analysis_session_id: str | None = None
+
+
+class AnalyticsResponse(BaseModel):
+    """Frontend-compatible analytics aggregates from trusted analysis history."""
+
+    shot_distribution: dict[str, int]
+    shot_frequency: AnalyticsShotFrequency
+    technique_quality: dict[str, float]
+    current_model_output: CurrentModelOutput | None = None
 
 
 class EvidenceDeletionResponse(BaseModel):

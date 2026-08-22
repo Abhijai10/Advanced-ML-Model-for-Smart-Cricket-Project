@@ -20,7 +20,19 @@ from .persistence import (
     persist_feedback_record,
     persist_product_feedback_record,
 )
-from .schemas import AnalyzeResponse, CapabilitiesResponse, EvidenceDeletionResponse, FeedbackRequest, FeedbackResponse, HealthResponse, ProductFeedbackRequest, ReadyResponse
+from .schemas import (
+    AnalysisJobCreateResponse,
+    AnalysisJobStatusResponse,
+    AnalyticsResponse,
+    AnalyzeResponse,
+    CapabilitiesResponse,
+    EvidenceDeletionResponse,
+    FeedbackRequest,
+    FeedbackResponse,
+    HealthResponse,
+    ProductFeedbackRequest,
+    ReadyResponse,
+)
 from .services import (
     AnalysisOverloadError,
     AnalysisTimeoutError,
@@ -37,6 +49,8 @@ from .services import (
     PHASE13_VERSION,
     persist_verified_analysis_for_auth_user,
 )
+from .analytics import build_user_analytics
+from .jobs import enqueue_analysis_job, get_analysis_job
 
 
 router = APIRouter()
@@ -161,6 +175,180 @@ def analyze(
                 "debug_metadata": {"error_type": type(exc).__name__},
             },
         ) from exc
+
+
+@router.post("/analysis/jobs", response_model=AnalysisJobCreateResponse)
+@router.post("/analysis-job", response_model=AnalysisJobCreateResponse, include_in_schema=False)
+def create_analysis_job(
+    request: Request,
+    file: UploadFile = File(...),
+    retain_evidence: bool = Form(default=False),
+    auth: AuthContext = Depends(enforce_auth),
+    _rate_limit: None = Depends(enforce_rate_limit),
+) -> dict:
+    """Queue a clip for analysis and return a pollable job id (HTTP, no WebSockets)."""
+    try:
+        return enqueue_analysis_job(
+            file,
+            request_id=request.state.request_id,
+            auth=auth,
+            retain_evidence=retain_evidence,
+        )
+    except AnalysisOverloadError as exc:
+        raise HTTPException(
+            status_code=429,
+            headers={"Retry-After": str(max(1, SETTINGS.analysis_queue_timeout_seconds))},
+            detail={
+                "detail": str(exc),
+                "error_code": exc.error_code,
+                "request_id": request.state.request_id,
+            },
+        ) from exc
+    except APIValidationError as exc:
+        METRICS.increment("smart_cricket_upload_rejection", error_code=exc.error_code)
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "detail": str(exc),
+                "error_code": exc.error_code,
+                "request_id": request.state.request_id,
+                "debug_metadata": {"filename": file.filename},
+            },
+        ) from exc
+    except Exception as exc:
+        LOGGER.exception("Unexpected analysis-job enqueue failure (request_id=%s).", request.state.request_id)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "detail": "Smart Cricket analysis job could not be queued.",
+                "error_code": "analysis_job_enqueue_failed",
+                "request_id": request.state.request_id,
+                "debug_metadata": {"error_type": type(exc).__name__},
+            },
+        ) from exc
+
+
+@router.get("/analysis/jobs/{job_id}", response_model=AnalysisJobStatusResponse)
+@router.get("/analysis-job/{job_id}", response_model=AnalysisJobStatusResponse, include_in_schema=False)
+def read_analysis_job(
+    job_id: str,
+    request: Request,
+    auth: AuthContext = Depends(enforce_auth),
+) -> dict:
+    """Poll one queued analysis job until it is completed or failed."""
+    payload = get_analysis_job(job_id, auth=auth)
+    if payload is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "detail": "Analysis job was not found.",
+                "error_code": "analysis_job_not_found",
+                "request_id": request.state.request_id,
+            },
+        )
+    return payload
+
+
+@router.get("/analytics", response_model=AnalyticsResponse)
+def analytics(
+    request: Request,
+    auth: AuthContext = Depends(enforce_auth),
+) -> dict:
+    """Return shot distribution, frequency, and technique-quality aggregates for the signed-in user."""
+    if not auth.user_id:
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "detail": "Sign in to load analytics.",
+                "error_code": "missing_auth",
+                "request_id": request.state.request_id,
+            },
+        )
+    lookup, payload = build_user_analytics(user_id=auth.user_id)
+    if lookup.status == "persistence_not_configured":
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "detail": "Analytics storage is not configured.",
+                "error_code": "persistence_not_configured",
+                "request_id": request.state.request_id,
+            },
+        )
+    if not lookup.stored or payload is None:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "detail": "Analytics could not be loaded right now.",
+                "error_code": lookup.error_code or lookup.status,
+                "request_id": request.state.request_id,
+            },
+        )
+    return payload
+
+
+def _analytics_payload(request: Request, auth: AuthContext) -> dict:
+    if not auth.user_id:
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "detail": "Sign in to load analytics.",
+                "error_code": "missing_auth",
+                "request_id": request.state.request_id,
+            },
+        )
+    lookup, payload = build_user_analytics(user_id=auth.user_id)
+    if lookup.status == "persistence_not_configured":
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "detail": "Analytics storage is not configured.",
+                "error_code": "persistence_not_configured",
+                "request_id": request.state.request_id,
+            },
+        )
+    if not lookup.stored or payload is None:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "detail": "Analytics could not be loaded right now.",
+                "error_code": lookup.error_code or lookup.status,
+                "request_id": request.state.request_id,
+            },
+        )
+    return payload
+
+
+@router.get("/analytics/summary")
+def analytics_summary(request: Request, auth: AuthContext = Depends(enforce_auth)) -> dict:
+    """Totals and explicit-feedback accuracy for the signed-in player."""
+    return _analytics_payload(request, auth)["summary"]
+
+
+@router.get("/analytics/shot-distribution")
+def analytics_shot_distribution(request: Request, auth: AuthContext = Depends(enforce_auth)) -> dict:
+    """Stored prediction counts, percentages, and technique quality by shot."""
+    payload = _analytics_payload(request, auth)
+    return {
+        "counts": payload["shot_distribution"],
+        "percentages": {
+            shot: round(100 * count / payload["shot_frequency"]["total_shots"], 1)
+            if payload["shot_frequency"]["total_shots"] else 0.0
+            for shot, count in payload["shot_distribution"].items()
+        },
+        "technique_quality": payload["technique_quality"],
+    }
+
+
+@router.get("/analytics/class-accuracy")
+def analytics_class_accuracy(request: Request, auth: AuthContext = Depends(enforce_auth)) -> dict:
+    """Per-class accuracy derived exclusively from user correctness feedback."""
+    return _analytics_payload(request, auth)["class_accuracy"]
+
+
+@router.get("/analytics/session-history")
+def analytics_session_history(request: Request, auth: AuthContext = Depends(enforce_auth)) -> dict:
+    """Recent trusted analyses shaped for history and trend views."""
+    return _analytics_payload(request, auth)["session_history"]
 
 
 @router.post("/feedback", response_model=FeedbackResponse)

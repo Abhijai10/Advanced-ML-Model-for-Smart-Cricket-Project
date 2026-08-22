@@ -44,7 +44,7 @@ export default function ShotDetectionPanel({
           </span>
         </div>
 
-        {currentShot && isRecording ? (
+        {currentShot ? (
           <div className="fade-in-up">
             <div
               className={`flex items-center gap-3 rounded-xl px-4 py-3 border mb-3 ${
@@ -76,12 +76,17 @@ export default function ShotDetectionPanel({
             </div>
 
             {/* Accuracy badge */}
-            <div className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
-              currentShot.accurate
-                ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' :'bg-red-500/15 text-red-400 border border-red-500/25'
-            }`}>
-              {currentShot.accurate ? '✓ Accurate' : '✗ Needs work'}
-            </div>
+            {currentShot.accurate === null ? (
+              <div className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-muted/40 text-muted-foreground border border-border">
+                Not yet rated
+              </div>
+            ) : (
+              <div className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
+                currentShot.accurate ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' : 'bg-red-500/15 text-red-400 border border-red-500/25'
+              }`}>
+                {currentShot.accurate ? 'Accurate' : 'Needs work'}
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex flex-col items-center py-6 text-center">
@@ -100,7 +105,7 @@ export default function ShotDetectionPanel({
       </div>
 
       {/* Feedback */}
-      {currentShot && isRecording && (
+      {currentShot && (
         <div className="glass-card-solid rounded-xl p-4 fade-in-up">
           <div className="flex items-center gap-2 mb-2">
             <MessageSquare size={14} className="text-accent" />
@@ -151,12 +156,8 @@ export default function ShotDetectionPanel({
                 <span className="font-mono-data text-xs text-muted-foreground">
                   {Math.round(shot.confidence * 100)}%
                 </span>
-                <span
-                  className={`text-xs font-semibold ${
-                    shot.accurate ? 'text-emerald-400' : 'text-red-400'
-                  }`}
-                >
-                  {shot.accurate ? '✓' : '✗'}
+                <span className={`text-xs font-semibold ${shot.accurate === null ? 'text-muted-foreground' : shot.accurate ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {shot.accurate === null ? '—' : shot.accurate ? '✓' : '✗'}
                 </span>
               </div>
             ))}

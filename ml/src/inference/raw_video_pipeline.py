@@ -112,7 +112,43 @@ def _frames_to_feature_sequence(frames: list[dict[str, Any]]) -> np.ndarray:
     return sequence
 
 
-def build_sequence_from_raw_video(video_path: Path) -> tuple[np.ndarray, dict[str, Any]]:
+def _select_overlay_landmarks(frames: list[dict[str, Any]]) -> list[dict[str, float]]:
+    """Pick image-space landmarks for frontend skeleton overlay (pre-normalization)."""
+    if not frames:
+        return []
+    start = len(frames) // 3
+    end = max(start + 1, (2 * len(frames)) // 3)
+    candidates = frames[start:end] or frames
+    best: list[dict[str, Any]] | None = None
+    best_score = -1.0
+    for frame in candidates:
+        landmarks = frame.get("landmarks")
+        if not isinstance(landmarks, list) or not landmarks:
+            continue
+        score = sum(float(lm.get("visibility") or 0.0) for lm in landmarks if isinstance(lm, dict)) / len(landmarks)
+        if score > best_score:
+            best_score = score
+            best = landmarks
+    if not best:
+        return []
+    overlay: list[dict[str, float]] = []
+    for landmark in best:
+        if not isinstance(landmark, dict):
+            continue
+        try:
+            overlay.append(
+                {
+                    "x": float(landmark["x"]),
+                    "y": float(landmark["y"]),
+                    "visibility": float(landmark.get("visibility") or 0.0),
+                }
+            )
+        except (KeyError, TypeError, ValueError):
+            continue
+    return overlay
+
+
+def build_sequence_from_raw_video(video_path: Path) -> tuple[np.ndarray, dict[str, Any], list[dict[str, float]]]:
     """Extract a finalized 60x32 temporal feature sequence from one raw video."""
     try:
         pose_payload = extract_pose_from_video(video_path, frame_skip=1, visualize=False)
@@ -131,6 +167,7 @@ def build_sequence_from_raw_video(video_path: Path) -> tuple[np.ndarray, dict[st
     if not cleaned:
         raise FeatureExtractionError("No usable pose frames remained after cleaning.")
 
+    overlay_landmarks = _select_overlay_landmarks(cleaned)
     normalized, normalize_warnings = _normalize_frames(cleaned)
     aligned, align_warnings = _align_frames(normalized)
     prepared = resample_frames(aligned, SEQUENCE_LENGTH)
@@ -155,19 +192,21 @@ def build_sequence_from_raw_video(video_path: Path) -> tuple[np.ndarray, dict[st
         "resampled_timing": resampled_timing,
         "normalization_warnings": normalize_warnings,
         "alignment_warnings": align_warnings,
+        "overlay_landmark_count": len(overlay_landmarks),
     }
-    return sequence, source_metadata
+    return sequence, source_metadata, overlay_landmarks
 
 
 def analyze_raw_video(video_path: Path) -> dict[str, Any]:
     """Analyze one uploaded raw video and return the standard analysis payload."""
-    sequence, source_metadata = build_sequence_from_raw_video(video_path)
+    sequence, source_metadata, overlay_landmarks = build_sequence_from_raw_video(video_path)
     try:
         result = analyze_sequence(sequence, source_metadata).to_dict()
     except FileNotFoundError as exc:
         raise ModelLoadError("A required Smart Cricket model artifact is unavailable.") from exc
     except Exception as exc:
         raise InferenceExecutionError("Smart Cricket model inference could not complete.") from exc
+    result["landmarks"] = overlay_landmarks
     result["debug_metadata"]["pipeline_mode"] = "raw_video_upload"
     result["debug_metadata"]["pipeline_note"] = (
         "Raw video was converted through pose extraction, cleaning, normalization, "
