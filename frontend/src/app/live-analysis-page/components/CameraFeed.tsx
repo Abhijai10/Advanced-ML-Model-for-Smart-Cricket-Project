@@ -53,7 +53,7 @@ function drawPoseOverlay(
   });
 
   context.strokeStyle = 'rgba(147, 197, 253, 0.9)';
-  context.lineWidth = 2;
+  context.lineWidth = 4;
   POSE_CONNECTIONS.forEach(([from, to]) => {
     const a = landmarks[from];
     const b = landmarks[to];
@@ -71,7 +71,9 @@ function drawPoseOverlay(
     if (point.visibility < 0.3) return;
     const mapped = toCanvas(point);
     context.beginPath();
-    context.arc(mapped.x, mapped.y, 3, 0, Math.PI * 2);
+      point.x * width,
+  point.y * height,
+  5,context.arc(mapped.x, mapped.y, 3, 0, Math.PI * 2);
     context.fill();
   });
 }
