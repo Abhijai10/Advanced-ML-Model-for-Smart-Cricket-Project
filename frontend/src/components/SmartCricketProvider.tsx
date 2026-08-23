@@ -31,7 +31,9 @@ export function SmartCricketProvider({ children }: { children: React.ReactNode }
     }
     const { data, error } = await supabase
       .from('analysis_sessions')
-      .select('id,user_id,video_file_name,predicted_shot,shot_confidence,technique_match_score,shot_duration_seconds,coaching_tips,full_result,created_at')
+      .select(
+        'id,user_id,video_file_name,predicted_shot,shot_confidence,technique_match_score,shot_duration_seconds,coaching_tips,full_result,created_at'
+      )
       .order('created_at', { ascending: false })
       .limit(100);
     if (!error && data) setSessions(data as StoredAnalysisSession[]);
@@ -46,7 +48,9 @@ export function SmartCricketProvider({ children }: { children: React.ReactNode }
       setSession(data.session);
       setLoading(false);
     });
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => setSession(nextSession));
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) =>
+      setSession(nextSession)
+    );
     return () => data.subscription.unsubscribe();
   }, []);
 
@@ -54,16 +58,26 @@ export function SmartCricketProvider({ children }: { children: React.ReactNode }
     void refreshSessions();
   }, [refreshSessions]);
 
-  const value = useMemo<SmartCricketContextValue>(() => ({
-    session,
-    user: session?.user || null,
-    displayName: String(session?.user.user_metadata.full_name || session?.user.user_metadata.display_name || session?.user.email || 'Player'),
-    sessions,
-    loading,
-    configurationError,
-    refreshSessions,
-    signOut: async () => { if (supabase) await supabase.auth.signOut(); },
-  }), [configurationError, loading, refreshSessions, session, sessions]);
+  const value = useMemo<SmartCricketContextValue>(
+    () => ({
+      session,
+      user: session?.user || null,
+      displayName: String(
+        session?.user.user_metadata.full_name ||
+          session?.user.user_metadata.display_name ||
+          session?.user.email ||
+          'Player'
+      ),
+      sessions,
+      loading,
+      configurationError,
+      refreshSessions,
+      signOut: async () => {
+        if (supabase) await supabase.auth.signOut();
+      },
+    }),
+    [configurationError, loading, refreshSessions, session, sessions]
+  );
 
   return <SmartCricketContext.Provider value={value}>{children}</SmartCricketContext.Provider>;
 }

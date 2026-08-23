@@ -12,7 +12,13 @@ import {
 
 export type ShotPerformancePoint = { shot: string; accuracy: number };
 
-function CustomTooltip({ active, payload }: { active?: boolean; payload?: { payload: { shot: string; accuracy: number } }[] }) {
+function CustomTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: { payload: { shot: string; accuracy: number } }[];
+}) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
@@ -24,7 +30,12 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: { payl
 }
 
 export default function ShotPerformanceChart({ data = [] }: { data?: ShotPerformancePoint[] }) {
-  if (!data.length) return <div className="h-[200px] flex items-center justify-center text-xs text-muted-foreground">No rated shot data yet.</div>;
+  if (!data.length)
+    return (
+      <div className="h-[200px] flex items-center justify-center text-xs text-muted-foreground">
+        No rated shot data yet.
+      </div>
+    );
   return (
     <ResponsiveContainer width="100%" height={200}>
       <RadarChart data={data} outerRadius={72}>

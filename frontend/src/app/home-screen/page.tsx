@@ -10,13 +10,20 @@ import { getAnalytics } from '@/lib/api';
 export default function HomeScreenPage() {
   const { displayName, sessions } = useSmartCricket();
   const { session } = useSmartCricket();
-  const [summaryMetrics, setSummaryMetrics] = useState<{ overall_accuracy: number | null; technique_quality: Record<string, number> }>({ overall_accuracy: null, technique_quality: {} });
+  const [summaryMetrics, setSummaryMetrics] = useState<{
+    overall_accuracy: number | null;
+    technique_quality: Record<string, number>;
+  }>({ overall_accuracy: null, technique_quality: {} });
   useEffect(() => {
     if (!session?.access_token) return;
-    void getAnalytics<typeof summaryMetrics>('summary', session.access_token).then(setSummaryMetrics).catch(() => setSummaryMetrics({ overall_accuracy: null, technique_quality: {} }));
+    void getAnalytics<typeof summaryMetrics>('summary', session.access_token)
+      .then(setSummaryMetrics)
+      .catch(() => setSummaryMetrics({ overall_accuracy: null, technique_quality: {} }));
   }, [session?.access_token, sessions.length]);
   const summary = useMemo(() => {
-    const strongest = Object.entries(summaryMetrics.technique_quality).sort((a, b) => b[1] - a[1])[0];
+    const strongest = Object.entries(summaryMetrics.technique_quality).sort(
+      (a, b) => b[1] - a[1]
+    )[0];
     return {
       playerName: displayName,
       overallAccuracy: summaryMetrics.overall_accuracy,

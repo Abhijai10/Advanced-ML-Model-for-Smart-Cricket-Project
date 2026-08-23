@@ -22,8 +22,11 @@ export default function StatCard({
   className = '',
 }: StatCardProps) {
   const trendColor =
-    trend === 'up' ?'text-emerald-400'
-      : trend === 'down' ?'text-red-400' :'text-muted-foreground';
+    trend === 'up'
+      ? 'text-emerald-400'
+      : trend === 'down'
+        ? 'text-red-400'
+        : 'text-muted-foreground';
 
   return (
     <div
@@ -35,25 +38,17 @@ export default function StatCard({
         <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">
           {label}
         </span>
-        {icon && (
-          <span className={`${alert ? 'text-red-400' : 'text-accent'}`}>
-            {icon}
-          </span>
-        )}
+        {icon && <span className={`${alert ? 'text-red-400' : 'text-accent'}`}>{icon}</span>}
       </div>
       <div className="flex items-end gap-2">
-        <span className="font-mono-data text-3xl font-bold text-foreground">
-          {value}
-        </span>
+        <span className="font-mono-data text-3xl font-bold text-foreground">{value}</span>
         {trendValue && (
           <span className={`text-xs font-semibold mb-1 ${trendColor}`}>
             {trend === 'up' ? '↑' : trend === 'down' ? '↓' : ''} {trendValue}
           </span>
         )}
       </div>
-      {subtext && (
-        <p className="text-xs text-muted-foreground mt-1">{subtext}</p>
-      )}
+      {subtext && <p className="text-xs text-muted-foreground mt-1">{subtext}</p>}
     </div>
   );
 }

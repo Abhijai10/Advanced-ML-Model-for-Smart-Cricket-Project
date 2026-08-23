@@ -65,9 +65,7 @@ export default function SignupForm({ onSwitchMode }: SignupFormProps) {
 
       {/* Full Name */}
       <div className="mb-4">
-        <label className="block text-sm font-semibold text-foreground mb-1.5">
-          Full name
-        </label>
+        <label className="block text-sm font-semibold text-foreground mb-1.5">Full name</label>
         <input
           type="text"
           className="input-field"
@@ -85,9 +83,7 @@ export default function SignupForm({ onSwitchMode }: SignupFormProps) {
 
       {/* Email */}
       <div className="mb-4">
-        <label className="block text-sm font-semibold text-foreground mb-1.5">
-          Email address
-        </label>
+        <label className="block text-sm font-semibold text-foreground mb-1.5">Email address</label>
         <input
           type="email"
           className="input-field"
@@ -101,16 +97,12 @@ export default function SignupForm({ onSwitchMode }: SignupFormProps) {
             },
           })}
         />
-        {errors.email && (
-          <p className="text-xs text-red-400 mt-1.5">{errors.email.message}</p>
-        )}
+        {errors.email && <p className="text-xs text-red-400 mt-1.5">{errors.email.message}</p>}
       </div>
 
       {/* Password */}
       <div className="mb-4">
-        <label className="block text-sm font-semibold text-foreground mb-1.5">
-          Password
-        </label>
+        <label className="block text-sm font-semibold text-foreground mb-1.5">Password</label>
         <p className="text-xs text-muted-foreground mb-1.5">
           At least 8 characters with a number and a symbol
         </p>
@@ -156,8 +148,7 @@ export default function SignupForm({ onSwitchMode }: SignupFormProps) {
             autoComplete="new-password"
             {...register('confirmPassword', {
               required: 'Please confirm your password',
-              validate: (val) =>
-                val === passwordValue || 'Passwords do not match',
+              validate: (val) => val === passwordValue || 'Passwords do not match',
             })}
           />
           <button
@@ -170,9 +161,7 @@ export default function SignupForm({ onSwitchMode }: SignupFormProps) {
           </button>
         </div>
         {errors.confirmPassword && (
-          <p className="text-xs text-red-400 mt-1.5">
-            {errors.confirmPassword.message}
-          </p>
+          <p className="text-xs text-red-400 mt-1.5">{errors.confirmPassword.message}</p>
         )}
       </div>
 
@@ -195,8 +184,7 @@ export default function SignupForm({ onSwitchMode }: SignupFormProps) {
 
       <p className="text-center text-xs text-muted-foreground mt-4 leading-relaxed">
         By creating an account you agree to our{' '}
-        <span className="text-accent hover:underline cursor-pointer">Terms of Service</span>{' '}
-        and{' '}
+        <span className="text-accent hover:underline cursor-pointer">Terms of Service</span> and{' '}
         <span className="text-accent hover:underline cursor-pointer">Privacy Policy</span>
       </p>
 

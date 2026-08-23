@@ -29,13 +29,17 @@ export default function SessionsContent({ sessions = [] }: { sessions?: Session[
 
   const avgAccuracy =
     sessions.length > 0
-      ? (() => { const known = sessions.filter((s) => s.accuracy !== null); return known.length ? (known.reduce((sum, s) => sum + (s.accuracy || 0), 0) / known.length).toFixed(1) : null; })()
+      ? (() => {
+          const known = sessions.filter((s) => s.accuracy !== null);
+          return known.length
+            ? (known.reduce((sum, s) => sum + (s.accuracy || 0), 0) / known.length).toFixed(1)
+            : null;
+        })()
       : null;
 
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-screen-xl mx-auto px-6 lg:px-8 py-8">
-
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
           <div>
@@ -43,7 +47,11 @@ export default function SessionsContent({ sessions = [] }: { sessions?: Session[
             <p className="text-sm text-muted-foreground mt-1">
               {sessions.length} sessions recorded
               {avgAccuracy && (
-                <> · avg accuracy <span className="text-foreground font-semibold">{avgAccuracy}%</span></>
+                <>
+                  {' '}
+                  · avg accuracy{' '}
+                  <span className="text-foreground font-semibold">{avgAccuracy}%</span>
+                </>
               )}
             </p>
           </div>
@@ -111,14 +119,18 @@ function SessionRow({
   onToggle: () => void;
 }) {
   const trendColor =
-    session.trend === 'up' ?'text-emerald-400'
-      : session.trend === 'down' ?'text-red-400' :'text-muted-foreground';
+    session.trend === 'up'
+      ? 'text-emerald-400'
+      : session.trend === 'down'
+        ? 'text-red-400'
+        : 'text-muted-foreground';
 
   const accuracyColor =
     session.accuracy !== null && session.accuracy >= 75
       ? 'text-emerald-400'
       : session.accuracy !== null && session.accuracy >= 60
-      ? 'text-yellow-400' :'text-red-400';
+        ? 'text-yellow-400'
+        : 'text-red-400';
 
   return (
     <div className="glass-card-solid rounded-2xl border border-border overflow-hidden transition-all duration-200 hover:border-primary/30">
@@ -158,7 +170,8 @@ function SessionRow({
             {session.accuracy === null ? '—' : `${session.accuracy}%`}
           </span>
           <span className={`text-xs font-semibold ${trendColor}`}>
-            {session.trend === 'up' ? '↑' : session.trend === 'down' ? '↓' : '→'} {session.trendValue}
+            {session.trend === 'up' ? '↑' : session.trend === 'down' ? '↓' : '→'}{' '}
+            {session.trendValue}
           </span>
         </div>
 
@@ -187,7 +200,8 @@ function SessionRow({
                   session.accuracy !== null && session.accuracy >= 75
                     ? 'bg-emerald-500'
                     : session.accuracy !== null && session.accuracy >= 60
-                    ? 'bg-yellow-500' :'bg-red-500'
+                      ? 'bg-yellow-500'
+                      : 'bg-red-500'
                 }`}
                 style={{ width: `${session.accuracy || 0}%` }}
               />
@@ -216,7 +230,8 @@ function SessionRow({
                           sb.accuracy !== null && sb.accuracy >= 75
                             ? 'bg-emerald-500'
                             : sb.accuracy !== null && sb.accuracy >= 60
-                            ? 'bg-yellow-500' :'bg-red-500'
+                              ? 'bg-yellow-500'
+                              : 'bg-red-500'
                         }`}
                         style={{ width: `${sb.accuracy || 0}%` }}
                       />
@@ -226,7 +241,8 @@ function SessionRow({
                         sb.accuracy !== null && sb.accuracy >= 75
                           ? 'text-emerald-400'
                           : sb.accuracy !== null && sb.accuracy >= 60
-                          ? 'text-yellow-400' :'text-red-400'
+                            ? 'text-yellow-400'
+                            : 'text-red-400'
                       }`}
                     >
                       {sb.accuracy === null ? '—' : `${sb.accuracy}%`}

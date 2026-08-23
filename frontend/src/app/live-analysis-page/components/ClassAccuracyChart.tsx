@@ -1,7 +1,16 @@
 'use client';
 
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell, LabelList } from 'recharts';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+  Cell,
+  LabelList,
+} from 'recharts';
 
 // BACKEND INTEGRATION POINT: Receive from API
 // GET /api/sessions/class-accuracy → { shot: string, accuracy: number }[]
@@ -13,7 +22,6 @@ export interface ClassAccuracyItem {
 export interface ClassAccuracyChartProps {
   data: ClassAccuracyItem[];
 }
-
 
 const BAR_COLOR = '#93C5FD';
 
@@ -48,13 +56,7 @@ export default function ClassAccuracyChart({ data }: ClassAccuracyChartProps) {
               strokeDasharray="4 4"
               stroke="rgba(255,255,255,0.06)"
             />
-            <XAxis
-              type="number"
-              domain={[0, 100]}
-              tick={false}
-              axisLine={false}
-              tickLine={false}
-            />
+            <XAxis type="number" domain={[0, 100]} tick={false} axisLine={false} tickLine={false} />
             <YAxis
               type="category"
               dataKey="shot"
@@ -76,7 +78,12 @@ export default function ClassAccuracyChart({ data }: ClassAccuracyChartProps) {
                 dataKey="accuracy"
                 position="right"
                 formatter={(v: number) => `${v}%`}
-                style={{ fill: 'var(--foreground)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-mono)' }}
+                style={{
+                  fill: 'var(--foreground)',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  fontFamily: 'var(--font-mono)',
+                }}
               />
             </Bar>
           </BarChart>

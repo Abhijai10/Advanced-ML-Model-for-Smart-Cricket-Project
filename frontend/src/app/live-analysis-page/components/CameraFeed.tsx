@@ -1,13 +1,19 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Camera, CameraOff, Maximize2, Info } from 'lucide-react';
 import type { DetectedShot } from './LiveAnalysisContent';
+import {
+  LivePoseDetector,
+  POSE_CONNECTIONS,
+  getObjectCoverRenderRect,
+  type PoseLandmark,
+} from '@/lib/livePose';
 
 interface CameraFeedProps {
   isRecording: boolean;
   currentShot: DetectedShot | null;
-  landmarks?: { x: number; y: number; visibility: number }[];
+  landmarks?: PoseLandmark[];
   onRecordingComplete: (clip: Blob, filename: string) => void;
   onRecordingError: (message: string) => void;
 }
@@ -26,28 +32,156 @@ const SHOT_COLOR_MAP: Record<string, string> = {
   sweep: 'border-red-400 text-red-300 bg-red-400/10',
 };
 
-export default function CameraFeed({ isRecording, currentShot, landmarks = [], onRecordingComplete, onRecordingError }: CameraFeedProps) {
+const MIRROR_STYLE: React.CSSProperties = { transform: 'scaleX(-1)' };
+
+function drawPoseOverlay(
+  context: CanvasRenderingContext2D,
+  landmarks: PoseLandmark[],
+  video: HTMLVideoElement,
+  canvas: HTMLCanvasElement
+): void {
+  const { width, height } = canvas;
+  context.clearRect(0, 0, width, height);
+  if (!landmarks.length || !width || !height) return;
+
+  const rect = getObjectCoverRenderRect(video.videoWidth, video.videoHeight, width, height);
+
+  const toCanvas = (point: PoseLandmark) => ({
+    x: rect.offsetX + point.x * rect.renderWidth,
+    y: rect.offsetY + point.y * rect.renderHeight,
+    visibility: point.visibility,
+  });
+
+  context.strokeStyle = 'rgba(147, 197, 253, 0.9)';
+  context.lineWidth = 2;
+  POSE_CONNECTIONS.forEach(([from, to]) => {
+    const a = landmarks[from];
+    const b = landmarks[to];
+    if (!a || !b || a.visibility < 0.3 || b.visibility < 0.3) return;
+    const start = toCanvas(a);
+    const end = toCanvas(b);
+    context.beginPath();
+    context.moveTo(start.x, start.y);
+    context.lineTo(end.x, end.y);
+    context.stroke();
+  });
+
+  context.fillStyle = 'rgba(167, 139, 250, 0.95)';
+  landmarks.forEach((point) => {
+    if (point.visibility < 0.3) return;
+    const mapped = toCanvas(point);
+    context.beginPath();
+    context.arc(mapped.x, mapped.y, 3, 0, Math.PI * 2);
+    context.fill();
+  });
+}
+
+export default function CameraFeed({
+  isRecording,
+  currentShot,
+  landmarks = [],
+  onRecordingComplete,
+  onRecordingError,
+}: CameraFeedProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const poseDetectorRef = useRef<LivePoseDetector | null>(null);
+  const liveLandmarksRef = useRef<PoseLandmark[]>([]);
+  const poseFrameRef = useRef<number | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [shotFlash, setShotFlash] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
     if (currentShot) {
       setShotFlash(true);
-      const t = setTimeout(() => setShotFlash(false), 400);
-      return () => clearTimeout(t);
+      const t = window.setTimeout(() => setShotFlash(false), 400);
+      return () => window.clearTimeout(t);
     }
-  }, [currentShot?.id]);
+  }, [currentShot]);
+
+  const syncCanvasSize = useCallback(() => {
+    const container = containerRef.current;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
+    const width = Math.round(container.clientWidth);
+    const height = Math.round(container.clientHeight);
+    if (width <= 0 || height <= 0) return;
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+    setCanvasSize((previous) =>
+      previous.width === width && previous.height === height ? previous : { width, height }
+    );
+  }, []);
+
+  const renderOverlay = useCallback((overlayLandmarks: PoseLandmark[]) => {
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    if (!canvas || !video) return;
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    drawPoseOverlay(context, overlayLandmarks, video, canvas);
+  }, []);
+
+  const stopPoseLoop = useCallback(() => {
+    if (poseFrameRef.current !== null) {
+      cancelAnimationFrame(poseFrameRef.current);
+      poseFrameRef.current = null;
+    }
+  }, []);
+
+  const startPoseLoop = useCallback(() => {
+    stopPoseLoop();
+    const video = videoRef.current;
+    if (!video || !cameraActive) return;
+
+    const tick = async () => {
+      const activeVideo = videoRef.current;
+      if (!activeVideo || !cameraActive) return;
+
+      if (!poseDetectorRef.current) {
+        poseDetectorRef.current = new LivePoseDetector();
+        try {
+          await poseDetectorRef.current.init();
+        } catch {
+          poseDetectorRef.current?.close();
+          poseDetectorRef.current = null;
+          poseFrameRef.current = requestAnimationFrame(tick);
+          return;
+        }
+      }
+
+      const detector = poseDetectorRef.current;
+      if (activeVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        liveLandmarksRef.current = detector.detect(activeVideo, performance.now());
+      }
+
+      const overlayLandmarks =
+        landmarks.length > 0 && currentShot ? landmarks : liveLandmarksRef.current;
+      renderOverlay(overlayLandmarks);
+      poseFrameRef.current = requestAnimationFrame(tick);
+    };
+
+    poseFrameRef.current = requestAnimationFrame(tick);
+  }, [cameraActive, currentShot, landmarks, renderOverlay, stopPoseLoop]);
 
   const startCamera = async (): Promise<MediaStream | null> => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        streamRef.current = stream;
         setCameraActive(true);
         setCameraError(null);
       }
@@ -59,12 +193,20 @@ export default function CameraFeed({ isRecording, currentShot, landmarks = [], o
   };
 
   const stopCamera = () => {
+    stopPoseLoop();
+    poseDetectorRef.current?.close();
+    poseDetectorRef.current = null;
+    liveLandmarksRef.current = [];
     if (videoRef.current?.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach((t) => t.stop());
+      stream.getTracks().forEach((track) => track.stop());
       videoRef.current.srcObject = null;
     }
+    streamRef.current = null;
     setCameraActive(false);
+    setVideoReady(false);
+    const canvas = canvasRef.current;
+    canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
   };
 
   useEffect(() => {
@@ -83,7 +225,9 @@ export default function CameraFeed({ isRecording, currentShot, landmarks = [], o
         : 'video/webm';
       const recorder = new MediaRecorder(stream, { mimeType });
       chunksRef.current = [];
-      recorder.ondataavailable = (event) => { if (event.data.size) chunksRef.current.push(event.data); };
+      recorder.ondataavailable = (event) => {
+        if (event.data.size) chunksRef.current.push(event.data);
+      };
       recorder.onstop = () => {
         const clip = new Blob(chunksRef.current, { type: recorder.mimeType || 'video/webm' });
         recorderRef.current = null;
@@ -99,34 +243,63 @@ export default function CameraFeed({ isRecording, currentShot, landmarks = [], o
   }, [isRecording, cameraActive, onRecordingComplete, onRecordingError]);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
     const video = videoRef.current;
-    if (!canvas || !video || !landmarks.length) return;
-    const width = video.clientWidth;
-    const height = video.clientHeight;
-    if (!width || !height) return;
-    canvas.width = width;
-    canvas.height = height;
-    const context = canvas.getContext('2d');
-    if (!context) return;
-    const links = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28]];
-    context.clearRect(0, 0, width, height);
-    context.strokeStyle = 'rgba(147, 197, 253, 0.9)';
-    context.lineWidth = 2;
-    links.forEach(([from, to]) => {
-      const a = landmarks[from]; const b = landmarks[to];
-      if (!a || !b || a.visibility < 0.3 || b.visibility < 0.3) return;
-      context.beginPath(); context.moveTo(a.x * width, a.y * height); context.lineTo(b.x * width, b.y * height); context.stroke();
-    });
-    context.fillStyle = 'rgba(167, 139, 250, 0.95)';
-    landmarks.forEach((point) => {
-      if (point.visibility < 0.3) return;
-      context.beginPath(); context.arc(point.x * width, point.y * height, 3, 0, Math.PI * 2); context.fill();
-    });
-  }, [landmarks, cameraActive]);
+    const container = containerRef.current;
+    if (!video || !container) return;
+
+    const handleReady = () => {
+      syncCanvasSize();
+      setVideoReady(video.videoWidth > 0 && video.videoHeight > 0);
+    };
+
+    video.addEventListener('loadedmetadata', handleReady);
+    video.addEventListener('loadeddata', handleReady);
+    video.addEventListener('resize', handleReady);
+
+    const resizeObserver = new ResizeObserver(handleReady);
+    resizeObserver.observe(container);
+
+    handleReady();
+    return () => {
+      video.removeEventListener('loadedmetadata', handleReady);
+      video.removeEventListener('loadeddata', handleReady);
+      video.removeEventListener('resize', handleReady);
+      resizeObserver.disconnect();
+    };
+  }, [cameraActive, syncCanvasSize]);
+
+  useEffect(() => {
+    if (cameraActive && videoReady) {
+      startPoseLoop();
+      return stopPoseLoop;
+    }
+    stopPoseLoop();
+    return undefined;
+  }, [cameraActive, videoReady, startPoseLoop, stopPoseLoop]);
+
+  useEffect(() => {
+    if (!cameraActive) return;
+    const overlayLandmarks =
+      landmarks.length > 0 && currentShot ? landmarks : liveLandmarksRef.current;
+    renderOverlay(overlayLandmarks);
+  }, [cameraActive, canvasSize, currentShot, landmarks, renderOverlay]);
+
+  useEffect(() => {
+    return () => {
+      stopPoseLoop();
+      poseDetectorRef.current?.close();
+      poseDetectorRef.current = null;
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    };
+  }, [stopPoseLoop]);
 
   return (
-    <div className="relative glass-card-solid rounded-2xl overflow-hidden" style={{ minHeight: '420px' }}>
+    <div
+      ref={containerRef}
+      className="relative glass-card-solid rounded-2xl overflow-hidden"
+      style={{ minHeight: '420px' }}
+    >
       {/* Scanline overlay */}
       <div className="absolute inset-0 camera-scanline pointer-events-none z-10 opacity-60" />
 
@@ -142,9 +315,16 @@ export default function CameraFeed({ isRecording, currentShot, landmarks = [], o
         playsInline
         muted
         className="w-full h-full object-cover"
-        style={{ minHeight: '420px', display: cameraActive ? 'block' : 'none' }}
+        style={{ minHeight: '420px', display: cameraActive ? 'block' : 'none', ...MIRROR_STYLE }}
       />
-      {cameraActive && <canvas ref={canvasRef} className="absolute inset-0 z-20 pointer-events-none w-full h-full" aria-hidden="true" />}
+      {cameraActive && (
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 z-20 pointer-events-none w-full h-full object-cover"
+          style={MIRROR_STYLE}
+          aria-hidden="true"
+        />
+      )}
 
       {/* Placeholder when camera off */}
       {!cameraActive && (

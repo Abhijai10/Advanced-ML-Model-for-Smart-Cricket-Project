@@ -10,7 +10,11 @@ export interface ModelOutputCardProps {
   sequenceId: string | null;
 }
 
-export default function ModelOutputCard({ shotName, confidence, sequenceId }: ModelOutputCardProps) {
+export default function ModelOutputCard({
+  shotName,
+  confidence,
+  sequenceId,
+}: ModelOutputCardProps) {
   const pct = confidence !== null ? Math.round(confidence * 100) : 0;
 
   return (
@@ -22,7 +26,10 @@ export default function ModelOutputCard({ shotName, confidence, sequenceId }: Mo
         </span>
         {confidence !== null && (
           <div className="flex items-center gap-2 bg-muted/40 border border-border rounded-full px-3 py-1">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" style={{ boxShadow: '0 0 6px #34d399' }} />
+            <span
+              className="w-2 h-2 rounded-full bg-emerald-400"
+              style={{ boxShadow: '0 0 6px #34d399' }}
+            />
             <span className="text-xs font-semibold text-foreground font-mono-data">
               {pct}% confident
             </span>
@@ -54,7 +61,8 @@ export default function ModelOutputCard({ shotName, confidence, sequenceId }: Mo
             className="h-full rounded-full transition-all duration-700 ease-out"
             style={{
               width: `${pct}%`,
-              background: 'linear-gradient(90deg, #818CF8 0%, #A78BFA 40%, #C084FC 70%, #E879F9 100%)',
+              background:
+                'linear-gradient(90deg, #818CF8 0%, #A78BFA 40%, #C084FC 70%, #E879F9 100%)',
               boxShadow: pct > 50 ? '0 0 12px rgba(167, 139, 250, 0.4)' : 'none',
             }}
           />
@@ -63,7 +71,9 @@ export default function ModelOutputCard({ shotName, confidence, sequenceId }: Mo
           <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">
             Confidence
           </span>
-          <span className="font-mono-data text-xs font-bold text-foreground">{pct > 0 ? pct : '—'}</span>
+          <span className="font-mono-data text-xs font-bold text-foreground">
+            {pct > 0 ? pct : '—'}
+          </span>
         </div>
       </div>
     </div>

@@ -40,7 +40,10 @@ function CustomTooltip({
     <div className="glass-card rounded-xl px-3 py-2.5 shadow-card border border-border min-w-[140px]">
       <p className="text-xs text-muted-foreground mb-2">After {label} shots</p>
       {payload.map((p) => (
-        <div key={`tip-${p.name.toLowerCase().replace(/\s/g, '-')}`} className="flex items-center justify-between gap-3 mb-0.5">
+        <div
+          key={`tip-${p.name.toLowerCase().replace(/\s/g, '-')}`}
+          className="flex items-center justify-between gap-3 mb-0.5"
+        >
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
             <span className="text-xs text-muted-foreground">{p.name}</span>
@@ -75,14 +78,22 @@ export default function ShotAccuracyChart({ data }: ShotAccuracyChartProps) {
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis
               dataKey="index"
-              tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontFamily: 'var(--font-sans)' }}
+              tick={{
+                fill: 'var(--muted-foreground)',
+                fontSize: 11,
+                fontFamily: 'var(--font-sans)',
+              }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v) => `${v}`}
             />
             <YAxis
               domain={[0, 100]}
-              tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontFamily: 'var(--font-sans)' }}
+              tick={{
+                fill: 'var(--muted-foreground)',
+                fontSize: 11,
+                fontFamily: 'var(--font-sans)',
+              }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v) => `${v}%`}

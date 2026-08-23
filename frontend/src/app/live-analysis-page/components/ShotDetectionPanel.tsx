@@ -12,10 +12,26 @@ interface ShotDetectionPanelProps {
 }
 
 const SHOT_DISPLAY: Record<ShotType, { label: string; icon: string; colorClass: string }> = {
-  cover_drive: { label: 'Cover Drive', icon: '🏏', colorClass: 'text-violet-300 bg-violet-400/10 border-violet-400/30' },
-  defensive: { label: 'Defensive Shot', icon: '🛡️', colorClass: 'text-emerald-300 bg-emerald-400/10 border-emerald-400/30' },
-  pull: { label: 'Pull Shot', icon: '💥', colorClass: 'text-yellow-300 bg-yellow-400/10 border-yellow-400/30' },
-  sweep: { label: 'Sweep Shot', icon: '🌀', colorClass: 'text-red-300 bg-red-400/10 border-red-400/30' },
+  cover_drive: {
+    label: 'Cover Drive',
+    icon: '🏏',
+    colorClass: 'text-violet-300 bg-violet-400/10 border-violet-400/30',
+  },
+  defensive: {
+    label: 'Defensive Shot',
+    icon: '🛡️',
+    colorClass: 'text-emerald-300 bg-emerald-400/10 border-emerald-400/30',
+  },
+  pull: {
+    label: 'Pull Shot',
+    icon: '💥',
+    colorClass: 'text-yellow-300 bg-yellow-400/10 border-yellow-400/30',
+  },
+  sweep: {
+    label: 'Sweep Shot',
+    icon: '🌀',
+    colorClass: 'text-red-300 bg-red-400/10 border-red-400/30',
+  },
 };
 
 export default function ShotDetectionPanel({
@@ -81,9 +97,13 @@ export default function ShotDetectionPanel({
                 Not yet rated
               </div>
             ) : (
-              <div className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
-                currentShot.accurate ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' : 'bg-red-500/15 text-red-400 border border-red-500/25'
-              }`}>
+              <div
+                className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
+                  currentShot.accurate
+                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
+                    : 'bg-red-500/15 text-red-400 border border-red-500/25'
+                }`}
+              >
                 {currentShot.accurate ? 'Accurate' : 'Needs work'}
               </div>
             )}
@@ -113,9 +133,7 @@ export default function ShotDetectionPanel({
               ML Feedback
             </span>
           </div>
-          <p className="text-sm text-foreground leading-relaxed">
-            {currentShot.feedback}
-          </p>
+          <p className="text-sm text-foreground leading-relaxed">{currentShot.feedback}</p>
         </div>
       )}
 
@@ -128,17 +146,13 @@ export default function ShotDetectionPanel({
               Shot Log
             </span>
           </div>
-          <span className="font-mono-data text-xs text-muted-foreground">
-            {shots.length} total
-          </span>
+          <span className="font-mono-data text-xs text-muted-foreground">{shots.length} total</span>
         </div>
 
         {shots.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <AlertTriangle size={20} className="text-muted-foreground mb-2" />
-            <p className="text-xs text-muted-foreground">
-              No shots logged yet. Start a session.
-            </p>
+            <p className="text-xs text-muted-foreground">No shots logged yet. Start a session.</p>
           </div>
         ) : (
           <div
@@ -156,7 +170,9 @@ export default function ShotDetectionPanel({
                 <span className="font-mono-data text-xs text-muted-foreground">
                   {Math.round(shot.confidence * 100)}%
                 </span>
-                <span className={`text-xs font-semibold ${shot.accurate === null ? 'text-muted-foreground' : shot.accurate ? 'text-emerald-400' : 'text-red-400'}`}>
+                <span
+                  className={`text-xs font-semibold ${shot.accurate === null ? 'text-muted-foreground' : shot.accurate ? 'text-emerald-400' : 'text-red-400'}`}
+                >
                   {shot.accurate === null ? '—' : shot.accurate ? '✓' : '✗'}
                 </span>
               </div>

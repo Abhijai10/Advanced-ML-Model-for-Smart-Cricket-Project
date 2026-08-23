@@ -20,14 +20,20 @@ interface ShotFrequencyChartProps {
   totalShots: number;
 }
 
-function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number; payload: ShotFrequencyData }[]; label?: string }) {
+function CustomTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: { value: number; payload: ShotFrequencyData }[];
+  label?: string;
+}) {
   if (!active || !payload?.length) return null;
   return (
     <div className="glass-card rounded-xl px-3 py-2.5 shadow-card border border-border">
       <p className="text-xs font-semibold text-foreground mb-0.5">{label}</p>
-      <p className="font-mono-data text-sm text-accent font-bold">
-        {payload[0].value} shots
-      </p>
+      <p className="font-mono-data text-sm text-accent font-bold">{payload[0].value} shots</p>
     </div>
   );
 }
@@ -40,9 +46,7 @@ export default function ShotFrequencyChart({ data, totalShots }: ShotFrequencyCh
           <BarChart2 size={16} className="text-accent" />
           <h3 className="text-sm font-semibold text-foreground">Shot Frequency</h3>
         </div>
-        <span className="font-mono-data text-xs text-muted-foreground">
-          {totalShots} total
-        </span>
+        <span className="font-mono-data text-xs text-muted-foreground">{totalShots} total</span>
       </div>
 
       {totalShots === 0 ? (
@@ -57,12 +61,20 @@ export default function ShotFrequencyChart({ data, totalShots }: ShotFrequencyCh
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
             <XAxis
               dataKey="shot"
-              tick={{ fill: 'var(--muted-foreground)', fontSize: 12, fontFamily: 'var(--font-sans)' }}
+              tick={{
+                fill: 'var(--muted-foreground)',
+                fontSize: 12,
+                fontFamily: 'var(--font-sans)',
+              }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
-              tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontFamily: 'var(--font-sans)' }}
+              tick={{
+                fill: 'var(--muted-foreground)',
+                fontSize: 11,
+                fontFamily: 'var(--font-sans)',
+              }}
               axisLine={false}
               tickLine={false}
               allowDecimals={false}
@@ -70,7 +82,10 @@ export default function ShotFrequencyChart({ data, totalShots }: ShotFrequencyCh
             <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(124,58,237,0.06)' }} />
             <Bar dataKey="count" radius={[6, 6, 0, 0]}>
               {data.map((entry) => (
-                <Cell key={`cell-freq-${entry.shot.toLowerCase().replace(/\s/g, '-')}`} fill={entry.fill} />
+                <Cell
+                  key={`cell-freq-${entry.shot.toLowerCase().replace(/\s/g, '-')}`}
+                  fill={entry.fill}
+                />
               ))}
             </Bar>
           </BarChart>

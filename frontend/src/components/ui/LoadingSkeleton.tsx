@@ -5,12 +5,7 @@ interface SkeletonProps {
 }
 
 export function Skeleton({ className = '' }: SkeletonProps) {
-  return (
-    <div
-      className={`animate-pulse bg-muted/60 rounded-lg ${className}`}
-      aria-hidden="true"
-    />
-  );
+  return <div className={`animate-pulse bg-muted/60 rounded-lg ${className}`} aria-hidden="true" />;
 }
 
 export function StatCardSkeleton() {

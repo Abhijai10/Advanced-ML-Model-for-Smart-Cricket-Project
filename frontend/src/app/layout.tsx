@@ -33,14 +33,9 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      lang="en"
-      className={`${plusJakartaSans.variable} ${ibmPlexMono.variable} dark`}
-    >
+    <html lang="en" className={`${plusJakartaSans.variable} ${ibmPlexMono.variable} dark`}>
       <body className={plusJakartaSans.className}>
         <SmartCricketProvider>{children}</SmartCricketProvider>
         <Toaster
@@ -55,8 +50,13 @@ export default function RootLayout({
           }}
         />
 
-        <script type="module" async src="https://static.rocket.new/rocket-web.js?_cfg=https%3A%2F%2Fsmartcrick3142back.builtwithrocket.new&_be=https%3A%2F%2Fappanalytics.rocket.new&_v=0.1.20" />
-        <script type="module" defer src="https://static.rocket.new/rocket-shot.js?v=0.0.2" /></body>
+        <script
+          type="module"
+          async
+          src="https://static.rocket.new/rocket-web.js?_cfg=https%3A%2F%2Fsmartcrick3142back.builtwithrocket.new&_be=https%3A%2F%2Fappanalytics.rocket.new&_v=0.1.20"
+        />
+        <script type="module" defer src="https://static.rocket.new/rocket-shot.js?v=0.0.2" />
+      </body>
     </html>
   );
 }

@@ -18,7 +18,6 @@ export interface ShotDistributionChartProps {
 
 const DEFAULT_COLORS = ['#93C5FD', '#A78BFA', '#6EE7B7', '#FCD34D'];
 
-
 export default function ShotDistributionChart({
   data,
   isLive = false,
@@ -35,7 +34,9 @@ export default function ShotDistributionChart({
           </p>
           <h3 className="text-lg font-bold text-foreground mt-0.5">Shot distribution</h3>
         </div>
-        <div className={`flex items-center gap-1.5 border border-border rounded-full px-3 py-1 text-xs font-semibold ${isLive ? 'text-emerald-400 border-emerald-500/30' : 'text-muted-foreground'}`}>
+        <div
+          className={`flex items-center gap-1.5 border border-border rounded-full px-3 py-1 text-xs font-semibold ${isLive ? 'text-emerald-400 border-emerald-500/30' : 'text-muted-foreground'}`}
+        >
           {isLive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 recording-dot" />}
           {isLive ? 'Live' : 'Live schema'}
         </div>
@@ -68,7 +69,10 @@ export default function ShotDistributionChart({
                   fontSize: '12px',
                   color: 'var(--foreground)',
                 }}
-                formatter={(value: number) => [`${total > 0 ? Math.round((value / total) * 100) : 0}%`, '']}
+                formatter={(value: number) => [
+                  `${total > 0 ? Math.round((value / total) * 100) : 0}%`,
+                  '',
+                ]}
               />
             </PieChart>
           </ResponsiveContainer>

@@ -18,8 +18,7 @@ export default function SessionTimer({ seconds, isRunning }: SessionTimerProps) 
   return (
     <div
       className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold font-mono-data ${
-        isRunning
-          ? 'status-recording' :'border-border text-muted-foreground bg-muted/30'
+        isRunning ? 'status-recording' : 'border-border text-muted-foreground bg-muted/30'
       }`}
     >
       <Timer size={14} />

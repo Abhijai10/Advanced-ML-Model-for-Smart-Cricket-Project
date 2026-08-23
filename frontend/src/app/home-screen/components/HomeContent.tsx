@@ -50,7 +50,6 @@ export default function HomeContent({ summary = EMPTY_SUMMARY }: { summary?: Pla
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <div className="max-w-3xl mx-auto w-full px-6 py-16 flex flex-col gap-12">
-
         {/* Hero greeting */}
         <div className="flex flex-col gap-3">
           {timeStr && (
@@ -59,8 +58,7 @@ export default function HomeContent({ summary = EMPTY_SUMMARY }: { summary?: Pla
             </p>
           )}
           <h1 className="text-4xl xl:text-5xl font-bold text-foreground leading-tight">
-            {greeting},{' '}
-            <span className="text-gradient-primary">{summary.playerName}</span>
+            {greeting}, <span className="text-gradient-primary">{summary.playerName}</span>
           </h1>
           {summary.practiceStreak !== null ? (
             <p className="text-base text-muted-foreground">
@@ -69,9 +67,7 @@ export default function HomeContent({ summary = EMPTY_SUMMARY }: { summary?: Pla
               practice streak. Keep it going.
             </p>
           ) : (
-            <p className="text-base text-muted-foreground">
-              Ready to analyse your game today?
-            </p>
+            <p className="text-base text-muted-foreground">Ready to analyse your game today?</p>
           )}
         </div>
 
@@ -122,7 +118,9 @@ export default function HomeContent({ summary = EMPTY_SUMMARY }: { summary?: Pla
               </div>
               <div className="text-right">
                 <p className="font-mono-data text-3xl font-bold text-accent">
-                  {summary.strongestShot.accuracy === null ? '—' : `${summary.strongestShot.accuracy}%`}
+                  {summary.strongestShot.accuracy === null
+                    ? '—'
+                    : `${summary.strongestShot.accuracy}%`}
                 </p>
                 <p className="text-xs text-muted-foreground">accuracy</p>
               </div>
@@ -172,9 +170,11 @@ export default function HomeContent({ summary = EMPTY_SUMMARY }: { summary?: Pla
           <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">
             View full session history
           </span>
-          <ChevronRight size={16} className="text-muted-foreground group-hover:text-accent transition-colors" />
+          <ChevronRight
+            size={16}
+            className="text-muted-foreground group-hover:text-accent transition-colors"
+          />
         </Link>
-
       </div>
     </div>
   );
@@ -192,12 +192,18 @@ function MinimalStatCard({
   highlight?: boolean;
 }) {
   return (
-    <div className={`glass-card-solid rounded-2xl p-5 border transition-all duration-200 ${highlight ? 'border-primary/40' : 'border-border'}`}>
-      <div className={`flex items-center gap-2 mb-3 ${highlight ? 'text-accent' : 'text-muted-foreground'}`}>
+    <div
+      className={`glass-card-solid rounded-2xl p-5 border transition-all duration-200 ${highlight ? 'border-primary/40' : 'border-border'}`}
+    >
+      <div
+        className={`flex items-center gap-2 mb-3 ${highlight ? 'text-accent' : 'text-muted-foreground'}`}
+      >
         {icon}
         <span className="text-xs font-semibold tracking-widest uppercase">{label}</span>
       </div>
-      <p className={`font-mono-data text-2xl font-bold ${highlight ? 'text-accent' : 'text-foreground'}`}>
+      <p
+        className={`font-mono-data text-2xl font-bold ${highlight ? 'text-accent' : 'text-foreground'}`}
+      >
         {value}
       </p>
     </div>

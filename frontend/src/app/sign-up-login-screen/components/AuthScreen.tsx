@@ -43,9 +43,7 @@ export default function AuthScreen() {
           {/* Logo */}
           <div className="flex items-center gap-3">
             <AppLogo size={40} />
-            <span className="font-bold text-xl text-foreground tracking-tight">
-              SmartCricket
-            </span>
+            <span className="font-bold text-xl text-foreground tracking-tight">SmartCricket</span>
           </div>
 
           {/* Hero text */}
@@ -56,11 +54,11 @@ export default function AuthScreen() {
               </span>
             </div>
             <h1 className="text-4xl xl:text-5xl font-bold text-foreground leading-tight mb-4">
-              Know every shot.{' '}
-              <span className="text-gradient-violet">Improve every session.</span>
+              Know every shot. <span className="text-gradient-violet">Improve every session.</span>
             </h1>
             <p className="text-base text-muted-foreground leading-relaxed mb-8">
-              SmartCricket classifies your batting shots in real-time using machine learning — giving you instant feedback and session-by-session accuracy trends.
+              SmartCricket classifies your batting shots in real-time using machine learning —
+              giving you instant feedback and session-by-session accuracy trends.
             </p>
 
             {/* Feature list */}
@@ -104,7 +102,9 @@ export default function AuthScreen() {
             <button
               onClick={() => setMode('login')}
               className={`flex-1 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 ${
-                mode === 'login' ?'bg-primary text-primary-foreground shadow-violet-sm' :'text-muted-foreground hover:text-foreground'
+                mode === 'login'
+                  ? 'bg-primary text-primary-foreground shadow-violet-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Sign In
@@ -112,7 +112,9 @@ export default function AuthScreen() {
             <button
               onClick={() => setMode('signup')}
               className={`flex-1 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 ${
-                mode === 'signup' ?'bg-primary text-primary-foreground shadow-violet-sm' :'text-muted-foreground hover:text-foreground'
+                mode === 'signup'
+                  ? 'bg-primary text-primary-foreground shadow-violet-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Create Account
@@ -127,7 +129,6 @@ export default function AuthScreen() {
               <SignupForm onSwitchMode={() => setMode('login')} />
             )}
           </div>
-
         </div>
       </div>
     </div>

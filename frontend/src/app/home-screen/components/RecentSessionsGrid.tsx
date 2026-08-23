@@ -29,14 +29,18 @@ export default function RecentSessionsGrid({ sessions = [] }: { sessions?: Sessi
 
 function SessionCard({ session }: { session: Session }) {
   const trendColor =
-    session.trend === 'up' ?'text-emerald-400'
-      : session.trend === 'down' ?'text-red-400' :'text-muted-foreground';
+    session.trend === 'up'
+      ? 'text-emerald-400'
+      : session.trend === 'down'
+        ? 'text-red-400'
+        : 'text-muted-foreground';
 
   const accuracyColor =
     session.accuracy >= 75
       ? 'text-emerald-400'
       : session.accuracy >= 60
-      ? 'text-yellow-400' :'text-red-400';
+        ? 'text-yellow-400'
+        : 'text-red-400';
 
   return (
     <div className="glass-card-solid rounded-xl p-4 card-hover group relative overflow-hidden">
@@ -78,14 +82,9 @@ function SessionCard({ session }: { session: Session }) {
         {/* Shot breakdown */}
         <div className="flex flex-wrap gap-1.5 mb-3">
           {session.shotBreakdown.map((sb) => (
-            <div
-              key={`${session.id}-${sb.shot}`}
-              className="flex items-center gap-1"
-            >
+            <div key={`${session.id}-${sb.shot}`} className="flex items-center gap-1">
               <ShotBadge shot={sb.shot} size="sm" />
-              <span className="text-xs text-muted-foreground font-mono-data">
-                ×{sb.count}
-              </span>
+              <span className="text-xs text-muted-foreground font-mono-data">×{sb.count}</span>
             </div>
           ))}
         </div>
@@ -98,7 +97,8 @@ function SessionCard({ session }: { session: Session }) {
                 session.accuracy >= 75
                   ? 'bg-emerald-500'
                   : session.accuracy >= 60
-                  ? 'bg-yellow-500' :'bg-red-500'
+                    ? 'bg-yellow-500'
+                    : 'bg-red-500'
               }`}
               style={{ width: `${session.accuracy}%` }}
             />

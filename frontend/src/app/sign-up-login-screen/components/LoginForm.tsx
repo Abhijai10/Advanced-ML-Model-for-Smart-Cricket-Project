@@ -36,7 +36,10 @@ export default function LoginForm({ onSwitchMode }: LoginFormProps) {
     if (!supabase) {
       setError('email', { message: 'Authentication is not configured for this environment.' });
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email: data.email, password: data.password });
+      const { error } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
       if (error) {
         setError('email', { message: error.message });
       } else {
@@ -50,15 +53,11 @@ export default function LoginForm({ onSwitchMode }: LoginFormProps) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate>
       <h2 className="text-xl font-bold text-foreground mb-1">Welcome back</h2>
-      <p className="text-sm text-muted-foreground mb-6">
-        Sign in to your SmartCricket account
-      </p>
+      <p className="text-sm text-muted-foreground mb-6">Sign in to your SmartCricket account</p>
 
       {/* Email */}
       <div className="mb-4">
-        <label className="block text-sm font-semibold text-foreground mb-1.5">
-          Email address
-        </label>
+        <label className="block text-sm font-semibold text-foreground mb-1.5">Email address</label>
         <input
           type="email"
           className="input-field"
@@ -72,16 +71,12 @@ export default function LoginForm({ onSwitchMode }: LoginFormProps) {
             },
           })}
         />
-        {errors.email && (
-          <p className="text-xs text-red-400 mt-1.5">{errors.email.message}</p>
-        )}
+        {errors.email && <p className="text-xs text-red-400 mt-1.5">{errors.email.message}</p>}
       </div>
 
       {/* Password */}
       <div className="mb-4">
-        <label className="block text-sm font-semibold text-foreground mb-1.5">
-          Password
-        </label>
+        <label className="block text-sm font-semibold text-foreground mb-1.5">Password</label>
         <div className="relative">
           <input
             type={showPassword ? 'text' : 'password'}
