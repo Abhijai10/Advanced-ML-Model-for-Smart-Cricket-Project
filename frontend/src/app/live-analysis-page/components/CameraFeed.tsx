@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Camera, CameraOff, Maximize2, Info } from 'lucide-react';
+import { Camera, CameraOff, Maximize2, Minimize2, Info } from 'lucide-react';
+import { toast } from 'sonner';
 import type { DetectedShot } from './LiveAnalysisContent';
 import {
   LivePoseDetector,
@@ -33,6 +34,31 @@ const SHOT_COLOR_MAP: Record<string, string> = {
 };
 
 const MIRROR_STYLE: React.CSSProperties = { transform: 'scaleX(-1)' };
+
+type FullscreenElement = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+};
+
+function requestElementFullscreen(element: HTMLElement): Promise<void> {
+  const el = element as FullscreenElement;
+  if (el.requestFullscreen) return el.requestFullscreen();
+  if (el.webkitRequestFullscreen) return Promise.resolve(el.webkitRequestFullscreen());
+  return Promise.reject(new Error('Fullscreen not supported'));
+}
+
+function exitDocumentFullscreen(): Promise<void> {
+  const doc = document as Document & {
+    webkitExitFullscreen?: () => Promise<void> | void;
+  };
+  if (doc.fullscreenElement && doc.exitFullscreen) return doc.exitFullscreen();
+  if (doc.webkitExitFullscreen) return Promise.resolve(doc.webkitExitFullscreen());
+  return Promise.reject(new Error('Fullscreen not supported'));
+}
+
+function isDocumentFullscreen(): boolean {
+  const doc = document as Document & { webkitFullscreenElement?: Element | null };
+  return Boolean(doc.fullscreenElement ?? doc.webkitFullscreenElement);
+}
 
 function drawPoseOverlay(
   context: CanvasRenderingContext2D,
@@ -71,9 +97,7 @@ function drawPoseOverlay(
     if (point.visibility < 0.3) return;
     const mapped = toCanvas(point);
     context.beginPath();
-      point.x * width,
-  point.y * height,
-  5,context.arc(mapped.x, mapped.y, 3, 0, Math.PI * 2);
+    context.arc(mapped.x, mapped.y, 3, 0, Math.PI * 2);
     context.fill();
   });
 }
@@ -99,6 +123,7 @@ export default function CameraFeed({
   const [shotFlash, setShotFlash] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     if (currentShot) {
@@ -296,11 +321,42 @@ export default function CameraFeed({
     };
   }, [stopPoseLoop]);
 
+  const toggleFullscreen = async () => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    try {
+      if (isDocumentFullscreen()) {
+        await exitDocumentFullscreen();
+      } else {
+        await requestElementFullscreen(container);
+      }
+    } catch {
+      toast.error('Fullscreen is not available in this browser.');
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(isDocumentFullscreen());
+      syncCanvasSize();
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, [syncCanvasSize]);
+
   return (
     <div
       ref={containerRef}
-      className="relative glass-card-solid rounded-2xl overflow-hidden"
-      style={{ minHeight: '420px' }}
+      className={`relative glass-card-solid overflow-hidden camera-feed-container ${
+        isFullscreen ? 'rounded-none' : 'rounded-2xl'
+      }`}
+      style={{ minHeight: isFullscreen ? '100vh' : '420px' }}
     >
       {/* Scanline overlay */}
       <div className="absolute inset-0 camera-scanline pointer-events-none z-10 opacity-60" />
@@ -317,7 +373,11 @@ export default function CameraFeed({
         playsInline
         muted
         className="w-full h-full object-cover"
-        style={{ minHeight: '420px', display: cameraActive ? 'block' : 'none', ...MIRROR_STYLE }}
+        style={{
+          minHeight: isFullscreen ? '100vh' : '420px',
+          display: cameraActive ? 'block' : 'none',
+          ...MIRROR_STYLE,
+        }}
       />
       {cameraActive && (
         <canvas
@@ -374,10 +434,12 @@ export default function CameraFeed({
             <CameraOff size={14} />
           </button>
           <button
+            type="button"
+            onClick={() => void toggleFullscreen()}
             className="w-8 h-8 rounded-lg bg-background/70 backdrop-blur border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="Fullscreen"
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
           >
-            <Maximize2 size={14} />
+            {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
           </button>
         </div>
       )}

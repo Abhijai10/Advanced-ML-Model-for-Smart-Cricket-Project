@@ -255,6 +255,17 @@
     transition: width 300ms ease, min-width 300ms ease;
   }
 
+  .sidebar-drawer {
+    transition: transform 300ms ease, width 300ms ease, min-width 300ms ease;
+  }
+
+  .camera-feed-container:fullscreen,
+  .camera-feed-container:-webkit-full-screen {
+    width: 100%;
+    height: 100%;
+    background-color: var(--background);
+  }
+
   .recording-dot {
     animation: recording-blink 1.2s ease-in-out infinite;
   }

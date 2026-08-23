@@ -1,11 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import {
+  validateEmailField,
+  mapAuthError,
+  isRateLimitAuthError,
+  SIGNUP_COOLDOWN_SECONDS,
+} from '@/lib/auth-utils';
 
 interface SignupFormData {
   fullName: string;
@@ -22,6 +28,8 @@ export default function SignupForm({ onSwitchMode }: SignupFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const router = useRouter();
 
   const {
@@ -32,19 +40,48 @@ export default function SignupForm({ onSwitchMode }: SignupFormProps) {
   } = useForm<SignupFormData>();
 
   const passwordValue = watch('password');
+  const isOnCooldown = cooldownRemaining > 0;
+
+  const startCooldown = useCallback(() => {
+    setCooldownUntil(Date.now() + SIGNUP_COOLDOWN_SECONDS * 1000);
+    setCooldownRemaining(SIGNUP_COOLDOWN_SECONDS);
+  }, []);
+
+  useEffect(() => {
+    if (!cooldownUntil) return;
+
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
+      setCooldownRemaining(remaining);
+      if (remaining <= 0) {
+        setCooldownUntil(null);
+      }
+    };
+
+    tick();
+    const interval = window.setInterval(tick, 1000);
+    return () => window.clearInterval(interval);
+  }, [cooldownUntil]);
 
   const onSubmit = async (data: SignupFormData) => {
+    if (isOnCooldown) return;
+
     setIsLoading(true);
     if (!supabase) {
       toast.error('Authentication is not configured for this environment.');
     } else {
       const { data: result, error } = await supabase.auth.signUp({
-        email: data.email,
+        email: data.email.trim(),
         password: data.password,
         options: { data: { full_name: data.fullName, display_name: data.fullName } },
       });
       if (error) {
-        toast.error(error.message);
+        const friendlyMessage = mapAuthError(error.message);
+        toast.error(friendlyMessage);
+
+        if (isRateLimitAuthError(error.message)) {
+          startCooldown();
+        }
       } else if (result.session) {
         toast.success(`Account created. Welcome, ${data.fullName.split(' ')[0]}!`);
         router.push('/home-screen');
@@ -89,13 +126,7 @@ export default function SignupForm({ onSwitchMode }: SignupFormProps) {
           className="input-field"
           placeholder="you@example.com"
           autoComplete="email"
-          {...register('email', {
-            required: 'Email is required',
-            pattern: {
-              value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-              message: 'Enter a valid email address',
-            },
-          })}
+          {...register('email', { validate: validateEmailField })}
         />
         {errors.email && <p className="text-xs text-red-400 mt-1.5">{errors.email.message}</p>}
       </div>
@@ -165,11 +196,18 @@ export default function SignupForm({ onSwitchMode }: SignupFormProps) {
         )}
       </div>
 
+      {isOnCooldown && (
+        <p className="text-xs text-amber-400 mb-3 text-center">
+          Please wait {cooldownRemaining} second{cooldownRemaining !== 1 ? 's' : ''} before trying
+          again.
+        </p>
+      )}
+
       {/* Submit */}
       <button
         type="submit"
-        disabled={isLoading}
-        className="btn-primary w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
+        disabled={isLoading || isOnCooldown}
+        className="btn-primary w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
         style={{ minHeight: '44px' }}
       >
         {isLoading ? (
@@ -177,6 +215,8 @@ export default function SignupForm({ onSwitchMode }: SignupFormProps) {
             <Loader2 size={16} className="animate-spin" />
             Creating account…
           </>
+        ) : isOnCooldown ? (
+          `Wait ${cooldownRemaining}s`
         ) : (
           'Create Account'
         )}

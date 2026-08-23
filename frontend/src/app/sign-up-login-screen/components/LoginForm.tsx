@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { validateEmailField, mapAuthError } from '@/lib/auth-utils';
 
 interface LoginFormData {
   email: string;
@@ -37,11 +38,11 @@ export default function LoginForm({ onSwitchMode }: LoginFormProps) {
       setError('email', { message: 'Authentication is not configured for this environment.' });
     } else {
       const { error } = await supabase.auth.signInWithPassword({
-        email: data.email,
+        email: data.email.trim(),
         password: data.password,
       });
       if (error) {
-        setError('email', { message: error.message });
+        setError('email', { message: mapAuthError(error.message) });
       } else {
         toast.success('Welcome back.');
         router.push('/home-screen');
@@ -63,13 +64,7 @@ export default function LoginForm({ onSwitchMode }: LoginFormProps) {
           className="input-field"
           placeholder="you@example.com"
           autoComplete="email"
-          {...register('email', {
-            required: 'Email is required',
-            pattern: {
-              value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-              message: 'Enter a valid email address',
-            },
-          })}
+          {...register('email', { validate: validateEmailField })}
         />
         {errors.email && <p className="text-xs text-red-400 mt-1.5">{errors.email.message}</p>}
       </div>
